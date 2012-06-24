@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Melodramatic : Melodramatic.com collaborative development." />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Melodramatic</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/sarasioux/Melodramatic">View on GitHub</a>
+
+          <h1 id="project_title">Melodramatic</h1>
+          <h2 id="project_tagline">Melodramatic.com collaborative development.</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/sarasioux/Melodramatic/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/sarasioux/Melodramatic/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>Melodramatic</h1>
+
+<p>Welcome to Melo Development!</p>
+
+<p>Here is the quickest path toward getting setup:</p>
+
+<ol>
+<li> Unzip the file db/dev_melo_db.sql.zip and import it into your MySQL database.</li>
+<li> Create a virtual host on your webserver called "melodramatic" and point it at the core/ folder.</li>
+<li> Copy the file core/sites/default/default.settings.php to settings.php and edit the database settings.</li>
+<li> Visit http://melodramatic/ in a web browser.</li>
+</ol><p>Notes:</p>
+
+<ul>
+<li>You can use any vhost you want (such as "localhost") so long as you have a working sites/melodramatic =&gt; sites/default symbolic link.</li>
+<li>If you get a WSOD (White screen of death) check your webserver error logs or edit the index.php file and insert a "ini_set('display_errors', 1);" up at the top.</li>
+</ul><p>Good Luck!</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Melodramatic maintained by <a href="https://github.com/sarasioux">sarasioux</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-759233-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+
+  </body>
+</html>
