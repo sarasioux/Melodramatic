@@ -1,0 +1,9 @@
+@import "tribune.css";
+
+.tribune-block {
+    font-size: xx-small;
+}
+
+.tribune-post-form input.form-text {
+	width: 70%;
+}

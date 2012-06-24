@@ -1,0 +1,83 @@
+<?php
+
+/**
+ *
+ *  @file
+ *  Melodev Functions to run after everything else
+ *
+ */
+ 
+ 
+/**
+ * Implementation of hook_form_alter().
+ */
+function melodev_last_form_alter(&$form, $form_state, $form_id) {
+  global $user;
+  
+  // Alter new node and comment forms.
+  // Using $form['#id'] instead of $form_id because $form_id is in the form of
+  // 'TYPE_node_form' which varies with the content type while $form['#id']
+  // is always 'node-form'.
+  switch ($form['#id']) {
+    case 'comment-form':
+    case 'panels-comment-form':
+      melodev_last_set_comment_format($form);
+      break;
+
+    case 'node-form':
+      melodev_last_set_node_format($form);
+      break;
+    
+    case 'user-profile-form':
+      //access check
+      if (user_access('delete own account') && $form['#uid'] == $user->uid) {
+        $form['delete']['#submit'] = array('melodev_user_edit_delete_submit');
+        $form['delete']['#attributes'] = array('style' => 'float: right; color: #888');
+      }
+    break;
+    
+    case 'user-confirm-delete':
+      $form['description']['#value'] = t('<p>We\'ll be sad to see you go, if you decide to continue on with disabling your own account.  Please be aware that disabled accounts will have all of their content and comments unpublished, and they will not be available for login.  Admins on Melo do not have the ability to restore your account, so do not proceed unless you are absolutely sure you\'re ready to end your stay here.</p><p><b>Are you sure you want to delete your account?</b></p>');
+    break;
+  }
+}
+
+function melodev_user_edit_delete_submit() {
+  drupal_goto('mymelo/you/delete');
+}
+
+function melodev_last_set_comment_format(&$form) {
+
+}
+
+function melodev_last_set_node_format(&$form) {
+
+  // Set the format weights
+  $weights = array(
+    1 => -9, // Filtered HTML is always first
+    4 => -5, // Basic HTML
+    2 => 0,  // Full HTML
+    5 => 5,  // Melo2 HTML
+    3 => 9,  // PHP Code
+    );
+
+  // Hide Melo2 Format unless it's already set
+  if(isset($form['body_field']['format'])) {
+    $node = $form['#node'];
+    if($node->format != 5) {
+      unset($form['body_field']['format'][5]);
+    }
+    
+    foreach($weights as $id => $weight) {
+      if(isset($form['body_field']['format'][$id])) {
+        $form['body_field']['format'][$id]['#weight'] = $weight;
+      }
+    }
+  }
+
+/*
+  echo '<pre>';
+  print_r($form);
+  exit();
+*/
+}

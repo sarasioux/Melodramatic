@@ -1,0 +1,174 @@
+# $Id: cache_browser.pot,v 1.1.2.2 2009/02/23 12:18:24 markuspetrux Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  cache_browser.pages.inc,v 1.1.2.4 2008/11/02 16:16:02 markuspetrux
+#  cache_browser.module,v 1.1.2.5 2008/11/02 16:16:02 markuspetrux
+#  cache_browser.info,v 1.1.2.2 2008/11/02 16:16:02 markuspetrux
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-02-23 11:42+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: cache_browser.pages.inc:58
+msgid "Flush selected tables"
+msgstr ""
+
+#: cache_browser.pages.inc:73
+msgid "Table"
+msgstr ""
+
+#: cache_browser.pages.inc:74
+msgid "Description"
+msgstr ""
+
+#: cache_browser.pages.inc:75
+msgid "Entries"
+msgstr ""
+
+#: cache_browser.pages.inc:76;195
+msgid "Size (KB)"
+msgstr ""
+
+#: cache_browser.pages.inc:77
+msgid "Last updated"
+msgstr ""
+
+#: cache_browser.pages.inc:99;212;428;622;631
+msgid "bytes"
+msgstr ""
+
+#: cache_browser.pages.inc:103;107
+msgid "N/A"
+msgstr ""
+
+#: cache_browser.pages.inc:114
+msgid "No cache tables found."
+msgstr ""
+
+#: cache_browser.pages.inc:135
+msgid "No tables selected."
+msgstr ""
+
+#: cache_browser.pages.inc:146
+msgid "The selected cache tables have been cleared."
+msgstr ""
+
+#: cache_browser.pages.inc:178
+msgid "Delete selected entries"
+msgstr ""
+
+#: cache_browser.pages.inc:194
+msgid "Entry ID"
+msgstr ""
+
+#: cache_browser.pages.inc:196;426
+msgid "Created"
+msgstr ""
+
+#: cache_browser.pages.inc:197;427
+msgid "Expires"
+msgstr ""
+
+#: cache_browser.pages.inc:231
+msgid "No cache entries found."
+msgstr ""
+
+#: cache_browser.pages.inc:253
+msgid "No entries selected."
+msgstr ""
+
+#: cache_browser.pages.inc:265
+msgid "The selected cache entries have been deleted."
+msgstr ""
+
+#: cache_browser.pages.inc:385
+msgid "Permanent"
+msgstr ""
+
+#: cache_browser.pages.inc:388
+msgid "Temporary"
+msgstr ""
+
+#: cache_browser.pages.inc:428;631
+msgid "Size"
+msgstr ""
+
+#: cache_browser.pages.inc:429
+msgid "Cache entry"
+msgstr ""
+
+#: cache_browser.pages.inc:437
+msgid "Cached headers"
+msgstr ""
+
+#: cache_browser.pages.inc:482;525
+msgid "RECURSION"
+msgstr ""
+
+#: cache_browser.pages.inc:490;533
+msgid "NESTING-TOO-DEEP"
+msgstr ""
+
+#: cache_browser.pages.inc:581
+msgid "Expand all"
+msgstr ""
+
+#: cache_browser.pages.inc:583
+msgid "Collapse all"
+msgstr ""
+
+#: cache_browser.pages.inc:596
+msgid "Data dump"
+msgstr ""
+
+#: cache_browser.pages.inc:608
+msgid "Cache"
+msgstr ""
+
+#: cache_browser.pages.inc:618
+msgid "Tables"
+msgstr ""
+
+#: cache_browser.pages.inc:618
+msgid "Items"
+msgstr ""
+
+#: cache_browser.pages.inc:637
+msgid "Current time"
+msgstr ""
+
+#: cache_browser.module:20
+msgid "This module allows authorized users browse, dump and flush the content of Drupal cache tables. For developers, function <code>cbdump($mixed [,$varname])</code> is provided as an alternative to <code>var_dump()</code> for debugging purposes."
+msgstr ""
+
+#: cache_browser.module:28
+msgid "administer cache tables"
+msgstr ""
+
+#: cache_browser.module:37 cache_browser.info:0
+msgid "Cache browser"
+msgstr ""
+
+#: cache_browser.module:0
+msgid "cache_browser"
+msgstr ""
+
+#: cache_browser.info:0
+msgid "Browse, dump and reset the content of Drupal cache tables. For developers, function <code>cbdump($mixed [,$varname])</code> is provided as an alternative to <code>var_dump()</code> for debugging purposes."
+msgstr ""
+
+#: cache_browser.info:0
+msgid "Administration"
+msgstr ""
+

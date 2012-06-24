@@ -1,0 +1,162 @@
+<?php
+
+
+function webmail_plus_site_users_menu() {
+  
+  $items['admin/settings/webmail_plus_site_users'] = array(
+   'title' => 'Webmail Plus Site Users',
+   'description' => 'Settings for Webmail Plus Site Users.',
+   'access arguments' => array('administer webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_site_users_admin_settings'),
+   'file' => 'webmail_plus_site_users.admin.inc',
+  );
+  
+  
+  $items['webmail_plus_site_users/autocomplete'] = array(
+    'title' => 'Email Address Auto Complete',
+    'page callback' => 'webmail_plus_site_users_autocomplete',
+    'access arguments' => array('access webmail_plus'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webmail_plus_site_users.autocomplete.inc',
+  );
+  
+  return $items;
+}
+
+
+function webmail_plus_site_users_form_alter(&$form, $form_state, $form_id) {
+  if($form_id!='webmail_plus_admin_settings') return;
+  
+  	
+  $form['address_book']['webmail_plus_site_users'] = array(
+    '#type' => 'fieldset',
+	'#title' => t('Webmail Plus Site Users'),
+	'#collapsible' => TRUE,
+	'#collapsed' => FALSE,
+	'#weight' => 1
+   );
+	
+   
+  $form['address_book']['webmail_plus_site_users']['description'] = array(
+    '#type' => 'item',
+    '#value' => t('Create a mapping for First Name and Last Name fields. Use profile fields such as field_first_name, field_last_name.')
+  );
+   
+  $form['address_book']['webmail_plus_site_users']['webmail_plus_site_users_first_name_field'] = array(
+  	'#type' => 'textfield',
+    '#title' => t('First Name'),
+    '#default_value' => variable_get('webmail_plus_site_users_first_name_field', 'field_first_name')
+  );
+
+  $form['address_book']['webmail_plus_site_users']['webmail_plus_site_users_last_name_field'] = array(
+  	'#type' => 'textfield',
+    '#title' => t('Last Name'),
+    '#default_value' => variable_get('webmail_plus_site_users_last_name_field', 'field_last_name')
+  );
+}
+
+
+function webmail_plus_site_users_cron() {
+  module_load_include('inc', 'webmail_plus', 'webmail_plus.functions');
+  
+  
+  $first_name_field=variable_get('webmail_plus_site_users_first_name_field', NULL);
+  $last_name_field=variable_get('webmail_plus_site_users_last_name_field', NULL);
+  
+  $max_created=variable_get('webmail_plus_site_users_max_created', NULL);
+
+  
+  //echo "first name field: $first_name_field<br>\n";
+  //echo "last name field: $last_name_field<br>\n";
+  
+
+  
+  $rs = db_query("SELECT * FROM {users} WHERE status=1 ORDER BY name");
+  while($user_info=db_fetch_object($rs)) {
+    $user=user_load($user_info->uid);
+    if($user->name=="") continue; // skip users without usernames
+    
+    // record the max timestamp of a created user
+    if($user->created>$max_created) $max_created=$user->created;
+    //wpd($user);
+    
+    if($first_name_field && $last_name_field) {
+      $profile = webmail_plus_get_profile_node_for($user);
+      //wpd($profile);
+      $first_name = _webmail_plus_site_users_field_value($profile->$first_name_field);
+      $last_name = _webmail_plus_site_users_field_value($profile->$last_name_field);
+      
+      _webmail_plus_site_users_update($user_info->uid, $user->name, $first_name, $last_name);
+    }
+    
+  }
+  
+  variable_set('webmail_plus_site_users_max_created', $max_created);
+  
+  //profile_load_profile()
+  
+}
+
+
+function webmail_plus_site_users_matches($string="") {
+  if($string=="") return;
+  
+
+  global $_webmail_plus_config;
+  
+  $rs = db_query("SELECT * FROM {webmail_plus_site_users} WHERE name LIKE '%s%' OR first_name LIKE '%s%' OR last_name LIKE '%s%'", $string, $string, $string);
+  while($user_info=db_fetch_object($rs)) {
+    //wpd($user_info);
+    
+    if($user_info->first_name && $user_info->last_name) {
+      $matches[]=$user_info->first_name." ".$user_info->last_name." <".$user_info->name."@".$_webmail_plus_config->domain.">";
+    }
+    else {
+      $matches[]=$user_info->name."@".$_webmail_plus_config->domain;
+    }
+  }
+  
+
+  
+  return $matches;
+}
+
+function _webmail_plus_site_users_update($uid,$name,$first_name,$last_name) {
+  //if(!$uid || !$name || !$first_name || !$last_name) return;
+  
+
+  
+  if(_webmail_plus_site_users_exists($uid)) {
+    db_query("UPDATE {webmail_plus_site_users} SET name='%s', first_name='%s', last_name='%s' WHERE uid=%d", $name, $first_name, $last_name, $uid);
+  }
+  else {
+    db_query("INSERT INTO {webmail_plus_site_users}(uid,name,first_name,last_name) VALUES(%d, '%s', '%s', '%s')", $uid, $name, $first_name, $last_name);
+  }
+
+  return;
+}
+
+function _webmail_plus_site_users_exists($uid) {
+  $rs = db_fetch_object(db_query("SELECT COUNT(*) AS count FROM {webmail_plus_site_users} WHERE uid=%d", $uid));
+  if($rs->count>0) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function _webmail_plus_site_users_field_value($field=NULL) {
+  if(is_array($field)) return $field['0']['value'];
+  
+  return $field;
+}
+
+function _webmail_plus_site_users_record($uid) {
+  $rs = db_fetch_object(db_query("SELECT * FROM {webmail_plus_site_users} WHERE uid=%d", $uid));
+  return $rs;
+}
+
+
+?>

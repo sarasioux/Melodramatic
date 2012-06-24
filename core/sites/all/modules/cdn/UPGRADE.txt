@@ -1,0 +1,50 @@
+From 1.x to 2.x
+---------------
+Upgrading from CDN integration 1.x to 2.x requires applying a new core patch.
+Alternatively, there is now a new type of CDN integration that does not
+require a core patch, instead it relies on the theme layer to alter file URLs.
+It is slower and won't be able to alter *all* file URLs, but it is easier to
+use. When the module detects that the patch is not applied, it will
+automatically fall back to this mechanism.
+Also note that the core patch is already included in Pressflow!
+
+The recommended steps to update your Drupal site are:
+1) Copy the 1.x core patch (patches/drupal6.patch) to the Drupal root directory.
+2) Revert the 1.x core patch:
+    patch -p0 -R < drupal6.patch
+3) Disable CDN integration at admin/settings/cdn.
+4) Update the CDN integration module code.
+5) Copy the 2.x core patch (patches/drupal6.patch) to the Drupal root directory.
+6) Apply the 2.x core patch:
+    patch -p0 < drupal6.patch
+7) Re-enable CDN integration at admin/settings/cdn.
+
+The ImageCache module patch has remained unchanged since version 1.x. When you
+did not apply the core patch and thus want to rely on the theme layer fallback
+mechanism, you don't have to apply the ImageCache module patch either.
+But when you update to an ImageCache version that's newer than 2.0 beta 10,
+you will have to apply the alternative patch: patches/imagecache_6--2.patch.
+
+
+From the Parallel module (1.0) to the CDN module (>=2.1)
+--------------------------------------------------------
+In February 2011, the Parallel module was merged with the CDN module since the
+CDN module had received a superset of the Parallel module's functionality.
+Hence it no longer made sense to maintain the Parallel module.
+This is a guide on how to migrate from the Parallel module to the CDN module.
+
+1) Download and install CDN module version 2.1 or newer.
+2) Download Parallel module version 1.0 (its latest release).
+3) Run update.php. This will migrate the Parallel module's settings to the CDN
+   module.
+4) Visit admin/settings/cdn/details. You should see a translation of your
+   Parallel module settings to the CDN module's format here.
+5) Visit admin/settings/cdn. You can enable the CDN module here, or run it in
+   debug mode to give it a try.
+6) Disable the Parallel module at admin/build/modules.
+7) Uninstall the Parallel module at admin/build/modules/uninstall.
+   
+If you'd prefer to stay in control and would like to enter your settings
+yourself into the CDN module, that's also possible. Then you only need to
+perform steps 1, 6 and 7 and finally go to admin/settings/cdn, where you can
+then  enter your desired configuration. 

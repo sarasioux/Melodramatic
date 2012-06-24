@@ -1,0 +1,13 @@
+/* $Id: seochecklist.css,v 1.1 2009/10/22 20:05:44 davereid Exp $ */
+
+div.seochecklist_item {
+  clear:both;
+}
+
+div.seochecklist_item div,
+div.seochecklist_item label,
+div.seochecklist_item p {
+  display:inline;
+  margin-bottom:0;
+  margin-top:0;
+}

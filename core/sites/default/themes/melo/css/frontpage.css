@@ -1,0 +1,147 @@
+/* Frontpage CSS  */
+
+/*  Layout Styles  */
+body.front #content-inner {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+body.front #content-area {
+  padding: 0;
+}
+
+body.front .fp-col {
+  width: 380px;
+  float: left;
+}
+body.front .fp-col .block {
+  max-width: 380px;
+  overflow: hidden;
+}
+
+body.front #fp-left-col {
+  margin-right: 10px;
+}
+
+body.front .fp-col .block {
+  margin-bottom: 10px;
+}
+body.front .fp-col h2.title {
+  padding: 2px 0 3px 8px;
+  font-weight: normal;
+  text-transform: lowercase;
+  font-size: 1.8em;
+}
+body.front .fp-col div.content h2.title {
+  background: transparent;
+  padding: 0;
+  text-transform: none;
+}
+body.front .fp-col div.content {
+  padding: 10px;
+}
+body.front .fp-col div.content div.content {
+//  padding: 0;
+}
+
+/*  HTML  */
+body.front table tr {
+  background: transparent;
+}
+
+/*  Art  */
+body.front #block-views-FrontPageArt-block_1,
+body.front #block-views-FrontPageArt-block_4 {
+  border: 0;
+  background: transparent;
+  margin-bottom: 10px;
+}
+body.front #block-views-FrontPageArt-block_1 div.content,
+body.front #block-views-FrontPageArt-block_4 div.content {
+  padding: 0;
+}
+body.front #block-views-FrontPageArt-block_1 a,
+body.front #block-views-FrontPageArt-block_4 a {
+  color: black;
+  text-decoration: underline;
+}
+body.front #block-views-FrontPageArt-block_1 img {
+  border: solid black 1px;
+}
+#block-views-FrontPageArt-block_1 div.view-footer, 
+#block-views-FrontPageArt-block_1 div.more-link,
+#block-views-FrontPageArt-block_4 div.view-footer, 
+#block-views-FrontPageArt-block_4 div.more-link {
+  float: right;
+  margin-left: 10px;
+}
+#block-views-FrontPageArt-block_1 div.views-field-name {
+  float: left;
+}
+
+/*  Member & Clique Updates  */
+.view-RecentUpdates div.picture img {
+  width: 30px;
+  height: 30px;
+  margin-top: 3px;
+}
+.view-RecentUpdates .view-footer {
+  text-align: right;
+}
+td.views-field-picture {
+  width: 35px;
+  vertical-align: top;
+}
+td.views-field-name,
+td.views-field-group-nid {
+  width: 100%;
+}
+#fp-right-col td.views-field-name a:last-child,
+#fp-right-col td.views-field-group-nid a:last-child {
+  color: black;
+}
+td.views-field-name a:hover,
+td.views-field-group-nid a:hover {
+  text-decoration: underline;
+}
+td.views-field-created {
+  font-size: 10px;
+  white-space: nowrap;
+  color: #888;
+}
+
+/*  Top Stat Spotlight  */
+div.top-stat-spotlight {
+  padding: 10px;
+}
+div.top-stat-spotlight:after {
+  content: " ";
+  display: block;
+  clear: both;
+}
+
+/*  Poll  */
+.node-type-poll li.nodequeue-ajax-toggle {
+  display: none;
+}
+#block-views-FrontPageArt-block_2 h2 a {
+  font-weight: normal;
+}
+
+/*  Meloversaries  */
+.view-Anniversaries {
+  padding: 3px 0 0 3px;
+}
+.view-Anniversaries td {
+  padding: 2px;
+  font-size: 0.3em;
+}
+
+/* Messages  */
+body.front #page div.messages {
+  background: #d4d4dd;
+  border: solid black 1px;
+  border-top: 1px;
+  border-left: 1px;
+  border-right: 1px;
+}

@@ -1,0 +1,5 @@
+- Different style for posts which are answers to self posts
+- Bigornophone: some kind of visual notification of a *new* answer to self posts
+- Write some documentation to explain how clocks and smileys work
+- Make some shortcuts in the edit box and explain the allowed tags.
+- Show a short list of the most used smileys

@@ -1,0 +1,861 @@
+<?php
+// $Id: bitcache.module,v 1.28 2009/03/18 07:17:28 arto Exp $
+
+//////////////////////////////////////////////////////////////////////////////
+// Module settings
+
+define('BITCACHE_LINK',   'http://bitcache.org/');
+define('BITCACHE_ROOT',   variable_get('bitcache_root', file_directory_path() . '/bitcache'));
+define('BITCACHE_BASE',   'bitcache');
+define('BITCACHE_ALIAS',  drupal_get_path_alias(BITCACHE_BASE));
+define('BITCACHE_CRON',   trim(variable_get('bitcache_cron', '')));
+
+define('BITCACHE_SERVER', variable_get('bitcache_server', TRUE));
+define('BITCACHE_TRANSFER_METHOD', variable_get('bitcache_transfer_method', 'read4k'));
+define('BITCACHE_URL',    url(BITCACHE_ALIAS . '/', array('absolute' => TRUE)));
+define('BITCACHE_DEPTH',  variable_get('bitcache_depth', 0));
+define('BITCACHE_WIDTH',  variable_get('bitcache_width', 0));
+
+define('BITCACHE_EXEC',   variable_get('bitcache_exec', drupal_get_path('module', 'bitcache') . '/tools/bin/bit'));
+define('BITCACHE_TABLE_DEFAULT', 'bitcache_data');
+define('BITCACHE_TABLE_PREFIX',  'bitcache_data_');
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_perm().
+ */
+function bitcache_help($path) {
+  switch ($path) {
+    case 'admin/help#bitcache':
+      return '<p>'. t('<a href="@bitcache" target="_blank">Bitcache</a> is a distributed <a href="http://en.wikipedia.org/wiki/Content-addressable_storage" target="_blank">content-addressable storage</a> (CAS) system. It provides repository storage for bitstreams (colloquially known as <a href="http://en.wikipedia.org/wiki/Binary_large_object" target="_blank">blobs</a>) of any length, each uniquely identified and addressed by a digital fingerprint derived through a secure <a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function" target="_blank">cryptographic hash algorithm</a>.', array('@bitcache' => BITCACHE_LINK)) .'</p>'.
+             '<p>'. t('This module provides a Bitcache-compatible data storage repository for Drupal and implements the Bitcache <a href="http://en.wikipedia.org/wiki/Representational_State_Transfer" target="_blank" title="Representational State Transfer">REST</a> <acronym title="Application Programming Interface">API</acronym> for interoperability with the standalone Bitcache command-line and synchronization tools.') .'</p>'.
+             '<p>'. t('For more information please refer to the <a href="@project">drupal.org project page</a>.', array('@project' => 'http://drupal.org/project/bitcache')) .'</p>';
+    case 'admin/settings/bitcache':
+      return '<p>'. t('<a href="@bitcache" target="_blank">Bitcache</a> provides a distributed, content-addressable repository for data storage.', array('@bitcache' => BITCACHE_LINK)) .'</p>';
+    case 'admin/settings/bitcache/repositories':
+      return '<p>'. t('Below is a list of all configured Bitcache repositories available to this Drupal site.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function bitcache_perm() {
+  return array(
+    'administer bitcache',
+    'list bitstreams',
+    'access bitstreams',
+    'upload bitstreams',
+    'delete bitstreams',
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function bitcache_menu() {
+  return array(
+    // Bitcache HTTP API endpoint
+    BITCACHE_BASE => array(
+      'title' => 'Bitcache API',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('list bitstreams'),
+      'page callback' => 'bitcache_server',
+      'file' => 'bitcache.server.inc',
+    ),
+    BITCACHE_ALIAS . '/%' => array(
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access bitstreams'),
+      'page callback' => 'bitcache_server',
+      'page arguments' => array(1),
+      'file' => 'bitcache.server.inc',
+    ),
+
+    // Administer >> Content management >> Bitstreams
+    'admin/content/bitcache' => array(
+      'title' => 'Bitstreams',
+      'description' => 'Manage Bitcache data.',
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_bitstreams'),
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/content/bitcache/list' => array(
+      'title' => 'List',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => -10,
+    ),
+    'admin/content/bitcache/upload' => array(
+      'title' => 'Upload bitstream',
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_bitstream_upload'),
+      'file' => 'bitcache.admin.inc',
+      'weight' => 10,
+    ),
+    'admin/content/bitcache/fetch' => array(
+      'title' => 'Fetch bitstream from URL',
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_bitstream_fetch'),
+      'file' => 'bitcache.admin.inc',
+      'weight' => 20,
+    ),
+    'admin/content/bitcache/view/%' => array(
+      'title' => 'View bitstream',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'bitcache_admin_bitstream_view',
+      'page arguments' => array(4),
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/content/bitcache/delete/%' => array(
+      'title' => 'Delete bitstream',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_bitstream_delete', 4),
+      'file' => 'bitcache.admin.inc',
+    ),
+
+    // Administer >> Site configuration >> Data storage
+    'admin/settings/bitcache' => array(
+      'title' => 'Data storage',
+      'description' => 'Settings for Bitcache.',
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_settings'),
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/settings/bitcache/config' => array(
+      'title' => 'Settings',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => -10,
+    ),
+    'admin/settings/bitcache/repositories' => array(
+      'title' => 'Repositories',
+      'type' => MENU_LOCAL_TASK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_repos'),
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/settings/bitcache/repository/add' => array(
+      'title' => 'Add repository',
+      'type' => MENU_LOCAL_TASK,
+      'parent' => 'admin/settings/bitcache',
+      'weight' => 1,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'bitcache_admin_repo_create',
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/settings/bitcache/repository/edit' => array(
+      'title' => 'Configure repository',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'bitcache_admin_repo_edit',
+      'file' => 'bitcache.admin.inc',
+    ),
+    'admin/settings/bitcache/repository/delete' => array(
+      'title' => 'Delete repository',
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('administer bitcache'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('bitcache_admin_repo_delete'),
+      'file' => 'bitcache.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function bitcache_theme() {
+  return array(
+    'bitcache_admin_bitstreams' => array(   
+      'arguments' => array('form' => NULL),
+      'file'      => 'bitcache.admin.inc',
+    ),
+    'bitcache_admin_settings' => array(   
+      'arguments' => array('form' => NULL),
+      'file'      => 'bitcache.admin.inc',
+    ),
+    'bitcache_admin_repos' => array(   
+      'arguments' => array('form' => NULL),
+      'file'      => 'bitcache.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_hook_info()
+ */
+function bitcache_hook_info() {
+  return array(
+    'bitcache' => array(
+      'bitcache' => array(
+        'insert' => array(
+          'runs when' => t('After uploading a new bitstream'),
+        ),
+        'delete' => array(
+          'runs when' => t('After deleting an existing bitstream'),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_action_info()
+ */
+function bitcache_action_info() {
+  return array(
+    'bitcache_cron_action' => array(
+      'description'  => t('Execute cron script'),
+      'type'         => 'bitcache',
+      'configurable' => FALSE,
+      'hooks'        => array(
+        'bitcache'   => array('insert', 'delete'),
+      ),
+    ),
+    'bitcache_sync_action' => array(
+      'description'  => t('Synchronize with Bitcache server'),
+      'type'         => 'bitcache',
+      'configurable' => TRUE,
+      'hooks'        => array(
+        'bitcache'   => array('insert', 'delete'),
+      )
+    )
+  );
+}
+
+function bitcache_sync_action_form($context) {
+  $form = array();
+  /*$form['url'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('URL'),
+    '#description'   => t('The URL of the Bitcache server.'),
+    '#default_value' => isset($context['url']) ? $context['url'] : '',
+    '#required'      => TRUE,
+  );*/
+  /*$form['mode'] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t('Direction'),
+    '#default_value' => !empty($context['mode']) ? $context['mode'] : array(),
+    '#options'       => array('push' => t('Push'), 'pull' => t('Pull')),
+    '#description'   => t('Which direction the synchronization should be performed in.'),
+    '#required'      => TRUE,
+  );*/
+  // TODO
+  return $form;
+}
+
+function bitcache_sync_action_submit($form, &$form_state) {
+  return array(
+    'url'  => $form_state['values']['url'],
+  );
+}
+
+function bitcache_sync_action(&$object, array $context = array()) {
+  //$context['url']
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function bitcache_cron() {
+  if (strlen(BITCACHE_CRON) > 0) {
+    exec(BITCACHE_CRON .' 2>&1', $output, $retval);
+    if ($retval == 0) {
+      watchdog('bitcache', 'Cron script completed.');
+    }
+    else {
+      watchdog('bitcache', 'Cron script failed with return value %retval and output: %output', array('%retval' => $retval, '%output' => implode("\n", $output)), WATCHDOG_ERROR, l('configure', 'admin/settings/bitcache'));
+    }
+  }
+}
+
+function bitcache_cron_action(&$object, array $context = array()) {
+  bitcache_cron();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache API hooks
+
+/**
+ * Implementation of hook_bitcache().
+ */
+function bitcache_bitcache($op, $id, &$stream = NULL) {
+  if (!module_exists('trigger') || !in_array($op, array('insert', 'delete'))) {
+    return;
+  }
+
+  $object  = (object)array('id' => $id);
+  $context = array('hook' => 'bitcache', 'op' => $op, 'stream' => &$stream);
+  foreach (_trigger_get_hook_aids('bitcache', $op) as $aid => $action_info) {
+    if ($action_info['type'] == 'bitcache') {
+      actions_do($aid, $object, $context); // trigger action
+    }
+  }
+}
+
+/**
+ * Implementation of hook_bitcache_adapters().
+ */
+function bitcache_bitcache_adapters() {
+  return array(
+    'sql'  => array(
+      'title'       => t('Database'),
+      'description' => t('Stores data in a Drupal database table.'),
+      'enabled'     => TRUE,
+      'file'        => drupal_get_path('module', 'bitcache') . '/adapters/sql.inc',
+      'class'       => 'Bitcache_SQLRepository',
+    ),
+    'pdo'  => array(
+      'title'       => t('Database (PDO)'),
+      'description' => t('Stores data in a <a href="http://php.net/manual/en/book.pdo.php" target="_blank">PHP Data Objects (PDO)</a> database.'),
+      'enabled'     => extension_loaded('pdo'),
+      'file'        => drupal_get_path('module', 'bitcache') . '/adapters/pdo.inc',
+      'class'       => 'Bitcache_PDORepository',
+    ),
+    'gdbm' => array(
+      'title'       => t('Database (GDBM)'),
+      'description' => t('Stores data in a <a href="http://www.vivtek.com/gdbm/" target="_blank">GDBM</a> database.'),
+      'enabled'     => extension_loaded('dba') && in_array('gdbm', dba_handlers()),
+      'file'        => drupal_get_path('module', 'bitcache') . '/adapters/dba.inc',
+      'class'       => 'Bitcache_DBARepository',
+    ),
+    'file' => array(
+      'title'       => t('File system'),
+      'description' => t('Stores data in a file system directory.'),
+      'enabled'     => TRUE,
+      'file'        => drupal_get_path('module', 'bitcache') . '/adapters/file.inc',
+      'class'       => 'Bitcache_FileRepository',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_bitcache_algorithms().
+ */
+function bitcache_bitcache_algorithms($op) {
+  $available = $algorithms = array();
+  switch ($op) {
+    case 'fingerprint':
+    case 'hash':
+      $available  = function_exists('hash_algos') ? hash_algos() : array('md5', 'sha1');
+      $algorithms = array(
+        'md5'    => t('MD5 (128-bit)'),
+        'sha1'   => t('SHA-1 (160-bit)'),
+        'sha256' => t('SHA-256 (256-bit)'),
+        'sha384' => t('SHA-384 (384-bit)'),
+        'sha512' => t('SHA-512 (512-bit)'),
+      );
+      break;
+    case 'encode':
+    case 'decode':
+      $algorithms = array(
+        'base16' => t('Base 16 (0-9, a-f; hexadecimal)'),
+        //'base32' => t('Base 32 (A-Z, 2-7; RFC 4648)'),
+        'base36' => t('Base 36 (0-9, a-z)'),
+        'base62' => t('Base 62 (0-9, A-Z, a-z)'),
+      );
+      $available  = array_keys($algorithms);
+      break;
+    case 'encrypt':
+    case 'decrypt':
+      $available  = function_exists('mcrypt_list_algorithms') ? mcrypt_list_algorithms() : array();
+      $algorithms = array(
+        'rijndael-128' => t('AES-128'),
+        'rijndael-192' => t('AES-192'),
+        'rijndael-256' => t('AES-256'),
+      );
+      break;
+    case 'compress':
+    case 'decompress':
+      if (function_exists('gzencode')) {
+        $available[] = 'gzip';
+      }
+      if (function_exists('bzcompress')) {
+        $available[] = 'bzip2';
+      }
+      $algorithms = array(
+        'gzip'  => t('gzip'),
+        'bzip2' => t('bzip2'),
+      );
+      break;
+  }
+  return array_intersect_key($algorithms, array_flip($available));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Services API hooks
+
+/**
+ * Implementation of hook_service().
+ */
+function bitcache_service() {
+  return array(
+    array(
+      '#method'   => 'bitcache.exists',
+      '#callback' => 'bitcache_exists',
+      '#return'   => 'boolean',
+      '#args'     => array(
+        array('#name' => 'id', '#type' => 'string', '#optional' => FALSE, '#description' => t('The bitstream\'s identifier (SHA-1 fingerprint).')),
+      ),
+      '#help'     => t('Determines whether a given bitstream exists.'),
+    ),
+    array(
+      '#method'   => 'bitcache.get',
+      '#callback' => 'bitcache_get_contents',
+      '#return'   => 'base64',
+      '#args'     => array(
+        array('#name' => 'id', '#type' => 'string', '#optional' => FALSE, '#description' => t('The bitstream\'s identifier (SHA-1 fingerprint).')),
+      ),
+      '#help'     => t('Retrieves the contents of the given bitstream.'),
+    ),
+    array(
+      '#method'   => 'bitcache.put',
+      '#callback' => 'bitcache_put',
+      '#return'   => 'boolean',
+      '#args'     => array(
+        array('#name' => 'id', '#type' => 'string', '#optional' => FALSE, '#description' => t('The bitstream\'s identifier (SHA-1 fingerprint).')),
+        array('#name' => 'data', '#type' => 'base64', '#optional' => FALSE, '#description' => t('The bitstream\'s contents.')),
+      ),
+      '#help'     => t('Stores the contents of the given bitstream.'),
+    ),
+    array(
+      '#method'   => 'bitcache.delete',
+      '#callback' => 'bitcache_delete',
+      '#return'   => 'boolean',
+      '#args'     => array(
+        array('#name' => 'id', '#type' => 'string', '#optional' => FALSE, '#description' => t('The bitstream\'s identifier (SHA-1 fingerprint).')),
+      ),
+      '#help'     => t('Deletes the given bitstream.'),
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache repository API
+
+/**
+ * Returns information on available cryptographic algorithms.
+ */
+function bitcache_get_algorithms($op) {
+  return module_invoke_all('bitcache_algorithms', $op);
+}
+
+/**
+ * Returns information about modules that implement hook_bitcache().
+ */
+function bitcache_get_modules($op = NULL) {
+  switch ($op) {
+    case 'info':
+      $modules = bitcache_get_modules('names');
+      if (!empty($modules)) {
+        $result = db_query("SELECT name, info FROM {system} WHERE type = 'module' AND name IN (" . db_placeholders($modules, 'varchar') . ") ORDER BY weight ASC", $modules);
+        while ($row = db_fetch_object($result)) {
+          $info = (object)unserialize($row->info);
+          $info->title = $info->name;
+          $info->name  = $row->name;
+          $modules[$row->name] = $info;
+        }
+      }
+      return $modules;
+    case 'titles':
+      $modules = bitcache_get_modules('info');
+      foreach ($modules as $name => $info) {
+        $modules[$name] = $info->title;
+      }
+      return $modules;
+    case 'names':
+    default:
+      $modules = module_implements('bitcache');
+      $modules = empty($modules) ? $modules : array_combine($modules, $modules);
+      unset($modules['bitcache']); // ignore self
+      return $modules;
+  }
+}
+
+/**
+ * Returns information on the available storage adapters (repository backends).
+ */
+function bitcache_get_adapters($op = NULL, $enabled_only = FALSE) {
+  static $adapters = array();
+  if (empty($adapters)) {
+    foreach (module_implements('bitcache_adapters') as $module) {
+      foreach (module_invoke($module, 'bitcache_adapters') as $name => $info) {
+        $info['name']    = $name;
+        $info['module']  = $module;
+        $info['enabled'] = isset($info['enabled']) ? (bool)$info['enabled'] : TRUE;
+        $adapters[$name] = (object)$info;
+      }
+    }
+  }
+
+  $result = array();
+  foreach ($adapters as $name => $info) {
+    if (!$enabled_only || !empty($info->enabled)) {
+      switch ($op) {
+        case 'titles':
+          $result[$name] = $info->title;
+          break;
+        default:
+          $result[$name] = $info;
+          break;
+      }
+    }
+  }
+  return $result;
+}
+
+/**
+ * Determines if a storage adapter is available.
+ */
+function bitcache_has_adapter($adapter) {
+  $adapters = bitcache_get_adapters();
+  return isset($adapters[$adapter]) && !empty($adapters[$adapter]->enabled);
+}
+
+/**
+ * Returns a storage adapter class.
+ */
+function bitcache_get_adapter_class($adapter, $load = TRUE) {
+  $adapters = bitcache_get_adapters();
+  if (isset($adapters[$adapter]) && ($adapter = $adapters[$adapter])) {
+    if ($load && isset($adapter->file) && ($file = './' . $adapter->file) && is_file($file)) {
+      require_once $file;
+    }
+    return $adapter->class;
+  }
+}
+
+/**
+ * Returns a list of database-backed repositories' table names.
+ */
+function bitcache_get_repository_tables($refresh = FALSE) {
+  static $tables;
+  if (!is_array($tables) || $refresh) {
+    $result = db_query("SELECT name FROM {bitcache_repositories} WHERE adapter = 'sql' AND name != 'bitcache' ORDER BY weight ASC, name ASC");
+    $tables = array('bitcache' => BITCACHE_TABLE_DEFAULT);
+    while ($row = db_fetch_object($result)) {
+      if (db_table_exists($table = BITCACHE_TABLE_PREFIX . $row->name)) {
+        $tables[$row->name] = $table;
+      }
+    }
+  }
+  return $tables;
+}
+
+/**
+ * Returns the Bitcache database schema for a given table.
+ */
+function bitcache_get_schema($table = BITCACHE_TABLE_DEFAULT, $rebuild = FALSE) {
+  if (!($schema = drupal_get_schema($table, $rebuild))) {
+    module_load_include('install', 'bitcache');
+    $schema = bitcache_schema();
+    $schema = isset($schema[$table]) ? $schema[$table] : array();
+  }
+  return $schema;
+}
+
+/**
+ * Returns information on the available Bitcache repositories.
+ */
+function bitcache_get_repositories($op = 'info') {
+  static $repos = array();
+  if (empty($repos)) {
+    $result = db_query("SELECT name FROM {bitcache_repositories} ORDER BY weight ASC, name ASC");
+    while ($row = db_fetch_object($result)) {
+      $repos[$row->name] = bitcache_get_repository($row->name);
+    }
+  }
+
+  $result = $repos;
+  switch ($op) {
+    case 'names':
+    case 'adapters':
+    case 'modules':
+    case 'titles':
+    case 'weights':
+      $property = substr($op, 0, -1);
+      foreach ($repos as $name => $repo) {
+        $result[$name] = $repo->options[$property];
+      }
+      break;
+    case 'options':
+    case 'settings':
+    case 'info':
+      foreach ($repos as $name => $repo) {
+        $result[$name] = $repo->options;
+      }
+      break;
+    case 'config':
+      //$repos[$name] = array('adapter' => 'file', 'path' => $settings['location'], 'enabled' => TRUE); // FIXME
+      break;
+    case 'api':
+    default:
+      break;
+  }
+
+  return $result;
+}
+
+/**
+ * Creates a new repository.
+ */
+function bitcache_create_repository($name, array $options = array()) {
+  $options = array_merge(array('title' => $name, 'description' => '', 'adapter' => 'sql'), (array)$options);
+  unset($options['name'], $options['options']); // just in case
+
+  if ($options['adapter'] == 'file') {
+    $options['location'] = !empty($options['location']) ? $options['location'] : BITCACHE_ROOT . '/' . $name;
+  }
+
+  $record = array_intersect_key($options, array_flip(array('module', 'adapter', 'enabled', 'mutable', 'indexed', 'weight')));
+  $record = array_merge(array('name' => $name, 'module' => '', 'adapter' => 'sql', 'enabled' => TRUE, 'mutable' => TRUE, 'indexed' => FALSE, 'weight' => 0,
+    'options' => serialize(array_diff_key($options, $record))), $record);
+  $record = (object)$record;
+
+  return drupal_write_record('bitcache_repositories', $record) ? bitcache_get_repository($name) : FALSE;
+}
+
+/**
+ * Renames a repository.
+ */
+function bitcache_rename_repository($old_name, $new_name, array $options = array()) {
+  if (($repo = bitcache_get_repository($old_name))) {
+    if (db_query("UPDATE {bitcache_repositories} SET name = '%s' WHERE name = '%s'", $new_name, $old_name)) {
+      return is_callable(array($repo, 'rename')) ? $repo->rename($old_name, $new_name, $options) : TRUE;
+    }
+    return FALSE;
+  }
+}
+
+/**
+ * Updates options for a repository.
+ */
+function bitcache_update_repository($name, array $options = array()) {
+  if (($repo = bitcache_get_repository($name))) {
+    $options = array_diff_key($options, array_flip(array('name', 'module', 'adapter', 'enabled', 'mutable', 'indexed', 'weight', 'options')));
+    return db_query("UPDATE {bitcache_repositories} SET options = '%s' WHERE name = '%s'", serialize($options), $name);
+  }
+}
+
+/**
+ * Deletes a repository.
+ */
+function bitcache_delete_repository($name, array $options = array()) {
+  if (isset($GLOBALS['bitcache_repository']) && $GLOBALS['bitcache_repository'] == $name) {
+    unset($GLOBALS['bitcache_repository']);
+  }
+
+  if (($repo = bitcache_get_repository($name))) {
+    if (db_query("DELETE FROM {bitcache_repositories} WHERE name = '%s'", $name)) {
+      return is_callable(array($repo, 'destroy')) ? $repo->destroy($options) : TRUE;
+    }
+    return FALSE;
+  }
+}
+
+/**
+ * Returns a repository instance.
+ */
+function bitcache_get_repository($name = 'bitcache') {
+  module_load_include('inc', 'bitcache');
+
+  if (is_null($name)) { // create repository proxy
+    return new Bitcache_AggregateRepository(bitcache_get_repositories('api'));
+  }
+
+  $repo = db_fetch_array(db_query("SELECT * FROM {bitcache_repositories} WHERE name = '%s'", $name));
+  $repo = array_merge(unserialize($repo['options']), array_diff_key($repo, array('options' => NULL)));
+  $repo = ($name == 'bitcache') ? array_merge($repo, array('table' => BITCACHE_TABLE_DEFAULT)) : $repo;
+
+  $class = bitcache_get_adapter_class(!empty($repo['adapter']) ? $repo['adapter'] : 'file');
+  return new $class($repo);
+}
+
+/**
+ * Returns the total number of bitstreams in a repository.
+ */
+function bitcache_get_repository_count($name = NULL) {
+  return count(bitcache_get_repository($name));
+}
+
+/**
+ * Returns the total byte size of a repository.
+ */
+function bitcache_get_repository_size($name = NULL) {
+  return ($repo = bitcache_get_repository($name)) ? $repo->size() : 0;
+}
+
+/**
+ * Limits future queries and operations to a particular repository.
+ */
+function bitcache_use_repository($name = NULL) {
+  if (is_null($name)) {
+    unset($GLOBALS['bitcache_repository']);
+  }
+  else {
+    $GLOBALS['bitcache_repository'] = $name;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache bitstream API
+
+function bitcache_l($text, $id, array $options = array('absolute' => TRUE)) {
+  return l($text, BITCACHE_ALIAS . '/' . $id, $options);
+}
+
+function bitcache_resolve_id($id, array $options = array('absolute' => TRUE)) {
+  return url(BITCACHE_ALIAS . '/' . $id, $options);
+}
+
+function bitcache_resolve_uri($uri, array $options = array('absolute' => TRUE)) {
+  return ($id = bitcache_uri_to_id($uri)) ? bitcache_resolve_id($id, $options) : FALSE;
+}
+
+function bitcache_uri($id) {
+  return 'bitcache://' . $id;
+}
+
+function bitcache_uri_to_id($uri) {
+  return preg_match('!^bitcache://([0-9a-f]{40})$!', $uri, $matches) ? $matches[1] : NULL; // FIXME
+}
+
+function bitcache_id($data) {
+  return sha1($data); // FIXME
+}
+
+function bitcache_exists($id) {
+  return bitcache_op('exists', $id);
+}
+
+function bitcache_get($id) {
+  return bitcache_op('get', $id);
+}
+
+function bitcache_get_stream($id) {
+  return ($stream = bitcache_get($id)) ? $stream->open('rb') : NULL;
+}
+
+function bitcache_get_contents($id) {
+  return ($stream = bitcache_get($id)) ? $stream->data() : NULL;
+}
+
+function bitcache_get_path($id, $file_only = FALSE) {
+  if (($stream = bitcache_get($id))) {
+    if (!($path = $stream->path()) && $file_only) {
+      $path = bitcache_tmpname();
+
+      if (($data = $stream->open('rb'))) {
+        stream_copy_to_stream($stream->open('rb'), $file = fopen($path, 'wb'));
+        $stream->close();
+        fclose($file);
+      }
+      else {
+        file_put_contents($path, $stream->data());
+      }
+    }
+    return $path;
+  }
+  return NULL;
+}
+
+function bitcache_get_size($id) {
+  return ($stream = bitcache_get($id)) ? $stream->size() : NULL;
+}
+
+function bitcache_get_type($id) {
+  if (module_exists('rdf')) {
+    $uri = bitcache_uri($id);
+    // TODO: query RDF if available.
+  }
+  return ($stream = bitcache_get($id)) ? $stream->type() : NULL;
+}
+
+function bitcache_put($id, $data) {
+  return bitcache_op('put', $id, $data);
+}
+
+function bitcache_put_file($id, $filepath, $move = FALSE) {
+  return bitcache_op('put_file', $id, $filepath, $move);
+}
+
+function bitcache_delete($id) {
+  return bitcache_op('delete', $id);
+}
+
+function bitcache_op($op) {
+  // TODO: static cache for repository objects.
+  $args = array_slice(func_get_args(), 1);
+  $repo = bitcache_get_repository(isset($GLOBALS['bitcache_repository']) ? $GLOBALS['bitcache_repository'] : NULL);
+  return call_user_func_array(array($repo, $op), $args);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache API helpers
+
+/**
+ * Synchronizes repositories using the Bitcache command-line tools.
+ */
+function bitcache_sync(array $repos = array(), array $options = array()) {
+  return bitcache_exec(BITCACHE_EXEC . ' sync', NULL, $options, implode(' ', $repos));
+}
+
+/**
+ * Executes a 'bit' command using exec()/popen().
+ */
+function bitcache_exec($command, $mode = NULL, array $options = array()) {
+  $config = bitcache_get_repositories('config');
+
+  if (file_put_contents($config_file = bitcache_tmpname(), bitcache_yaml($config))) {
+    $options = array_merge(array('config' => $config_file), $options);
+
+    foreach ($options as $k => $v) {
+      $command .= ' --' . $k . ($v === TRUE ? '' : '=' . escapeshellarg((string)$v));
+    }
+    $arguments = array_slice(func_get_args(), 3);
+    $command = trim($command . ' ' . implode(' ', array_map('escapeshellarg', $arguments)));
+
+    if (!$mode) {
+      exec($command . ' 2>&1', $output, $result);
+      return $result === 0 ? $output : FALSE;
+    }
+    return popen($command, $mode);
+  }
+}
+
+/**
+ * Returns a string containing a Bitcache configuration file in YAML format.
+ */
+function bitcache_yaml($config) {
+  $output = array();
+  foreach ($config as $name => $cfg) {
+    $output[] = "$name:";
+    foreach ($cfg as $key => $value) {
+      $value = !is_bool($value) ? $value : ($value ? 'yes' : 'no');
+      $output[] = "  $key: $value";
+    }
+    $output[] = '';
+  }
+  return implode("\n", $output);
+}
+
+/**
+ * Returns a path to a temporary file in Drupal's temporary directory.
+ */
+function bitcache_tmpname($register = TRUE) {
+  if (($path = tempnam(file_directory_temp(), 'drupal_bitcache_')) && $register) {
+    global $user;
+    db_query("INSERT INTO {files} (fid, uid, filename, filepath, filemime, filesize, status, timestamp) VALUES (NULL, %d, '%s', '%s', '%s', 0, %d, %d)", $user->uid, basename($path), $path, 'application/octet-stream', FILE_STATUS_TEMPORARY, time());
+  }
+  return $path;
+}

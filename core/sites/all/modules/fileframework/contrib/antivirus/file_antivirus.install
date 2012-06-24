@@ -1,0 +1,35 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File antivirus module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_antivirus_enable() {
+  drupal_set_message(t('File antivirus module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/antivirus'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_antivirus_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_antivirus_uninstall() {
+  variable_del('file_antivirus_clamav');
+  variable_del('file_antivirus_clamav_method');
+  variable_del('file_antivirus_clamav_allow');
+  variable_del('file_antivirus_clamav_host');
+  variable_del('file_antivirus_clamav_port');
+  variable_del('file_antivirus_clamav_path');
+}
+

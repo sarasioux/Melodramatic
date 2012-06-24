@@ -1,0 +1,12 @@
+name = "Send by e-mail"
+description = "Provides the capability to send the web page by e-mail"
+dependencies[] = print
+core=6.x
+package = "Printer, e-mail and PDF versions"
+
+; Information added by drupal.org packaging script on 2011-08-18
+version = "6.x-1.14"
+core = "6.x"
+project = "print"
+datestamp = "1313694720"
+

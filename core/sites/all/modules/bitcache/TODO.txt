@@ -1,0 +1,23 @@
+// $Id: TODO.txt,v 1.4 2009/02/02 07:06:16 arto Exp $
+
+This is a listing of known bugs, features that mostly work but are still
+somewhat in progress, features that are being considered or planned for
+implementation, and just miscellaneous far-out ideas that could, in
+principle, be implemented if someone had the time and inclination to do so.
+
+(NOTE: there is no guarantee any of these items will, in fact, be
+implemented, nor should any possible scheduling indications be construed as
+promises under any circumstances. TANSTAAFL. If you absolutely need
+something implemented right now, please contact the developers to see if
+they're available for contract work, or if perhaps a modest donation could
+speed things along.)
+
+TODO
+----
+* Support fingerprint-based sharding of the bitstream repository.
+* Authentication is orthogonal to the function of this module, but needs
+  clarification in the documentation.
+* Easy-to-use jQuery wrapper for the Bitcache REST API operations.
+* Improvements to bitstreams admin screen: paging & column sorting.
+* If the RDF API is installed, enable metadata display for bitstreams.
+* Provide admin operations for bitstreams (integrity check etc.)

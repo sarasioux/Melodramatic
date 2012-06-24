@@ -1,0 +1,22 @@
+AddDefaultCharset utf-8
+<FilesMatch "\.((html))$">
+  <IfModule mod_expires.c>
+    ExpiresDefault A1
+  </IfModule>
+  <IfModule mod_headers.c>
+    Header set Expires "Sun, 19 Nov 1978 05:00:00 GMT"
+    Header set Cache-Control "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+    Header set X-Header "Boost Citrus 1.8"
+  </IfModule>
+</FilesMatch>
+<IfModule mod_mime.c>
+  AddCharset utf-8 .html
+</IfModule>
+<FilesMatch "\.(html)$">
+  ForceType text/html
+</FilesMatch>
+
+SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006
+Options None
+Options +FollowSymLinks
+

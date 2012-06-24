@@ -1,0 +1,48 @@
+// $Id: API.txt,v 1.4 2009/02/02 07:06:15 arto Exp $
+
+Please note that extended (and possibly more recent) developer and API
+documentation is available in the Drupal Handbook at:
+
+  http://drupal.org/node/227210
+
+HOOKS
+-----
+The Bitcache module exposes the following Drupal hook that third-party
+extension modules can implement to provide extended functionality:
+
+  hook_bitcache()
+  ~~~~~~~~~~~~~~~
+
+  Allows modules to take action when bitstreams are created or deleted, to
+  determine fine-grained bitstream download access rights for individual
+  users, and to define additional HTTP headers for bitstream downloads.
+
+  This is essentially an extended analog of the hook_file_download() core
+  hook.
+
+  /**
+   * Implementation of hook_bitcache().
+   */
+  function mymodule_bitcache($op, $id, $stream = NULL) {
+    switch ($op) {
+      case 'insert':
+        // A new bitstream was uploaded
+        break;
+  
+      case 'delete':
+        // An existing bitstream was deleted
+        break;
+  
+      case 'access':
+        // Should the current user be allowed to access the given bitstream?
+        return node_access('view', node_load($_GET['nid']));
+  
+      case 'download':
+        // Determine additional HTTP headers for the bitstream download
+        $node = node_load($_GET['nid']);
+        return array(
+          'Content-Disposition' => 'attachment; filename='. $node->title,
+          'Last-Modified' => gmdate('D, d M Y H:i:s', $node->changed) .' GMT',
+        );
+    }
+  }

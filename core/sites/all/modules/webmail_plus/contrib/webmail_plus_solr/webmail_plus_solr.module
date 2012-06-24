@@ -1,0 +1,479 @@
+<?php
+// $Id: webmail_plus_solr.module,v 1.1.2.5 2009/05/14 18:30:30 firmidea Exp $
+
+/*
+ * @file
+ * profiles email search functionality via Apache Solr
+ */
+
+function webmail_plus_solr_init() {
+//	drupal_set_message('webmail_plus_solr init called');
+  $solr_url = variable_get('webmail_plus_solr_url', NULL);
+  $solr_url_parts = parse_url($solr_url);
+  //wpd($solr_url_parts);
+  $_webmail_plus_config -> solr_host = $solr_url_parts['host'];
+  $_webmail_plus_config -> solr_port = $solr_url_parts['port'];
+  $_webmail_plus_config -> solr_path = $solr_url_parts['path'];
+}
+
+function webmail_plus_solr_menu() {
+  $items = array();
+  
+  $items['webmail_plus/solr_search'] = array(
+  	'title' => 'Webmail Plus Email Search',
+    'description' => 'Searches email using Solr.',
+    'access arguments' => array('access webmail_plus'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_solr_search'),
+    'file' => 'webmail_plus_solr.search.inc',
+    'type' => MENU_CALLBACK,
+   );
+   
+   $items['webmail_plus/solr_search/autocomplete'] = array(
+   	'title' => 'Webmail Plus Email Search Autocomplete',
+    'description' => 'Searches email using Solr.',
+    'access arguments' => array('access webmail_plus'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_solr_autocomplete'),
+    'file' => 'webmail_plus_solr.autocomplete.inc',
+    'type' => MENU_CALLBACK,
+   );
+   
+   $items['webmail_plus/solr_search/unreachable'] = array(
+     'title' => 'Webmail Plus Email Search in Unreachable',
+     'description' => 'Presents a custom error if the search is unreachable.',
+     'access arguments' => array('access webmail_plus'),
+     'page callback' => 'webmail_plus_solr_unreachable',
+     'file' => 'webmail_plus_solr.unreachable.inc',
+     'type' => MENU_CALLBACK,
+   );
+   
+   $items['webmail_plus/solr_search/commit'] = array(
+     'title' => 'Webmail Plus Email Search in Unreachable',
+     'description' => 'Presents a custom error if the search is unreachable.',
+     'access arguments' => array('access webmail_plus'),
+     'page callback' => 'webmail_plus_solr_commit',
+     'type' => MENU_CALLBACK,
+   );
+   
+   $items['webmail_plus/solr_search/requeue'] = array(
+     'title' => 'Webmail Plus Email Search Requeue',
+     'description' => 'Copies all current headers into Solr queue',
+     'access arguments' => array('access webmail_plus'),
+     'page callback' => 'webmail_plus_solr_requeue',
+     'type' => MENU_CALLBACK,
+   );   
+   
+   return $items;
+}
+
+
+function webmail_plus_solr_commit() {
+  $solr_url = variable_get('webmail_plus_solr_url', NULL);
+  $solr_url_parts = parse_url($solr_url);
+  
+  $solr = apachesolr_get_solr($solr_url_parts['host'], $solr_url_parts['port'], $solr_url_parts['path']);
+  $ping = $solr->ping();
+  $rs = $solr->commit();
+
+  print_r($rs);
+}
+
+function webmail_plus_solr_requeue() {
+  $rs = db_query("INSERT INTO {webmail_plus_solr_queue} SELECT uid, 'ADD', message_key FROM {webmail_plus_user_headers}");
+  echo "all headers were moved into solr queue";
+}
+
+function webmail_plus_solr_theme() {
+  return array(
+    'webmail_plus_solr_search' => array(
+      'arguments' => array('form' => array()),
+    )
+  );
+}
+
+function webmail_plus_solr_block($op = 'list', $delta = 0, $edit = array()) {
+  global $user;
+
+  // FIXME shouldnt connect to anything in admin mode
+  if ($op == 'configure') {
+    return;
+  }
+
+  if ($op == 'list' ) {
+
+    // tags block
+    $blocks[0]['info'] = t('Solr Email Search');
+    $blocks[0]['cache'] = BLOCK_NO_CACHE;
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $block = array();
+
+    //drupal_set_message('showing block '.$delta);
+
+    switch ($delta) {
+      case 0:
+        // For usability's sake, avoid showing two login forms on one page.
+        if ($user->uid ) {
+          //drupal_set_message('showing email tags block');
+
+          $block['subject'] = t('Solr Email Search');
+          $block['content'] = drupal_get_form('webmail_plus_solr_searchbox');
+        }
+        return $block;
+    }
+
+  }
+}
+
+function webmail_plus_solr_searchbox() {
+	$form = array();
+	
+	$form['webmail_plus_solr_seach_keyword'] = array( 
+	 '#type' => 'textfield',
+	 '#title' => t('Search Email'),
+	 '#default_value' => NULL,
+	 '#size' => 15
+	);
+	
+	$form['webmail_plus_solr_search_submit'] = array(
+	 '#type' => 'submit',
+	 '#title' => t('Submit'),
+	 '#value' => t('Search')
+	);
+	
+	return $form;
+}
+
+function webmail_plus_solr_searchbox_submit($form, &$form_state) {
+ 
+  $keyword = $form_state['values']['webmail_plus_solr_seach_keyword'];
+
+  _webmail_plus_solr_add_history($keyword); 
+  $form_state['redirect']='webmail_plus/solr_search/'.$keyword;
+  //drupal_goto('webmail_plus/solr_search/'.$keyword);
+}
+
+
+/**
+ * hook_cron implementation
+ *
+ */
+require_once "webmail_plus_solr.cron.inc";
+
+
+
+function webmail_plus_solr_form_alter(&$form, $form_state, $form_id) {
+	
+	
+	if($form_id=='apachesolr_settings') {
+	  drupal_set_message(t('You have Webmail Plus Solr installed. To configure Solr for Webmail Plus please follow !thislink and then click on the Solr Search section.', array('!thislink' => l(t('this link'), 'admin/settings/webmail_plus'))), 'warning', FALSE);
+	}
+	
+	
+	
+	if($form_id!='webmail_plus_admin_settings') return;
+
+	
+	$form['solr'] = array(
+	 '#type' => 'fieldset',
+	 '#title' => t('Solr Search'),
+	 '#collapsible' => TRUE,
+	 '#collapsed' => TRUE,
+	 '#weight' => -1
+	);
+	
+	$form['solr']['webmail_plus_solr_url'] = array(
+	 '#type' => 'textfield',
+	 '#title' => t('Solr URL'),
+	 '#default_value' => variable_get('webmail_plus_solr_url', NULL),
+	 '#description' => t('Specify the URL to the custom Webmail Plus Solr index, e.g. http://domain:8280/solr')
+	);
+	
+  $form['solr']['webmail_plus_solr_batch_size'] = array(
+   '#type' => 'select',
+   '#title' => t('Message Batch Size'),
+   '#options' => array(10=>10,25=>25,50=>50,75=>75,100=>100),
+   '#default_value' => variable_get('webmail_plus_solr_batch_size', 10),
+   '#description' => t('Specify how many messages to submit to Solr at a time. Set this lower if your cron is timing out.')
+  );
+	
+  
+  $form['solr']['webmail_plus_solr_ignore_folders'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Folders to ignore'),
+    '#default_value' => variable_get('webmail_plus_solr_ignore_folders', 'Trash'),
+    '#description' => t('Comma-separated list of folders that should not be indexed, e.g. Trash')
+  );
+  
+  /*
+  $form['solr']['webmail_plus_solr_results_per_page'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search results per page'),
+    '#default_value' => variable_get('webmail_plus_solr_results_per_page', 25),
+    '#description' => t('Number of search results per page')
+  );
+  */
+  
+  /*
+  $form['solr']['webmail_plus_solr_min_relevancy'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Minimum Relevancy Score'),
+    '#default_value' => variable_get('webmail_plus_solr_min_relevancy', '0.5'),
+    '#description' => t('The minimum search relevancy score needed for a message to appear in search results.')
+  );
+  */
+  
+  $form['solr']['webmail_plus_solr_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable debugging'),
+    '#default_value' => variable_get('webmail_plus_solr_debug', FALSE),
+    '#description' => t('Writes debugging information into the watchdog log.')
+  );
+  
+	// add a bit weight to the buttons fieldset
+	$form['buttons']['#weight']+1;
+	
+}
+
+function webmail_plus_solr_action_info() {
+  return array(
+    'webmail_plus_solr_message_received_action' => array(
+      'description'  => t('Submit a new message to Solr'),
+      'type'         => 'webmail_plus',
+      'configurable' => FALSE,
+      'hooks'        => array( 
+        'webmail_plus'   => array('insert', 'delete'),
+      ),     
+    ),
+  );
+}  
+
+
+function webmail_plus_solr_message_received_action(&$object, $context = array()) {
+
+  //die('webmail_plus_solr_add_queue_action is triggered');
+	drupal_set_message('webmail_plus_solr_add_queue_action is triggered');
+}
+
+/**
+ * internal function that adds a record to the queue table
+ *
+ * @param unknown_type $uid
+ * @param unknown_type $action
+ * @param unknown_type $message_key
+ */
+function _webmail_plus_solr_add_queue($uid, $action, $message_key) {
+	//drupal_set_message('adding to the solr queue');
+	if(_webmail_plus_solr_exists_queue($uid, $action, $message_key)) return;
+	db_query("INSERT INTO {webmail_plus_solr_queue}(uid,action,message_key) VALUES(%d, '%s', '%s')", $uid, $action, $message_key);
+}
+
+/**
+ * internal function that removes a record for the queue table
+ *
+ * @param unknown_type $uid
+ * @param unknown_type $action
+ * @param unknown_type $message_key
+ */
+function _webmail_plus_solr_delete_queue($uid, $action, $message_key) {
+  //drupal_set_message("called _webmail_plus_solr_delete_queue with uid=$uid action=$action message_key=$message_key");	
+  //return;
+  db_query("DELETE FROM {webmail_plus_solr_queue} WHERE uid=%d AND action='%s' AND message_key='%s'", $uid, $action, $message_key);
+}
+
+/**
+ * internal function that checks if the record already exists in the queue table
+ *
+ * @param unknown_type $uid
+ * @param unknown_type $action
+ * @param unknown_type $message_key
+ * @return unknown
+ */
+function _webmail_plus_solr_exists_queue($uid, $action, $message_key) {
+	$count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_queue} WHERE uid=%d AND action='%s' AND message_key='%s'", $uid, $action, $message_key));
+
+	return $count;
+}
+
+/*
+ * this hook gets fired when a new message arrives
+ */
+function webmail_plus_solr_webmail_plus_new_message($object) {
+  //drupal_set_message('webmail_plus_solr_webmail_plus_new_message triggered');
+  _webmail_plus_solr_add_queue($object->uid, 'ADD', $object->message_key);
+}
+
+/*
+ * this hook gets fired when a message gets deleted
+ */
+function webmail_plus_solr_webmail_plus_delete_message($object) {
+  //drupal_set_message('webmail_plus_solr_webmail_plus_delete_message triggered');
+  _webmail_plus_solr_add_queue($object->uid, 'DELETE', $object->message_key);
+}
+
+
+/**
+ * establishes a connection to mail api
+ */
+function webmail_plus_solr_connect($username, $password, $folder="") {
+  global $_webmail_plus_config, $_webmail_plus_connection;
+
+  if(empty($username) || empty($password)) return FALSE;
+  
+
+
+  $_webmail_plus_connection = mail_api_connect($_webmail_plus_config->domain, $username, $password, $folder);
+
+  // set the disabled connection flag to prevent duplicate connections
+  if(!$_webmail_plus_connection) {
+    if($_webmail_plus_config->debug) watchdog('webmail_plus_solr', 'Could not connect to the mail store.', array());
+    return FALSE;
+  }
+
+  //drupal_set_message('mail_api is connected');
+
+  $_webmail_plus_config->current_folder=$folder;
+
+  //drupal_set_message($_webmail_plus_config->current_folder);
+
+  if($_webmail_plus_config->debug) watchdog('webmail_plus_solr', 'Connected to mail store folder %folder.', array('%folder' => $folder));
+
+
+  return TRUE;
+}
+
+
+/**
+ * returns the number of actions in the queue for a user or overall
+ *
+ * @param unknown_type $uid
+ * @return unknown
+ */
+function _webmail_plus_solr_queue_count($uid=NULL) {
+	if($uid) {
+		$count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_queue} WHERE uid=%d", $uid));
+	}
+	else {
+		$count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_queue}"));
+	}
+	
+	return $count;
+}
+
+/**
+ * returns the number of results for a particular search, if it was already performed
+ * 
+ * @param string $keyword
+ * @param user object $user
+ * @return integer
+ */
+function _webmail_plus_solr_result_count($keyword=NULL, $user=NULL) {
+	
+	if(!$keyword) return FALSE;
+	if(!$user) global $user;
+	
+	$keyword_sha1 = sha1($keyword);
+	
+  $count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_results} WHERE keyword_sha1='%s' AND uid=%d", $keyword_sha1, $user->uid));
+  
+  return $count;
+}
+
+/**
+ * clears the search results
+ *
+ * @param user object $user
+ */
+function _webmail_plus_solr_clear_results($user) {
+	if(!$user) global $user;
+	
+	global $_webmail_plus_config;
+	
+	db_query("DELETE FROM {webmail_plus_solr_results} WHERE uid=%d", $user->uid);
+	db_query("DELETE FROM {webmail_plus_solr_results_headers} WHERE uid=%d", $user->uid);
+	
+	if($_webmail_plus_config->debug) echo "cleared search results for ".$user->name."<br>\n";
+}
+	
+
+function _webmail_plus_solr_add_history($keyword, $user=NULL) {
+	$keyword = trim($keyword);
+	if(!$keyword) return FALSE;
+	if(!$user) global $user;
+	
+	if(!_webmail_plus_solr_check_history($keyword, $user)) {
+	 db_query("INSERT INTO {webmail_plus_solr_history}(uid,keyword) VALUES(%d, '%s')", $user->uid, $keyword);
+	}
+}
+
+function _webmail_plus_solr_check_history($keyword, $user=NULL) {
+  $keyword = trim($keyword);
+  if(!$keyword) return FALSE;
+  if(!$user) global $user;
+  
+
+  $count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_history} WHERE uid=%d AND keyword='%s'", $user->uid, $keyword));
+  return $count;
+  
+}
+
+
+function _webmail_plus_solr_clear_history($user=NULL) {
+  if(!$user) global $user;
+  db_query("DELETE FROM {webmail_plus_solr_history} WHERE uid=%d", $user->uid);
+}
+
+
+// functions that deal with the map
+function _webmail_plus_solr_add_map($message_key, $user=NULL) {
+  if(!$message_key) return FALSE;
+  if(!$user) global $user;
+  
+  if(!_webmail_plus_solr_check_map($message_key, $user)) {
+   db_query("INSERT INTO {webmail_plus_solr_map}(uid,message_key) VALUES(%d, '%s')", $user->uid, $message_key);
+  }
+}
+
+function _webmail_plus_solr_check_map($message_key, $user=NULL) {
+  if(!$message_key) return FALSE;
+  if(!$user) global $user;
+  
+
+  $count = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_solr_map} WHERE uid=%d AND message_key='%s'", $user->uid, $message_key));
+  return $count;
+  
+}
+
+
+function _webmail_plus_solr_clear_map($user=NULL) {
+  if(!$user) global $user;
+  db_query("DELETE FROM {webmail_plus_solr_map} WHERE uid=%d", $user->uid);
+}
+
+/*
+ * clear user-related stuff when a user is deleted
+ */
+function webmail_plus_solr_user($op, &$edit, &$account, $category = NULL) {
+
+	
+	// TODO: remove the user's items from Solr index
+	
+  $webmail_plus_solr_tables = array(
+    'webmail_plus_solr_history',
+    'webmail_plus_solr_map',
+    'webmail_plus_solr_queue',
+    'webmail_plus_solr_results',
+    'webmail_plus_solr_results_headers',
+  );
+  
+  if($op=='delete') {
+  	
+    foreach($webmail_plus_solr_tables as $id=>$table) {
+      //drupal_set_message('Solr removing data from '.$table.' for user '.$edit->uid);
+      db_query("DELETE FROM {%s} WHERE uid=%d", $table, $edit->uid);
+    }
+  }
+  
+}

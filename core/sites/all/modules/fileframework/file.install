@@ -1,0 +1,243 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_enable() {
+  drupal_set_message(t('File module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_install() {
+  drupal_install_schema('file');
+  // Since drupal installs modules alphabetically, RDF files are not loaded at this moment,
+  // therefore we need to include them manually.
+  if (module_load_include('inc', 'rdf', 'rdf.db') !== FALSE) {
+    rdf_db_create_repository('file', array('dc:title' => t('File framework'), 'dc:description' => 'A repository for the file framework managed files metadata.'));
+  }
+  else {
+    drupal_set_message(t('RDF API module cannot be found. You should install RDF module first, and then reinstall File Framework.'));
+  }
+  //create default fileframework dir
+  if (bitcache_create_repository('file', array('title' => 'File framework', 'description' => 'A repository for the file framework managed files.', 'adapter' => 'file2', 'module' => 'file')) && is_dir(BITCACHE_ROOT)) {
+    $location = BITCACHE_ROOT . '/file';
+    if (!is_dir($location) && is_dir(BITCACHE_ROOT)){
+      mkdir($location, 0777, TRUE);
+    }
+  }else{
+    drupal_set_message(t('Cant create bitcache repository!'), 'error');
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_uninstall() {
+  drupal_uninstall_schema('file');
+
+  variable_del('file_show_previews');
+  variable_del('file_handler_autoload');
+  variable_del('file_show_generated');
+  variable_del('file_show_file');
+  variable_del('file_view_link');
+  variable_del('file_info_link');
+  variable_del('file_properties_link');
+  variable_del('file_properties_tab');
+  variable_del('file_popup_size');
+  variable_del('file_cron');
+  variable_del('file_cron_limit_size');
+  variable_del('file_cron_limit_total');
+  variable_del('file_cron_last_nid');
+  variable_del('file_handlers');
+  variable_del('file_mime_autodetection');
+  variable_del('file_mime_autodetection_conditions');
+  variable_del('file_mime_types');
+  variable_del('file_og_browser_tab');
+  variable_del('file_og_gallery_tab');
+
+  if (function_exists('bitcache_delete_repository'))
+    bitcache_delete_repository('file');
+  if (function_exists('rdf_db_delete_repository'))
+    rdf_db_delete_repository('file');
+    
+  drupal_set_message(t('Please remove files manually from server'), 'status');
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function file_requirements($phase) {
+  $status = array();
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    $getid3_path = drupal_get_path('module', 'file') .'/vendor/getid3';
+    if (file_exists($getid3_path .'/getid3/getid3.php'))
+      include_once $getid3_path .'/getid3/getid3.php';
+
+    $getid3 = class_exists('getID3');
+    $status['getid3'] = array(
+      'title' => $t('getID3 library'),
+      'value' => $getid3 ? $t('@version', array('@version' => GETID3_VERSION)) : $t('Not installed'),
+      'description' => $getid3 ? '' : $t('<a href="@getid3">getID3</a> is not available. It is recommended that you install this library in order to enable metadata extraction from the audio and video files. To install, <a href="@download">download</a> the latest version of the library and unzip it to %path under the Drupal directory.', array('@getid3' => 'http://getid3.sourceforge.net/', '@download' => 'http://sourceforge.net/project/showfiles.php?group_id=55859', '%path' => $getid3_path .'/')),
+      'severity' => $getid3 ? REQUIREMENT_OK : REQUIREMENT_WARNING,
+    );
+
+    $flowplayer_path = drupal_get_path('module', 'file') .'/vendor/flowplayer';
+    $flowplayer = defined('FILE_VIDEO_FLOWPLAYER_VERSION') && file_exists($flowplayer_path .'/flowplayer-'. FILE_VIDEO_FLOWPLAYER_VERSION .'.swf') ? TRUE : FALSE;
+    $status['flowplayer'] = array(
+      'title' => $t('Flowplayer'),
+      'value' => $flowplayer ? FILE_VIDEO_FLOWPLAYER_VERSION : $t('Not installed'),
+      'description' => $flowplayer ? '' : $t('<a href="@flowplayer">Flowplayer</a> is not available. It is recommended that you install this player in order to play video files in the browser. To install, <a href="@download">download</a> the latest version of the player, unzip it to %path under the Drupal directory and <a href="@set">set</a> player\'s version. Note, that flowplayer older than version 3.0.0 can be used, but will not be detected.', array('@flowplayer' => 'http://flowplayer.org/', '@download' => 'http://flowplayer.org/download', '%path' => $flowplayer_path .'/', '@set' => url('admin/settings/file/format/video'))),
+      'severity' => $flowplayer ? REQUIREMENT_OK : REQUIREMENT_WARNING,
+    );
+
+    $xspf_player_path = drupal_get_path('module', 'file') .'/vendor/xspf_player';
+    $xspf_player = file_exists($xspf_player_path .'/xspf_player_slim.swf') ? TRUE : FALSE;
+    $status['xspf_player'] = array(
+      'title' => $t('XSPF player'),
+      'value' => $xspf_player ? $t('Installed') : $t('Not installed'),
+      'description' => $xspf_player ? '' : $t('<a href="@xspf_player">XSPF player</a> is not available. It is recommended that you install this player in order to play audio files in the browser. To install, <a href="@download">download</a> the latest Slim version of the player and unzip it to %path under the Drupal directory.', array('@xspf_player' => 'http://musicplayer.sourceforge.net/', '@download' => 'http://musicplayer.sourceforge.net/#download', '%path' => $xspf_player_path .'/')),
+      'severity' => $xspf_player ? REQUIREMENT_OK : REQUIREMENT_WARNING,
+    );
+  }
+
+  return $status;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Schema API hooks
+
+/**
+ * Implementation of hook_schema().
+ */
+function file_schema() {
+  return array(
+    'file_nodes' => array(
+      'description' => t('Stores file node data.'),
+      'fields' => array(
+        'nid' => array(
+          'description' => t("The node's ID from {node}.nid."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'vid' => array(
+          'description' => t("The node's version ID from {node}.vid."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'uri' => array(
+          'description' => t("The file's bitstream URI."),
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'size' => array(
+          'description' => t("The file's byte size."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'type' => array(
+          'description' => t("The file's MIME type."),
+          'type' => 'varchar',
+          'length' => 64,
+          'default' => '',
+        ),
+        'views' => array(
+          'description' => t("The file's preview counter."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'downloads' => array(
+          'description' => t("The file's download counter."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'primary key' => array('nid', 'vid'),
+      'indexes'     => array('file_nodes_uri' => array('uri')),
+    ),
+    'file_tmp' => array(
+      'description' => t('Stores temporal file node data.'),
+      'fields' => array(
+        'uid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => t("User's {users}.uid."),
+        ),
+        'uri' => array(
+          'description' => t("The file's bitstream URI."),
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'created' => array(
+          'description' => t("The file's upload timestamp."),
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'indexes' => array('file_tmp_created' => array('created')),
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Upgrades
+
+function file_update_6000() {
+  $ret = array();
+  if (!is_dir(BITCACHE_ROOT .'/file')) {
+    bitcache_create_repository('file', array('title' => 'File framework', 'description' => 'A repository for the file framework managed files.'));
+    file_init();
+    rdf_init();
+
+    $uris = array();
+    $result = db_query("SELECT DISTINCT uri FROM {file_nodes}");
+    while ($row = db_fetch_object($result)) {
+      $uris[] = $row->uri;
+      if ($generated = rdf_normalize(rdf_query(NULL, rdf_qname_to_uri('dc:source'), $row->uri)))
+        $uris = array_merge($uris, array_keys($generated));
+    }
+    $uris = array_unique($uris);
+    foreach ($uris as $uri)
+      rename(BITCACHE_ROOT .'/'. file_get_hash($uri), BITCACHE_ROOT .'/file/'. file_get_hash($uri));
+  }
+  return $ret;
+}
+
+function file_update_6001() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {bitcache_repositories} SET module = 'file' WHERE name = 'file'");
+  return $ret;
+}
+function file_update_6002() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {bitcache_repositories} SET adapter = 'file2' WHERE module = 'file'");
+  return $ret;
+}

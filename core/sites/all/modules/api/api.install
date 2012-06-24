@@ -1,0 +1,683 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for API module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function api_schema() {
+  $schema['api_branch'] = array(
+    'fields' => array(
+      'branch_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'branch_name' => array(
+        'type' => 'varchar',
+        'length' => '31',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'project' => array(
+        'type' => 'varchar',
+        'length' => '31',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'type' => array(
+        'description' => 'Controls how this branch will be fetched and parsed.',
+        'type' => 'varchar',
+        'length' => '31',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'data' => array(
+        'description' => 'Serialized type-specific data',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'Should this branch be shown in the UI',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'title' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''),
+      'project_title' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''),
+      'weight' => array('type' => 'int', 'unsigned' => TRUE, 'size' => 'tiny', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('branch_id'),
+    'unique keys' => array(
+      'project_name' => array('project', 'branch_name'),
+    ),
+    'indexes' => array(
+      'weight' => array('weight'),
+    ),
+  );
+  $schema['api_documentation'] = array(
+    'fields' => array(
+      'did' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'branch_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'object_name' => array('type' => 'varchar', 'length' => '127', 'not null' => TRUE, 'default' => ''),
+      'member_name' => array(
+        'description' => 'For class members, the name without Class::',
+        'type' => 'varchar',
+        'length' => 127,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'object_type' => array('type' => 'varchar', 'length' => '31', 'not null' => TRUE, 'default' => ''),
+      'title' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''),
+      'file_name' => array('type' => 'varchar', 'length' => '127', 'not null' => TRUE, 'default' => ''),
+      'summary' => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'documentation' => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'code' => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'start_line' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'see' => array(
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+      ),
+      'var' => array(
+        'type' => 'varchar',
+        'length' => 127,
+        'not null' => TRUE,
+      ),
+      'throws' => array(
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+      ),
+      'class_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('did'),
+    'indexes' => array(
+      'object_name' => array('object_name', 'branch_id', 'object_type'),
+      'object_type' => array('object_type'),
+      'branch_id' => array('branch_id'),
+      'title' => array('title'),
+      'class_did' => array('class_did'),
+    ),
+  );
+  $schema['api_file'] = array(
+    'fields' => array(
+      'did' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'modified' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'version' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''),
+      'found' => array('type' => 'int', 'unsigned' => TRUE, 'size' => 'tiny', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('did'),
+  );
+  $schema['api_function'] = array(
+    'fields' => array(
+      'did' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'signature' => array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''),
+      'parameters' => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'return_value' => array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+    ),
+    'primary key' => array('did'),
+  );
+  $schema['api_reference_storage'] = array(
+    'documentation' => 'Keep track of references. For classes/interafaces, from_did extends to_did.',
+    'fields' => array(
+      'object_name' => array('type' => 'varchar', 'length' => '127', 'not null' => TRUE, 'default' => ''),
+      'branch_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'object_type' => array('type' => 'varchar', 'length' => '31', 'not null' => TRUE, 'default' => ''),
+      'from_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'to_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'object_ref' => array('object_name', 'branch_id', 'object_type'),
+      'to_did' => array('to_did'),
+    ),
+  );
+  $schema['api_overrides'] = array(
+    'description' => 'Keep track of method, property, and class constant parents.',
+    'fields' => array(
+      'did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'overrides_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'documented_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'root_did' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'did' => array('did'),
+    ),
+  );
+  $schema['api_members'] = array(
+    'description' => 'Keep track of class members, including inherited members.',
+    'fields' => array(
+      'class_did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'indexes' => array(
+      'class_did' => array('did'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function api_install() {
+  // Get access to api_save_branch().
+  drupal_load('module', 'api');
+
+  drupal_install_schema('api');
+
+  module_load_include('module', 'comment');
+  variable_set('comment_preview_api', COMMENT_PREVIEW_OPTIONAL);
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function api_enable() {
+  // Workaround for http://drupal.org/node/200931
+  drupal_get_schema(NULL, TRUE);
+
+  $names = api_get_branch_names();
+  if (!isset($names['php'])) {
+    // Save PHP branch
+    $branch = new stdClass();
+    $branch->type = 'php';
+    $branch->project = 'php';
+    $branch->branch_name = 'php';
+    $branch->title = 'PHP functions';
+    $branch->status = 0;
+    $branch->data = array(
+      'summary' => 'http://svn.php.net/repository/phpdoc/doc-base/trunk/funcsummary.txt',
+      'path' => 'http://php.net/!function',
+    );
+    api_save_branch($branch);
+  }
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function api_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  if (!file_exists(drupal_get_path('module', 'api') . '/jquery-autocomplete/jquery.autocomplete.js')) {
+    // Required library wasn't found. Abort installation.
+    $requirements['api']['title'] = $t('jQuery autocomplete');
+    $requirements['api']['value'] = $t('Not found');
+    $requirements['api']['description'] = $t('Missing jQuery autocomplete plug-in. Please !download and extract it to your api module directory.', array('!download' => l($t('download the jQuery autocomplete plug-in'), 'http://bassistance.de/jquery-plugins/jquery-plugin-autocomplete/')));
+    $requirements['api']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  return $requirements;
+}
+
+/**
+ * Optimize the 'N functions call f()' query.
+ */
+function api_update_13() {
+  $return = array();
+
+  db_add_index($return, 'api_reference_storage', 'to_did', array('to_did'));
+
+  return $return;
+}
+
+/**
+ * Convert {api_branch}.directory to a TEXT field.
+ */
+function api_update_14() {
+  $return = array();
+
+  db_change_field($return, 'api_branch', 'directory', 'directories', array(
+    'type' => 'text',
+    'not null' => TRUE,
+  ));
+
+  return $return;
+}
+
+/**
+ * Add excluded_directories column.
+ */
+function api_update_15() {
+  $return = array();
+
+  db_add_field($return, 'api_branch', 'excluded_directories', array(
+    'type' => 'text',
+    'not null' => TRUE,
+  ));
+
+  return $return;
+}
+
+function api_update_16() {
+  $return = array();
+
+  // Force re-index.
+  $return[] = update_sql("DELETE FROM {api_documentation}");
+
+  return $return;
+}
+
+/**
+ * Update #16 left {api_reference_storage} inconsistent.
+ */
+function api_update_17() {
+  $return = array();
+
+  $return[] = update_sql("DELETE FROM {api_reference_storage}");
+  $return[] = update_sql("UPDATE {api_file} SET modified = 52");
+
+  return $return;
+}
+
+/**
+ * This anti-pattern has been replaced with a queue.
+ */
+function api_update_18() {
+  variable_del('api_files_per_cron');
+  return array();
+}
+
+/**
+ * Move start line next to code.
+ */
+function api_update_19() {
+  $return = array();
+
+  db_drop_field($return, 'api_function', 'start_line');
+  db_add_field($return, 'api_documentation', 'start_line', array('type' => 'int', 'not null' => TRUE, 'default' => 0));
+
+  return $return;
+}
+
+/**
+ * Add project to branches.
+ */
+function api_update_20() {
+  $return = array();
+
+  db_drop_primary_key($return, 'api_branch');
+  db_add_field($return, 'api_branch', 'branch_id', array(
+    'type' => 'serial',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ), array(
+    'primary key' => array('branch_id'),
+  ));
+  db_add_field($return, 'api_branch', 'project', array(
+    'type' => 'varchar',
+    'length' => '31',
+    'not null' => TRUE,
+    'default' => '',
+  ), array(
+    'unique keys' => array(
+      'project_name' => array('project', 'branch_name'),
+    ),
+  ));
+  $return[] = update_sql("UPDATE {api_branch} SET project = 'drupal'");
+  variable_set('api_default_branch', db_result(db_query("SELECT branch_id FROM {api_branch} WHERE branch_name = '%s'", variable_get('api_default_branch', NULL))));
+
+  return $return;
+}
+
+/**
+ * Add branch id to api_reference_storage table.
+ */
+function api_update_21() {
+  $return = array();
+
+  db_add_field($return, 'api_reference_storage', 'branch_id', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ));
+  $return[] = update_sql("UPDATE {api_reference_storage} r INNER JOIN {api_branch} b ON b.branch_name = r.branch_name SET r.branch_id = b.branch_id");
+  db_drop_index($return, 'api_reference_storage', 'object_ref');
+  db_add_index($return, 'api_reference_storage', 'object_ref', array('object_name', 'branch_id', 'object_type'));
+
+  return $return;
+}
+
+/**
+ * Add branch id to api_documentation table.
+ */
+function api_update_22() {
+  $return = array();
+
+  db_add_field($return, 'api_documentation', 'branch_id', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ));
+  $return[] = update_sql("UPDATE {api_documentation} r INNER JOIN {api_branch} b ON b.branch_name = r.branch_name SET r.branch_id = b.branch_id");
+  db_drop_index($return, 'api_documentation', 'object_name');
+  db_add_index($return, 'api_documentation', 'object_name', array('object_name', 'branch_id', 'object_type'));
+  db_drop_index($return, 'api_documentation', 'branch_name');
+  db_add_index($return, 'api_documentation', 'branch_id', array('branch_id'));
+
+  return $return;
+}
+
+/**
+ * Set up branches for multiple types and recombobulate.
+ */
+function api_update_23() {
+  $return = array();
+
+  // Add & populate type column
+  db_add_field($return, 'api_branch', 'type', array(
+    'description' => 'Controls how this branch will be fetched and parsed.',
+    'type' => 'varchar',
+    'length' => '31',
+    'not null' => TRUE,
+    'default' => '',
+  ));
+  $return[] = update_sql("UPDATE {api_branch} SET type = 'files'");
+
+  // Add & populate data column
+  db_add_field($return, 'api_branch', 'data', array(
+    'description' => 'Serialized type-specific data',
+    'type' => 'text',
+    'not null' => TRUE,
+    'default' => '',
+  ));
+  $result = db_query("SELECT branch_id, directories, excluded_directories FROM {api_branch}");
+  while ($branch = db_fetch_object($result)) {
+    $data = serialize(array(
+      'directories' => $branch->directories,
+      'excluded_directories' => $branch->excluded_directories,
+    ));
+    db_query("UPDATE {api_branch} SET data = '%s' WHERE branch_id = %d", $data, $branch->branch_id);
+  }
+  db_drop_field($return, 'api_branch', 'directories');
+  db_drop_field($return, 'api_branch', 'excluded_directories');
+
+  return $return;
+}
+
+/**
+ * Move any existing PHP reference config to a branch.
+ */
+function api_update_24() {
+  $return = array();
+
+  db_query("INSERT INTO {api_branch} (type, project, branch_name, title, data) VALUES ('%s', '%s', '%s', '%s', '%s')", 'php', 'php', 'php', 'PHP functions', serialize(array('summary' => variable_get('api_php_funcsummary', ''), 'path' => variable_get('api_php_funcpath', ''))));
+  variable_del('api_php_funcsummary');
+  variable_del('api_php_funcpath');
+
+  return $return;
+}
+
+/**
+ * Add disabled branch capability.
+ */
+function api_update_25() {
+  $return = array();
+
+  db_add_field($return, 'api_branch', 'status', array(
+    'description' => 'Should this branch be shown in the UI',
+    'type' => 'int',
+    'size' => 'tiny',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ));
+  $return[] = update_sql("UPDATE {api_branch} SET status = (type = 'files')");
+
+  return $return;
+}
+
+/**
+ * Delete old PHP branch links.
+ */
+function api_update_26() {
+  $return = array();
+
+  $return[] = update_sql("DELETE FROM {api_documentation} WHERE branch_name = 'php'");
+
+  return $return;
+}
+
+/**
+ * Drop redundant column.
+ */
+function api_update_27() {
+  $return = array();
+
+  db_drop_field($return, 'api_documentation', 'branch_name');
+
+  return $return;
+}
+
+/**
+ * Add separate column for @see
+ */
+function api_update_28() {
+  $return = array();
+
+  db_add_field($return, 'api_documentation', 'see', array(
+    'type' => 'text',
+    'size' => 'medium',
+    'not null' => TRUE,
+  ));
+
+  return $return;
+}
+
+/**
+ * Refer objects to the class they belong to.
+ */
+function api_update_29() {
+  $return = array();
+
+  db_add_field($return, 'api_documentation', 'class_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_add_index($return, 'api_documentation', 'class_did', array('class_did'));
+
+  return $return;
+}
+
+function api_update_30() {
+  $return = array();
+
+  db_create_table($return, 'api_overrides', array(
+    'description' => 'Keep track of method, property, and class constant parents.',
+    'fields' => array(
+      'did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'overrides_did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'root_did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'indexes' => array(
+      'did' => array('did'),
+    ),
+  ));
+
+  return $return;
+}
+
+function api_update_31() {
+  $return = array();
+
+  db_add_field($return, 'api_documentation', 'var', array(
+    'type' => 'varchar',
+    'length' => 127,
+    'not null' => TRUE,
+  ));
+  db_add_field($return, 'api_documentation', 'throws', array(
+    'type' => 'text',
+    'size' => 'medium',
+    'not null' => TRUE,
+  ));
+
+  return $return;
+}
+
+function api_update_32() {
+  $return = array();
+
+  db_add_field($return, 'api_documentation', 'member_name', array(
+    'description' => 'For class members, the name without Class::',
+    'type' => 'varchar',
+    'length' => 127,
+    'not null' => TRUE,
+    'default' => '',
+  ));
+
+  return $return;
+}
+
+function api_update_33() {
+  $return = array();
+
+  db_add_field($return, 'api_overrides', 'documented_did', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+
+  return $return;
+}
+
+/**
+ * Add {api_members}
+ */
+function api_update_34() {
+  $return = array();
+
+  db_create_table($return, 'api_members', array(
+    'description' => 'Keep track of class members, including inherited members.',
+    'fields' => array(
+      'class_did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'did' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'indexes' => array(
+      'class_did' => array('did'),
+    ),
+  ));
+
+  return $return;
+}
+
+/**
+ * Standardize column types and add missing indexes.
+ */
+function api_update_35() {
+  $return = array();
+
+  db_change_field($return, 'api_overrides', 'did', 'did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'api_overrides', 'overrides_did', 'overrides_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'api_overrides', 'documented_did', 'documented_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'api_overrides', 'root_did', 'root_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'api_reference_storage', 'from_did', 'from_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'api_reference_storage', 'to_did', 'to_did', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_add_index($return, 'api_documentation', 'object_type', array('object_type'));
+
+  return $return;
+}
+
+/**
+ * Add project_title field to branches.
+ */
+function api_update_36() {
+  $return = array();
+
+  db_add_field($return, 'api_branch', 'project_title', array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => '')
+  );
+  // Set it equal to the existing 'project' field.
+  $return[] = update_sql("UPDATE {api_branch} b SET b.project_title = b.project");
+
+  return $return;
+}
+
+/**
+ * Remove variables on uninstall.
+ */
+function api_uninstall() {
+  drupal_uninstall_schema('api');
+  variable_del('api_default_branch');
+  variable_del('api_reference');
+  db_query("DELETE FROM {node} WHERE type = 'api'");
+}

@@ -1,0 +1,16 @@
+; $Id$
+name = Gallery
+description = Provides a taxonomy-based gallery view of various file types.
+package = File management
+dependencies[] = file
+dependencies[] = file_browser
+dependencies[] = taxonomy
+core = 6.x
+php = 5.2
+
+; Information added by drupal.org packaging script on 2011-12-08
+version = "6.x-1.0-alpha6"
+core = "6.x"
+project = "fileframework"
+datestamp = "1323331547"
+

@@ -1,0 +1,75 @@
+<?php
+// $Id: seochecklist.module,v 1.14 2009/12/04 05:34:08 davereid Exp $
+
+/**
+ * @file
+ * SEO Checklist module allows users to track important SEO techniques on the website.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function seochecklist_help($path, $arg) {
+  if ($path == 'admin/settings/seochecklist') {
+    return '<p>' . t('Check off each SEO-related task as you complete it. Do not forget to click the <em>Save</em> button!') . '</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function seochecklist_perm() {
+  return array('access seochecklist content');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function seochecklist_menu() {
+  $items['admin/settings/seochecklist'] = array(
+    'title' => 'SEO Checklist',
+    'description' => 'Keep track of your Drupal Search Engine Optimization tasks.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('seochecklist_admin_settings'),
+    'access arguments' => array('access seochecklist content'),
+    'file' => 'seochecklist.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_footer().
+ */
+function seochecklist_footer($main = 0) {
+  if (variable_get('seo_checklist_link', 0)) {
+    return '<div align="center"><a href="http://www.volacci.com/" target="_blank">Drupal SEO</a></div>';
+  }
+}
+
+function seochecklist_get_book_references($tid) {
+  $references = array(
+    1 => 59,
+    39 => 59,
+    2 => 68,
+    6 => 83,
+    5 => 72,
+    7 => 20,
+    9 => 23,
+    10 => 22,
+    11 => 22,
+    12 => 23,
+    13 => 26,
+    15 => 96,
+    16 => 182,
+    17 => 201,
+    18 => 18,
+    19 => 148,
+    21 => 109,
+    46 => 125,
+    24 => 118,
+    40 => 205,
+    39 => 205,
+  );
+
+  return isset($references[$tid]) ? $references[$tid] : NULL;
+}

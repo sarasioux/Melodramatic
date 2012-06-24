@@ -1,0 +1,1608 @@
+/*  melo.css  */
+
+textarea { clear: both; }
+
+/*  blocks with no borders/padding/etc  */
+#sidebar-left #block-block-8,
+#sidebar-left #block-block-8 .block-inner div.content,
+#sidebar-right #block-block-12,
+#sidebar-right #block-block-12 .block-inner div.content {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+#sidebar-right #block-melodev-8 .block-inner div.content form div, #block-nice_menus-1 div.content
+{
+	margin:0;
+	padding:0;
+}
+#sidebar-left #block-block-8 {
+  margin-bottom: 5px;
+}
+#sidebar-right #edit-jump
+{
+	font-size:0.9em;
+	text-transform:lowercase;
+	margin:5px 0 5px;
+	display: none;
+}
+
+#sidebar-right #edit-jumpto-username
+{
+	float:left;
+	width:150px;
+	border:solid #000 1px;
+	font-size:1em;
+	padding:4px;
+	margin-bottom: 10px;
+}
+
+#sidebar-right #block-block-5 { margin-top: 30px; }
+
+#sidebar-right #melodev-jumpto-user-form div.error li
+{
+	background:none;
+	color:#000;
+	font-size:0.9em;
+	padding:0;
+}
+
+#active-users-container h2 {
+  font-weight: normal;
+}
+#active-users-container .views-field-created {
+  font-size: 0.8em;
+}
+#active-users-container img {
+  width: 30px;
+  height: 30px;
+  float: left;
+  margin-right: 10px;
+  margin-top: 3px;
+}
+
+#block-melodev-2 li
+{
+	list-style:none;
+	padding-left:0;
+	height: 30px;
+}
+
+#block-melodev-2 span.flag-message
+{
+	display:block;
+	padding-bottom:5px;
+	position:relative;
+	top:0;
+	left:25px;
+	width:130px;
+}
+
+#block-melodev-6 .block-inner {
+  font-size: 0.9em;
+}
+
+#block-views-Polls-block_1 .pager
+{
+	font-size:0.9em;
+	font-weight:400;
+	padding:0;
+}
+
+#block-views-Favorites-block_1 div.content
+{
+	text-align:center;
+}
+
+#block-views-Folders-block_1 td.views-field-title a
+{
+	display:block;
+	width:120px;
+	padding:5px;
+}
+
+#block-views-Folders-block_1 tr:hover,
+#block-views-Folders-block_2 tr:hover
+{
+	background:#eee;
+}
+
+#block-views-Folders-block_2 a.active {
+  text-decoration: none;
+}
+
+#block-views-Photos-block_1
+{
+	height:240px;
+}
+
+#block-views-Photos-block_1 .views-view-grid td
+{
+	vertical-align:top;
+	margin:0;
+	padding:3px;
+}
+
+#block-views-Photos-block_1 div.block-inner div.content
+{
+	padding:5px;
+}
+
+#block-views-Photos-block_1 table.views-view-grid
+{
+	height:160px;
+}
+
+#block-views-Stats-block_2
+{
+	margin:20px 20px 0;
+}
+
+#block-views-Stats-block_2 .views-field-name
+{
+	font-size:22pt;
+	margin-bottom:15px;
+}
+
+#block-views-Stats-block_2 .views-field-picture img
+{
+	float:left;
+	margin-bottom:5px;
+	margin-right:10px;
+}
+
+#color_scheme_form #edit-title-wrapper input.form-text
+{
+	width:525px;
+}
+
+#color_scheme_form .group-scheme-colors
+{
+	width:510px;
+}
+
+#color_scheme_form .group-scheme-colors label
+{
+	width:130px;
+}
+
+#comment-input h2.title,#comments-title,.view-Guestbook .view-header h2.title
+{
+	font-weight:400;
+	text-transform:lowercase;
+	padding:3px 5px 3px 10px;
+}
+
+#comment-input h2.title,h2#comments-title
+{
+	margin-left:-20px;
+	margin-right:-20px;
+}
+
+#content img {
+  max-width: 530px;
+}
+
+#content-area pre.php
+{
+	background:#eee;
+	border:solid #ccc 1px;
+	font-size:1em;
+	padding:10px;
+}
+
+#content-inner
+{
+	margin-bottom:1em;
+	margin-top:10px;
+	padding:0;
+}
+
+#elite-checkout-1
+{
+	background:url(../images/elite/one-off.png) left top no-repeat;
+}
+
+#elite-checkout-1.active
+{
+	background:url(../images/elite/one-on.png) left top no-repeat;
+	color:#666b88;
+}
+
+#elite-checkout-2
+{
+	background:url(../images/elite/two-off.png) left top no-repeat;
+}
+
+#elite-checkout-2.active
+{
+	background:url(../images/elite/two-on.png) left top no-repeat;
+	color:#666b88;
+}
+
+#elite-checkout-3
+{
+	background:url(../images/elite/three-off.png) left top no-repeat;
+}
+
+#elite-checkout-3.active
+{
+	background:url(../images/elite/three-on.png) left top no-repeat;
+	color:#666b88;
+}
+
+#elite-checkout-4
+{
+	background:url(../images/elite/four-off.png) left top no-repeat;
+}
+
+/*
+#footer,
+body.node-comments #content-area,
+body.node-comments #content-area .node .node,
+#block-nice_menus-1 div.content,
+#block-views-Folders-block_1 td.views-field-title,
+#block-melodev-2 ul
+html .js > body .not-front logged-in two-sidebars page-elite-sara section-elite node-comments lightbox-processed admin-menu > div #page > div #page-inner > div #main > div #main-inner .clear-block with-navbar > div #sidebar-right > div #sidebar-right-inner .region region-right > div #block-block-1 .block block-block region-odd odd region-count-1 count-9 with-block-editing > div .block-inner > div .content*/
+#sidebar-left-inner #block-melodev-0 .block-inner .content,#sidebar-left-inner #block-views-Folders-block_1 .block-inner .content,#sidebar-right-inner #block-block-1 .block-inner .content, #sidebar-right-inner #block-block-5 .block-inner .content
+{
+	padding:0;
+}
+
+#header-blocks /* Wrapper for any blocks placed in the header region */,span.gspot-re
+{
+	font-size:.8em;
+}
+
+#main .block div.content h2.title
+{
+	background:transparent;
+	text-transform:none;
+}
+
+#navbar-inner
+{
+	padding:4px 4px 4px 0;
+}
+
+#page .ahah-progress .throbber
+{
+	background:transparent url(../images/ajax-loader.gif) no-repeat 0 0;
+	float:right;
+	height:15px;
+	width:15px;
+	margin:2px;
+}
+
+#page .view-TopStats .views-field-title
+{
+	background:transparent;
+	padding:10px 0;
+}
+
+#page .view-TopStats .views-field-title span
+{
+	font-size:16pt;
+	font-weight:400;
+}
+
+#sidebar-left #block-melodev-0
+{
+	background:transparent;
+	border:none;
+	text-align:center;
+}
+
+#sidebar-left #block-melodev-0 h1
+{
+	text-align:left;
+	margin:0;
+	padding:2px 5px 3px 10px;
+}
+
+/* Black & White Header */
+#content-header h1.title
+{
+	text-transform:lowercase;
+	padding:2px 0 3px 10px;
+}
+
+body.node-type-blog #content-header h1.title
+{
+	text-transform:none;
+}
+
+.block h2.title,#sidebar-left #block-melodev-0 h1 /* Block title */
+{
+	font-family:"Helvetica Neue", "Trebuchet MS", Helvetica, Arial;
+	font-size:12pt;
+	font-weight:400;
+	text-transform:lowercase;
+	background:#000;
+	color:#FFF;
+	padding:1px 5px 2px;
+}
+
+.block /* Block wrapper */
+{
+	margin-bottom:1em;
+}
+
+#sidebar-left-inner
+{
+	padding:10px 0 10px 10px;
+}
+
+#sidebar-right-inner
+{
+	padding:10px 10px 10px 0;
+}
+
+#site-name a:link,#site-name a:visited
+{
+	display:block;
+	float:right;
+	height:120px;
+	margin-top:-70px;
+	text-decoration:none;
+	text-indent:-9999px;
+	width:240px;
+}
+
+#user-login li.openid-link,/* The OpenID links on the /user form. */
+#user-login li.user-link
+{
+	margin-left:-2em;
+}
+
+#user-login-form li.openid-link,/* The "Log in using OpenID" links. */
+#user-login li.openid-link
+{
+	background-position:left center;
+	margin-left:-20px;
+	margin-top:1em;
+	padding-left:20px;
+}
+
+#user-login-form li.user-link,/* The "Cancel OpenID login" links. */
+#user-login li.user-link
+{
+	list-style-position:outside;
+	list-style-type:disc;
+	margin-top:1em;
+}
+
+/*
+#user-profile-form .form-text {
+  width: 175px;
+}
+
+#user-profile-form label {
+  float: left;
+  width: 120px;
+}
+#user-profile-form fieldset {
+  padding-left: 110px;
+}
+#user-profile-form #edit-profile-quote-wrapper label {
+  clear: both;
+  float: none;
+}
+#user-profile-form #edit-profile-quote {
+  width: 295px;
+  font-size: 1.5cem;
+}
+#user-profile-form #edit-profile-quote-wrapper div.grippie {
+  width: 295px;
+  padding: 0 2px;
+}*/
+#vbo-table-view-Folders td.views-field-title
+{
+	width:400px;
+}
+
+.attachment-before .view-Stats:after,#block-views-Stats-block_2:after
+{
+	clear:both;
+	content:" ";
+	display:block;
+	margin-bottom:5px;
+}
+
+.block .content /* Block's content wrapper */
+   
+{
+     padding: 10px;
+   }
+ 
+ 
+ 
+
+/** Miscellaneous styles **/
+   
+.more-link 
+{
+     text-align: right;
+   }
+ 
+   
+
+#user-login-form /* Drupal's default login form */
+{
+	text-align:left;
+}
+
+#sidebar-left .block-inner .content,#sidebar-right .block-inner .content
+{
+	padding:10px;
+}
+
+.block ul
+{
+	margin:0;
+	padding:0 0 .25em 1em;
+}
+
+.breadcrumb /* The path to the current page in the form of a list of links */
+{
+	padding:0 0 0 20px;
+}
+
+div.comment
+{
+	margin-bottom:10px;
+	border-bottom:solid #ccc 1px;
+}
+
+.comment span.gspot-re .mymelo-type
+{
+	display:block;
+	float:left;
+	margin-top:-2px;
+}
+
+.comment .picture img
+{
+	border:solid #000 1px;
+	height:50px;
+	width:50px;
+}
+
+.comment .submitted,#vbo-table-view-Guestbook .submitted
+{
+	color:#666;
+	float:left;
+	font-size:.9em;
+	padding-bottom:5px;
+	width:475px;
+	clear: right;
+}
+
+#vbo-table-view-Guestbook .submitted
+{
+	width:130px;
+	float:right;
+	text-align:right;
+}
+
+#vbo-table-view-Guestbook td a
+{
+	font-size:0.9em;
+}
+
+.comment span.comment-author
+{
+	float:left;
+	font-size:1.2em;
+}
+
+.comment span.comment-date,#color_scheme_form #placeholder
+{
+	float:right;
+}
+
+.comment ul.links
+{
+	display:inline;
+	float:right;
+	margin-left:10px;
+}
+
+.comment ul.links a,ul.nice-menu ul li a:hover,.node-type-blog h2.title a:hover
+{
+	text-decoration:underline;
+}
+
+.comment ul.links li
+{
+	padding:0 2px;
+}
+
+.feed-icons,.form-checkboxes,.form-radios
+{
+	margin:1em 0;
+}
+
+.flag-message
+{
+	font-size:.8em;
+	left:0;
+	line-height:normal;
+	position:absolute;
+	top:1.7em;
+	width:300px;
+}
+
+.flag-waiting .flag-throbber
+{
+	background:url(../images/ajax-loader.gif) no-repeat right center;
+	padding-right:13px;
+}
+
+.flag-waiting a
+{
+	filter:alpha(opacity=50);
+	opacity:0.5px;
+}
+
+.form-checkboxes .form-item,.form-radios .form-item
+{
+	margin:.4em 0;
+}
+
+.form-item .description /* The descriptive help text (separate from the label) */
+{
+	font-size:.85em;
+}
+
+.form-item input.error,/* Highlight the form elements that caused a form submission error */
+.form-item textarea.error,.form-item select.error
+{
+	border:2px solid #c00;
+}
+
+.form-item label /* The label for a form element */
+{
+	display:block;
+	font-weight:700;
+}
+
+.form-item label.option /* The label for a radio button or checkbox */
+{
+	display:inline;
+	font-weight:400;
+}
+
+.marker /* New or Updated marker for content that is new or updated for the current user */,.new /* New marker for comments that are new for the current user */,.form-required /* The part of the label that indicates a required field */
+{
+	color:#c00;
+}
+
+.more-help-link /* Link to more help */
+{
+	font-size:.85em;
+	text-align:right;
+}
+
+.mymelo-type,.views-field-type div,.Poll,.Clique
+{
+	height:16px;
+	text-indent:-9999px;
+	width:16px;
+	margin-top:-2px;
+}
+
+.Poll,.Clique
+{
+	display:block;
+	float:left;
+	margin-right:5px;
+}
+
+.mymelo-type-cliquepost,.Clique
+{
+	background:url(../images/icons/page.png) left top no-repeat;
+}
+
+.node
+{
+	margin-bottom:20px;
+}
+
+.node .picture /* The picture of the node author */
+{
+	float:left;
+	margin:0 15px 10px 0;
+}
+
+.node-form div.form-item-select label
+{
+	float:left;
+	margin-right:10px;
+	padding-top:3px;
+}
+
+.node-type-blog div.node-inner
+{
+	border-bottom:solid #bbb 1px;
+	margin-bottom:15px;
+	padding-bottom:20px;
+}
+
+.node-unpublished div.unpublished,/* The word Unpublished displayed beneath the content. */
+.comment-unpublished div.unpublished
+{
+	color:#ccc;
+	font-size:1.5em;
+	line-height:1.5em;
+	word-wrap:break-word;
+}
+
+.pager /* A list of page numbers when more than 1 page of content is available */
+{
+	clear:both;
+	text-align:center;
+	margin:1em 0;
+}
+
+.pager a,.pager strong.pager-current
+{
+	padding:.5em;
+}
+
+.tribune-posts
+{
+	height:400px;
+	overflow:scroll;
+	overflow-x:hidden;
+	padding:0;
+}
+
+.view-Blogs
+{
+	padding:0 5px 5px;
+}
+
+.view-Blogs .date-views-filter-wrapper
+{
+	min-width:120px;
+	width:120px;
+}
+
+th.select-all
+{
+	padding-left:5px;
+}
+
+td.views-field-edit-node
+{
+	width:45px;
+}
+
+td.views-field-edit-node a
+{
+	width:16px;
+	height:16px;
+	background:url(../images/icons/cancel.png) left top no-repeat;
+	text-indent:-9999px;
+	display:block;
+	float:left;
+}
+
+td.views-field-edit-node a.set-default
+{
+	text-indent:0;
+	width:auto;
+	background:none;
+}
+
+td.views-field-edit-node span.edit-node a
+{
+	background:url(../images/icons/pencil.png) left top no-repeat;
+	margin-right:8px;
+}
+
+.view-Guestbook .view-header #comment-input div.grippie
+{
+	width:514px;
+}
+
+.view-Guestbook .view-header #comment-input textarea
+{
+	height:120px;
+	width:509px;
+}
+
+.view-MyMelo .views-field-created
+{
+	font-size:.9em;
+	width:70px;
+}
+
+.view-MyMelo .views-field-type
+{
+	width:20px;
+}
+
+.view-MyMelo table
+{
+	margin-bottom:20px;
+	width:475px;
+}
+
+.view-MyMelo table td.views-field-field-folder-permission-value
+{
+	width:40px;
+}
+
+.view-MyMelo table td.views-field-title
+{
+	width:390px;
+}
+
+.view-MyMelo table.melo-hidden-table
+{
+	margin-left:62px;
+}
+
+.view-MyMelo table.melo-pre-hidden-table
+{
+	margin-bottom:0;
+}
+
+.view-MyMelo td.views-field-title
+{
+	width:300px;
+}
+
+.view-Stats td.views-field-picture
+{
+	width:50px;
+	padding:0;
+}
+
+.view-Stats tr img
+{
+	height:25px;
+	width:25px;
+}
+
+.view-Stats tr,.view-MyMelo tr
+{
+	background:transparent;
+}
+
+.view-Stats tr:hover
+{
+	background:#ddd;
+}
+
+.view-TopStats table.views-view-grid td.col-1
+{
+	padding-right:10px;
+}
+
+.view-TopStats table.views-view-grid td.col-1,.view-TopStats table.views-view-grid td.col-2
+{
+	vertical-align:top;
+	width:50%;
+}
+
+.view-TopStats table.views-view-grid td.col-2
+{
+	padding-left:10px;
+}
+
+.view-display-id-attachment_1 .views-field-name a
+{
+	font-size:14pt;
+	font-weight:400;
+	line-height:22pt;
+}
+
+.views-exposed-form
+{
+	font-size:.9em;
+	padding-bottom:20px;
+	padding-left:25px;
+}
+
+.view-filters h2.title
+{
+	margin-left:25px;
+}
+
+.views-exposed-form #edit-date-filter-min-wrapper label,.views-exposed-form #edit-date-filter-max-wrapper label
+{
+	font-size:1.1em;
+}
+
+.views-exposed-form #edit-folder
+{
+	font-size:1em;
+	height:6em;
+}
+
+.views-exposed-form .form-text,.views-exposed-form .form-select
+{
+	font-size:1em;
+}
+.views-exposed-form .container-inline-date .form-item input {
+  width: 110px;
+}
+.views-exposed-form .container-inline-date {
+
+}
+
+.views-field-field-folder-permission-value
+{
+	width:16px;
+}
+
+.views-field-field-folder-permission-value div
+{
+	height:16px;
+	min-width:16px;
+	text-indent:-9999px;
+}
+
+.views-field-field-folder-permission-value select
+{
+	float:left;
+	font-size:.9em;
+}
+
+.views-row-last .node-type-blog div.node-inner
+{
+	border-bottom:none;
+}
+
+a.feed-icon img
+{
+	border:0;
+	margin:0 20px 5px;
+}
+
+body
+{
+	font-family:Verdana;
+	font-size:.7em;
+	margin:0;
+	padding:10px;
+}
+
+body.in-maintenance #site-name a:link,body.in-maintenance #site-name a:visited
+{
+	display:block;
+	height:120px;
+	position:relative;
+	text-decoration:none;
+	text-indent:-9999px;
+	top:65px;
+	width:240px;
+}
+
+/*
+body.node-comments #content-area .node,#comment-input div.content,#comments div.comment
+{
+  padding:10px;
+}*/
+body.section-cart #edit-continue
+{
+	background:url(../images/elite/review-button.png) left top no-repeat;
+	border:0;
+	height:31px;
+	text-indent:-9999px;
+	width:258px;
+}
+
+body.section-cart #edit-continue:hover,body.section-cart #edit-submit:hover
+{
+	background-position:0 -31px;
+	cursor:pointer;
+}
+
+body.section-cart #edit-submit
+{
+	background:url(../images/elite/submit-button.png) left top no-repeat;
+	border:0;
+	height:31px;
+	text-indent:-9999px;
+	width:258px;
+}
+
+body.section-mymelo a.menu-tab-Content
+{
+	background:url(../images/icons/content.png) 7px center no-repeat;
+	padding-left:30px;
+}
+
+body.section-mymelo a.menu-tab-Relationships
+{
+	background:url(../images/icons/group.png) 7px center no-repeat;
+	padding-left:30px;
+}
+
+body.section-mymelo a.menu-tab-Gspots
+{
+	background:url(../images/icons/gspots.png) 7px center no-repeat;
+	padding-left:30px;
+}
+
+body.section-mymelo a.menu-tab-You
+{
+	background:url(../images/icons/user.png) 7px center no-repeat;
+	padding-left:30px;
+}
+
+div.api-expandable h3
+{
+	font-size:1em;
+	font-weight:400;
+}
+
+div.block.with-block-editing div.edit
+{
+	background-color:#fff;
+	border:1px solid #eee;
+	display:none;
+	font-size:9px;
+	z-index:40;
+	padding:0 2px;
+}
+
+/*
+div.block.with-block-editing:hover div.edit
+{
+  display:block;
+}*/
+div.error li /* High priority messages. See also the .error declaration below. */
+{
+	background:url(../images/icons/messages/exclamation.png) left top no-repeat;
+	color:#900;
+	padding-left:25px;
+	padding-top:1px;
+}
+
+div.status li /* High priority messages. See also the .error declaration below. */
+{
+	background:url(../images/icons/messages/information.png) left top no-repeat;
+	color:#000;
+	padding-left:25px;
+	padding-top:1px;
+}
+
+div.warning li /* Medium priority messages */
+{
+	background:url(../images/icons/messages/error.png) left top no-repeat;
+	padding-left:25px;
+	padding-top:1px;
+}
+
+div.messages /* Important messages (status,warning,and error) for the user */
+{
+	margin-top:1px;
+}
+
+div.deny,div.confirm,div.status-Yes,div.status-No
+{
+	height:16px;
+	width:16px;
+}
+
+div.deny,div.status-No
+{
+	background:url(../images/icons/contrast_low.png) left top no-repeat;
+}
+
+div.confirm,div.status-Yes
+{
+	background:url(../images/icons/accept.png) left top no-repeat;
+}
+
+div.messages ul li
+{
+	list-style:none;
+	padding-bottom:10px;
+}
+
+div.messages,/* Important messages (status,warning,and error) for the user */
+div.status,div.warning,div.error
+{
+	min-height:21px;
+	padding:10px 10px 5px;
+}
+
+div.mymelo-perm-folder
+{
+	padding-left:25px;
+	text-indent:0;
+}
+
+div.mymelo-perm-friends
+{
+	background:url(../images/icons/folder_heart.png) top left no-repeat;
+}
+
+div.mymelo-perm-private
+{
+	background:url(../images/icons/folder_key.png) top left no-repeat;
+}
+
+div.total-posts
+{
+	float:right;
+	margin-top:-15px;
+}
+
+div.vertical-tabs
+{
+	clear:both;
+}
+
+fieldset.group-scheme-colors div.form-item
+{
+	float:left;
+	height:12px;
+	width:250px;
+}
+
+h1.title span.title-right
+{
+	float:right;
+	font-size:.8em;
+	padding-right:10px;
+}
+
+h1.title span.new-link a
+{
+	background:url(../images/icons/add.png) right 4px no-repeat;
+	padding-right:22px;
+}
+
+h1.title span.title-right a:hover
+{
+	color:inherit;
+}
+
+h1.title,h2.title
+{
+	font-family:"Helvetica Neue", Helvetica;
+	font-size:2em;
+	font-weight:400;
+}
+
+#content-area h2.title a
+{
+	color:#000;
+}
+
+li.expanded,li.collapsed,li.leaf
+{
+	list-style:none;
+	margin:0;
+	padding:.2em .2em 0 0;
+}
+
+p.seemore
+{
+	text-align:right;
+	margin:0 0 20px;
+}
+
+span.mymelo-type
+{
+	display:inline-block;
+	margin-right:3px;
+}
+
+td.menu-disabled
+{
+	background:#ccc;
+}
+
+td.views-field-field-folder-permission-value
+{
+	width:90px;
+}
+
+ul.elite-checkout
+{
+	font-size:18px;
+	padding:0;
+}
+
+ul.elite-checkout li
+{
+	color:#999;
+	list-style:none;
+	min-height:33px;
+	padding-bottom:10px;
+	padding-left:40px;
+	padding-top:8px;
+	margin:0;
+}
+
+ul.links li
+{
+	display:inline;
+	list-style-type:none;
+	padding:0 .5em;
+}
+
+ul.links.inline,.container-inline div,.container-inline label /* Inline labels and form divs */
+{
+	display:inline;
+}
+
+ul.menu
+{
+	border:none;
+	list-style:none;
+	text-align:left;
+}
+
+ul.menu li
+{
+	margin:0 0 0 .2em;
+}
+
+ul.nice-menu a
+{
+	padding:8px 17px 0 17px;
+	height: 23px;
+}
+
+ul.nice-menu li
+{
+	background-image:none;
+	border-top:0;
+	float:left;
+}
+
+ul.nice-menu ul li,ul.nice-menu-right,ul.nice-menu-left,ul.nice-menu-right li,ul.nice-menu-left li
+{
+	width:12.5em;
+}
+
+ul.nice-menu,ul.nice-menu ul
+{
+	list-style:none;
+	margin:0;
+	padding:0;
+}
+
+ul.nice-menu-down .menuparent a
+{
+	padding-right:15px;
+}
+
+ul.nice-menu-down li ul li ul,/* Repeat for Garland header. */
+#header-region ul.nice-menu-down li ul li ul
+{
+	left:12.6em;
+	top:-1px;
+}
+
+ul.nice-menu-down ul
+{
+	border-bottom:solid #000 1px;
+	left:-1px;
+}
+
+ul.nice-menu-down ul li
+{
+	border:solid #000 1px;
+	border-bottom:0;
+	clear:both;
+}
+
+ul.nice-menu-right ul,ul.nice-menu-right ul ul
+{
+	left:12.5em;
+	width:12.5em;
+}
+
+.view-Relationships .views-field-ops,.view-Relationships .views-field-ops-1,.view-Relationships .views-field-ops-2
+{
+	width:32px;
+	padding:0;
+}
+
+.view-Relationships a.flag
+{
+	width:20px;
+	height:20px;
+	display:block;
+	text-indent:-9999px;
+	margin:0;
+	padding:0;
+}
+
+/*  Friends  */
+.view-Relationships span.flag-friend a.unflag-action
+{
+	background:url(../images/icons/heart_delete.png) left top no-repeat;
+}
+
+.view-og-mytracker .views-field-last-comment-timestamp
+{
+	white-space:nowrap;
+}
+
+#block-menu-menu-mymelo ul.menu li
+{
+	font-size:1.2em;
+	line-height:2em;
+	clear:both;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu li.expanded
+{
+	float:left;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu li
+{
+	font-size:10px;
+	line-height:16px;
+	float:left;
+	width:145px;
+	clear:none;
+	padding:0;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu
+{
+	float:left;
+	width:145px;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu ul.menu
+{
+	width:70px;
+	float:right;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu ul.menu li
+{
+	padding-bottom:0;
+	width:70px;
+}
+
+#block-menu-menu-mymelo div.content
+{
+	margin-bottom:60px;
+}
+
+#block-menu-menu-mymelo ul.menu ul.menu a
+{
+	line-height:18px;
+	padding:2px 0 2px 25px;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo
+{
+	background:url(../images/icons/house.png) top left no-repeat;
+        padding-left: 20px;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_content_colors
+{
+	background:url(../images/icons/color_wheel.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_relationships_friends
+{
+	background:url(../images/icons/heart.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_relationships_friendof
+{
+	background:url(../images/icons/heart_add.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_relationships_myenemies
+{
+	background:url(../images/icons/lightning.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_relationships_enemyof
+{
+	background:url(../images/icons/lightning_add.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_relationships_mytabs
+{
+	background:url(../images/icons/folder_user.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_gspots_incoming
+{
+	background:url(../images/icons/comments.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_gspots_replies
+{
+	background:url(../images/icons/comments_add.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_gspots_outgoing
+{
+	background:url(../images/icons/comment.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_gspots_manage
+{
+	background:url(../images/icons/comment_edit.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_account
+{
+	background:url(../images/icons/pencil.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_picture
+{
+	background:url(../images/icons/camera.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_preferences
+{
+	background:url(../images/icons/cog.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_census
+{
+	background:url(../images/icons/map.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_profile
+{
+	background:url(../images/icons/user_edit.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-mymelo_you_karma
+{
+	background:url(../images/icons/award_star_gold_1.png) top left no-repeat;
+}
+
+#block-menu-menu-mymelo a.menu-tab-node_add_blog,#block-menu-menu-mymelo a.menu-tab-node_add_favorite,#block-menu-menu-mymelo a.menu-tab-node_add_poll,#block-menu-menu-mymelo a.menu-tab-node_add_photo,#block-menu-menu-mymelo a.menu-tab-node_add_folder,#block-menu-menu-mymelo a.menu-tab-node_add_color-scheme
+{
+	background:url(../images/icons/add.png) top left no-repeat;
+}
+
+#block-melodev-2 a.flag
+{
+	padding-left:25px;
+	margin:0;
+}
+
+/*  Friends  */
+.view-Relationships span.flag-friend a.unflag-action,#block-melodev-2 span.flag-friend a.unflag-action
+{
+	background:url(/sites/melodramatic/themes/melo/images/icons/heart_delete.png) left top no-repeat;
+}
+
+#block-melodev-2 span.flag-friend a.flag-action
+{
+	background:url(../images/icons/heart_add.png) left top no-repeat;
+}
+
+/*  Enemies */
+.view-Relationships span.flag-enemy a.unflag-action,#block-melodev-2 span.flag-enemy a.unflag-action
+{
+	background:url(/sites/melodramatic/themes/melo/images/icons/lightning_delete.png) left top no-repeat;
+}
+
+.view-Relationships span.flag-enemy a.flag-action,#block-melodev-2 span.flag-enemy a.flag-action
+{
+	background:url(../images/icons/lightning_add.png) left top no-repeat;
+}
+
+/*  Features  */
+#lightbox #modalContainer
+{
+	background:#d4d4dd;
+}
+
+#lightbox #imageDataContainer #imageData
+{
+	background:#000;
+	color:#fff;
+	border-top:solid #000 1px;
+}
+
+#imageDetails
+{
+	font-size:18pt;
+	font-family:"Helvetica";
+	margin-top:25px;
+	margin-left:10px;
+}
+
+.node-type-feature h2.title
+{
+	text-align:left;
+	margin-top:10px;
+	padding:0 50px;
+}
+
+.node-type-feature div.content
+{
+	text-align:left;
+	font-size:1.2em;
+	line-height:1.3em;
+	padding:0 50px;
+}
+
+.node-type-feature div.content img
+{
+	border:0;
+	margin-top:10px;
+}
+
+#bottomNavClose
+{
+	background:#d4d4dd url(../images/icons/cancel.png) center center no-repeat;
+	background-color:#d4d4dd !important;
+}
+
+#bottomNavClose:hover
+{
+	background-position:center center;
+}
+
+#hoverNav #nextLink
+{
+	background:url(../images/icons/arrow_right.png) center center no-repeat;
+}
+
+#hoverNav #prevLink
+{
+	background:url(../images/icons/arrow_left.png) center center no-repeat;
+}
+
+#block-feedback-form div.content
+{
+	background:#d4d4dd;
+	color:#000;
+}
+
+#sidebar-right #block-block-1.block,#sidebar-right #block-block-1 .content, #sidebar-right #block-melodev-8.block,#sidebar-right #block-melodev-8 .content,#sidebar-left #block-views-clique_picture-block_1.block,#sidebar-left #block-views-clique_picture-block_1 .content
+{
+	background:transparent;
+	border:none;
+	padding:0;
+}
+
+#block-melodev-3 td.firstcol,#color_scheme_form .group-scheme-colors input.form-text
+{
+	width:80px;
+}
+
+#content-area,#content-header div.help,body.no-sidebars #main-inner
+{
+	padding:20px;
+}
+
+#menu-611 a /* dunno why */,h1#site-name,div#site-name /* The name of the website */,h1.title,/* The title of the page */
+h2.title,/* Block title or the title of a piece of content when it is given in a list of content */
+h3.title /* Comment title */,#lightbox #modalContainer div
+{
+	margin:0;
+}
+
+#views-bulk-operations-form--1 fieldset,.tribune-posts img,.view-MyMelo table tbody
+{
+	border:0;
+}
+
+#views-bulk-operations-form--1 fieldset select,.attachment-before .view-Stats div.picture,.view-Stats .views-field-picture,.view-MyMelo div.picture,.comment .picture,.attachment-before .view-Stats div.picture,.view-Stats .view-display-id-attachment_1 .views-field-picture,.view-MyMelo div.picture,.comment .picture
+{
+	float:left;
+	margin-right:10px;
+}
+
+.block .view-Folders td.views-field-title,#color_scheme_form #edit-title-wrapper,.view-Stats table
+{
+	width:100%;
+}
+
+.byLine,.view-Relationships .flag-message
+{
+	display:none;
+}
+
+.comment span.gspot-re a:hover,ul.nice-menu a.active,ul.nice-menu a:hover
+{
+	text-decoration:none;
+}
+
+.mymelo-type-blog,#block-menu-menu-mymelo a.menu-tab-mymelo_content_entries
+{
+	background:url(../images/icons/page_white_text.png) top left no-repeat;
+}
+
+.mymelo-type-favorite,#block-menu-menu-mymelo a.menu-tab-mymelo_content_favorites
+{
+	background:url(../images/icons/star.png) top left no-repeat;
+}
+
+.mymelo-type-folder,div.mymelo-perm-public,#block-menu-menu-mymelo a.menu-tab-mymelo_content_folders
+{
+	background:url(../images/icons/folder.png) top left no-repeat;
+}
+
+.mymelo-type-photo,.Photo,#block-menu-menu-mymelo a.menu-tab-mymelo_content_photos
+{
+	background:url(../images/icons/picture.png) top left no-repeat;
+}
+
+.mymelo-type-poll,.Poll,#block-menu-menu-mymelo a.menu-tab-mymelo_content_polls
+{
+	background:url(../images/icons/chart_bar.png) top left no-repeat;
+}
+
+.node .meta /* Wrapper for submitted and terms data */,p.seemore a
+{
+	font-size:.9em;
+}
+
+.red,.red a,a.red,body .red a,#page #header .red a,.red,.red a,a.red, #sidebar-left .block .red a, #sidebar-right .block .red a
+{
+	color:#c00;
+}
+
+.view-Blogs td.views-field-created,table td.views-field-field-folder-reference-nid,.views-field-last-comment-timestamp
+{
+	font-size:0.8em;
+}
+
+.view-Colors td.views-field-edit-node,.view-MyMelo table td.views-field-created,.view-MyMelo table td.views-field-field-folder-reference-nid
+{
+	width:100px;
+}
+
+ul.links /* Taxonomy links,node links,comment links */,div.messages ul,ul.links,#block-melodev-2 ul,#block-melodev-2 li
+{
+	margin:0;
+	padding:0;
+}
+
+ul.links.inline .first,#block-menu-menu-mymelo ul
+{
+	padding-left:0;
+}
+
+.view-Relationships span.flag-friend a.flag-action,.view-Relationships span.flag-tab a.flag-action
+{
+	background:url(../images/icons/add.png) left top no-repeat;
+}
+
+.view-Relationships span.flag-tab a.unflag-action,.view-Relationships span.flag-tab a.unflag-action,#block-melodev-2 span.flag-tab a.unflag-action
+{
+	background:url(../images/icons/user_delete.png) left top no-repeat;
+}
+
+.view-Relationships.view-display-id-page_2 span.flag-tab a.flag-action,.view-Relationships.view-display-id-page_2 span.flag-tab a.flag-action,#block-melodev-2 span.flag-tab a.flag-action
+{
+	background:url(../images/icons/user_add.png) left top no-repeat;
+}
+
+.node-type-stat .views-field-total {
+  white-space: nowrap;
+}
+
+/*  Admin Links  */
+a.admin-link {
+  background: url(/sites/melodramatic/themes/melo/images/icons/cog.png) left top no-repeat;
+  padding-left: 25px;
+}
+
+#closure-blocks .block-inner ,
+#closure-blocks .block-inner .content {
+  padding: 0;
+  margin: 0;
+}

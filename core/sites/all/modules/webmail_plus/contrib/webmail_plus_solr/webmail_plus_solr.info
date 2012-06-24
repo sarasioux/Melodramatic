@@ -1,0 +1,15 @@
+; $Id: webmail_plus_solr.info,v 1.1.2.5 2009/05/14 18:30:30 firmidea Exp $
+name = Webmail Plus Solr
+package = Webmail Plus
+description = Users Apache Solr to implement email search
+core = 6.x
+dependencies[] = webmail_plus
+dependencies[] = apachesolr
+version = 6.x-1.x-dev
+
+; Information added by drupal.org packaging script on 2009-05-14
+version = "6.x-1.16"
+core = "6.x"
+project = "webmail_plus"
+datestamp = "1242326190"
+

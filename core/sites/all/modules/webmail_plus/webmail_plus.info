@@ -1,0 +1,16 @@
+; $Id: webmail_plus.info,v 1.1.2.10 2009/05/14 18:30:30 firmidea Exp $
+name = Webmail Plus
+package = Webmail Plus
+description = Provides webmail functionality.
+core = 6.x
+dependencies[] = mail_api
+dependencies[] = file
+dependencies[] = file_attach
+version = 6.x-1.x-dev
+stylesheets[print] = 'webmail_plus_print.css'
+; Information added by drupal.org packaging script on 2009-05-14
+version = "6.x-1.16"
+core = "6.x"
+project = "webmail_plus"
+datestamp = "1242326190"
+

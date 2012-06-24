@@ -1,0 +1,13 @@
+name = Simplenews
+description = Send newsletters to subscribed email addresses.
+dependencies[] = taxonomy
+dependencies[] = token
+package = Mail
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-04-17
+version = "6.x-2.0-alpha2"
+core = "6.x"
+project = "simplenews"
+datestamp = "1303029117"
+

@@ -1,0 +1,18 @@
+; $Id: mail_api.info,v 1.6.2.2 2009/05/14 18:39:03 firmidea Exp $
+name = Mail API
+description = Provides an abstraction layer for accessing various mail servers.
+package = Mail API
+core = 6.x
+; Information added by drupal.org packaging script on 2008-03-18
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "mail_api"
+datestamp = "1205798997"
+
+
+; Information added by drupal.org packaging script on 2009-05-14
+version = "6.x-1.7"
+core = "6.x"
+project = "mail_api"
+datestamp = "1242328873"
+

@@ -1,0 +1,49 @@
+/*  poll.css override  */
+
+.poll {
+  padding: 10px;
+}
+#sidebar-left .poll {
+  padding: 0;
+}
+.poll .bar {
+  height: 1em;
+  margin: 1px 0;
+  background-color: #bbb;
+}
+.poll .bar .foreground {
+  background-color: #666b88;
+  height: 1em;
+  float: left; /* LTR */
+}
+.poll .links {
+  text-align: center;
+}
+.poll .percent {
+  text-align: right; /* LTR */
+  font-size: 0.8em;
+}
+.poll .total {
+  text-align: center;
+  font-size: 0.8em;
+}
+.poll .vote-form {
+  text-align: center;
+}
+.poll .vote-form .choices {
+  text-align: left; /* LTR */
+  margin: 0 auto;
+  display: table;
+}
+.poll .vote-form .choices .title {
+  font-weight: bold;
+}
+.node-form #edit-poll-more {
+  margin: 0;
+}
+td.poll-chtext {
+  width: 80%;
+}
+td.poll-chvotes .form-text {
+  width: 85%;
+}

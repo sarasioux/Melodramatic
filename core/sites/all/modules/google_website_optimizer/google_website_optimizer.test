@@ -1,0 +1,109 @@
+<?php
+// $Id: google_website_optimizer.test,v 1.1.2.2 2009/06/23 12:14:27 neochief Exp $
+
+/**
+ * @file
+ * Google Website Optimizer SimpleTests.
+ */
+
+class GWOFunctionalTest extends DrupalWebTestCase {
+  function getInfo() {
+    return array(
+      'name'  => t('Functional tests'),
+      'description'  => t('Assure that Google Website Optimizer works fine.'),
+      'group' => t('Google Website Optimizer'),
+    );
+  }
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp('google_website_optimizer');
+  }
+
+  /**
+   * Implementation of tearDown().
+   */
+  function tearDown() {
+    parent::tearDown();
+  }
+  
+
+  function testAdminOverview() {
+    $this->drupalGet('admin/settings/google_website_optimizer');
+    $this->assertResponse(403, t('Make sure access is denied for non-admin.'));
+
+    $admin = $this->drupalCreateUser(array('administer google_website_optimizer'));
+    $this->drupalLogin($admin);
+    $this->drupalGet('admin/settings/google_website_optimizer');
+    $this->assertRaw(t('No tests found. Click here to <a href="!create-test-url">create a new test</a>.', array('!create-test-url' => url('admin/settings/google_website_optimizer/add'))), 'When no tests in DB, message should appear');
+
+    $test = array(
+      'name' => 'GWO_TEST_new',
+      'test_page_path' => 'node/1',
+      'control_script' => '<script>CONTROL_SCRIPT</script>',
+      'tracking_script' => '<script>TRACKING_SCRIPT</script>',
+      'conversion_page_path' => 'node/2',
+      'conversion_script' => '<script>CONVERSION_SCRIPT</script>',
+    );
+    $this->drupalPost('admin/settings/google_website_optimizer/add', $test, t('Create test'));
+    $this->assertText(t('Test created.'), 'Test Creation [created]');
+    $this->assertRaw('GWO_TEST_new', 'Test Creation [new title presend]');
+
+    $this->assertRaw('admin/settings/google_website_optimizer/edit/1', 'Assure that edit operation present');
+    $test = array(
+      'name' => 'GWO_TEST',
+      'test_page_path' => 'node/1',
+      'control_script' => '<script>CONTROL_SCRIPT</script>',
+      'tracking_script' => '<script>TRACKING_SCRIPT</script>',
+      'variation_page_path' => 'node/3' . "\n" . 'node/4',
+      'variation_tracking_script' => '<script>VARIATION_SCRIPT</script>',
+      'conversion_page_path' => 'node/2',
+      'conversion_script' => '<script>CONVERSION_SCRIPT</script>',
+    );
+    $this->drupalPost('admin/settings/google_website_optimizer/edit/1', $test, t('Update test'));
+    $this->assertText(t('Test updated.'), 'Test Updation [updated]');
+    $this->assertRaw('GWO_TEST', 'Test Updation [new title presend]');
+    $this->assertNoRaw('GWO_TEST_new', 'Test Updation [old title absent]');
+
+    $this->assertRaw('admin/settings/google_website_optimizer/delete/1', 'Assure that delete operation present');
+    $this->drupalGet('admin/settings/google_website_optimizer/delete/1');
+    $this->assertRaw(t('Are you sure you want to delete test @name?', array('@name' => $test['name'])), 'Test Deletion [confirmation present]');
+    $this->drupalPost('admin/settings/google_website_optimizer/delete/1', array(), t('Delete test'));
+    $this->assertRaw(t('Test removed.'), 'Test Deletion [message]');
+
+    $this->drupalPost('admin/settings/google_website_optimizer/add', $test, t('Create test'));
+    
+
+    // TEST SCRIPT PLACING
+    $settings = array(
+      'type' => 'story',
+    );
+
+    $node1 = $this->drupalCreateNode($settings);
+    $node2 = $this->drupalCreateNode($settings);
+    $node3 = $this->drupalCreateNode($settings);
+    $node4 = $this->drupalCreateNode($settings);
+
+    $this->drupalGet('node/1');
+    $this->assertRaw($test['control_script'], 'Control script is present at the tracking page');
+    $this->assertRaw($test['tracking_script'], 'Tracking script is present at the tracking page');
+    $this->assertNoRaw($test['conversion_script'], 'Conversion script is not present at the tracking page');
+    $this->assertNoRaw($test['variation_tracking_script'], 'Variation script is not present at the tracking page');
+
+    $this->drupalGet('node/2');
+    $this->assertNoRaw($test['control_script'], 'Control script is not present at the conversion page');
+    $this->assertNoRaw($test['tracking_script'], 'Tracking script is not present at the conversion page');
+    $this->assertNoRaw($test['variation_tracking_script'], 'Variation script is not present at the conversion page');
+    $this->assertRaw($test['conversion_script'], 'Conversion script is present at the conversion page');
+
+    $this->drupalGet('node/3');
+    $this->assertNoRaw($test['control_script'], 'Control script is not present at the variation page');
+    $this->assertNoRaw($test['tracking_script'], 'Tracking script is not present at the variation page');
+    $this->assertNoRaw($test['conversion_script'], 'Conversion script is not present at the variation page');
+    $this->assertRaw($test['variation_tracking_script'], 'Variation script is present at the variation page');
+
+    $this->drupalGet('node/4');
+    $this->assertRaw($test['variation_tracking_script'], 'Variation script is present at the variation page');
+  }
+}

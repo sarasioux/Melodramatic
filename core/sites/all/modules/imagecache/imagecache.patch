@@ -1,0 +1,24 @@
+Index: imagecache.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/imagecache/imagecache.module,v
+retrieving revision 1.112.2.5
+diff -u -F '^f' -r1.112.2.5 imagecache.module
+--- imagecache.module	19 Aug 2009 20:59:07 -0000	1.112.2.5
++++ imagecache.module	2 Feb 2010 19:27:57 -0000
+@@ -318,7 +318,15 @@ function imagecache_create_url($presetna
+   $args = array('absolute' => TRUE, 'query' => empty($bypass_browser_cache) ? NULL : time());
+   switch (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC)) {
+     case FILE_DOWNLOADS_PUBLIC:
+-      return url($GLOBALS['base_url'] . '/' . file_directory_path() .'/imagecache/'. $presetname .'/'. $path, $args);
++      //
++      // Added logic to support the CDN integration module.
++      //
++      if (module_exists('cdn')) {
++        return url(file_create_url(file_directory_path() . '/imagecache/'. $presetname .'/'. $path), $args);
++      }
++      else {
++        return url($GLOBALS['base_url'] . '/' . file_directory_path() .'/imagecache/'. $presetname .'/'. $path, $args);
++      }
+     case FILE_DOWNLOADS_PRIVATE:
+       return url('system/files/imagecache/'. $presetname .'/'. $path, $args);
+   }

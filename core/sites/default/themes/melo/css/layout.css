@@ -1,0 +1,270 @@
+/** body **/
+  body
+  {
+  }
+
+  #page,
+  #closure-blocks
+  {
+    /*
+     * If you want to make the page a fixed width and centered in the viewport,
+     * this is the standards-compliant way to do that. See also the ie.css file
+     * for the necessary IE5 hack to center a div.
+     */
+    margin-left: auto;
+    margin-right: auto;
+    width: 960px;
+  }
+
+  #page-inner
+  {
+  }
+
+/** header **/
+  #header
+  {
+    height: 136px;
+  }
+
+  #header-inner
+  {
+  }
+
+  #logo-title
+  {
+  }
+
+  #logo
+  {
+    float: left;
+  }
+
+  #site-name
+  {
+    height: 35px;
+  }
+
+  #site-slogan
+  {
+  }
+
+  #header-blocks
+  {
+    clear: both; /* Clear the logo */
+    height: 65px;
+  }
+
+/** main (container for everything else) **/
+  #main
+  {
+    position: relative;
+  }
+
+  #main-inner
+  {
+  }
+
+  body.no-sidebars #main-inner {
+    padding: 20px;
+  }
+
+/** content **/
+  #content,
+  .no-sidebars #content
+  {
+    float: left;
+    width: 920px;
+    margin-left: 0;
+    margin-right: -920px; /* Negative value of #content's width + left margin. */
+    padding: 0; /* DO NOT CHANGE. Add padding or margin to #content-inner. */
+  }
+
+  .sidebar-left #content
+  {
+    width: 750px;
+    margin-left: 200px; /* The width of #sidebar-left. */
+    margin-right: -960px; /* Negative value of #content's width + left margin. */
+  }
+
+  .sidebar-right #content
+  {
+    width: 770px;
+    margin-left: 10px;
+    margin-right: -960px; /* Negative value of #content's width + left margin. */
+  }
+
+  .two-sidebars #content
+  {
+    width: 580px;
+    margin-left: 200px; /* The width of #sidebar-left */
+    margin-right: -780px; /* Negative value of #content's width + left margin. */
+  }
+
+  #content-inner
+  {
+    margin: 0;
+    padding: 0;
+  }
+  
+  body.page-user-register-1 #content {
+    margin-left: 222px;
+    width: 558px;
+    margin-right: -780px; /* Negative value of #content's width + left margin. */
+  }
+  body.page-user-register-1 #sidebar-left {
+    width: 220px;
+    margin-right: -230px;
+  }
+
+  body.page-user-register-2 #content {
+    width: 578px;
+    margin-left: 372px;
+  }
+  body.page-user-register-2 #sidebar-left {
+    width: 372px;
+    margin-right: -382px;
+  }
+
+  body.page-user-register-3 #content {
+    width: 728px;
+    margin-left: 222px;
+  }
+  body.page-user-register-3 #sidebar-left {
+    width: 220px;
+    margin-right: -230px;
+  }
+  
+/** navbar **/
+  #navbar
+  {
+    float: left;
+    width: 100%;
+    margin-left: 0;
+    margin-right: -100%; /* Negative value of #navbar's width + left margin. */
+    padding: 0; /* DO NOT CHANGE. Add padding or margin to #navbar-inner. */
+    height: 500px; /* The navbar can have any arbritrary height. We picked one
+                      that is twice the line-height pluse 1em: 2 x 1.3 + 1 = 3.6
+                      Set this to the same value as the margin-top below. */
+  }
+
+  .with-navbar #content,
+  .with-navbar #sidebar-left,
+  .with-navbar #sidebar-right
+  {
+    margin-top: 0; /* Set this to the same value as the navbar height above. */
+  }
+
+  #navbar-inner
+  {
+  }
+
+  #primary
+  {
+    margin-left: 0px; /* Width of search-box */
+  }
+
+  #secondary
+  {
+    margin-left: 0px; /* Width of search-box */
+  }
+
+  #navbar ul /* Primary and secondary links */
+  {
+    margin: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  #navbar li /* A simple method to get navbar links to appear in one line. */
+  {
+    float: left;
+    padding: 0 1px 0 0;
+  }
+
+  /* There are many methods to get navbar links to appear in one line.
+   * Here's an alternate method: */
+  /*
+  #navbar li
+  {
+    display: inline;
+    padding: 0 10px 0 0;
+  }
+  */
+
+/** sidebar-left **/
+  #sidebar-left
+  {
+    float: left;
+    width: 200px;
+    margin-left: 0;
+    margin-right: -210px; /* Negative value of #sidebar-left's width + left margin. */
+    padding: 0; /* DO NOT CHANGE. Add padding or margin to #sidebar-left-inner. */
+  }
+
+  #sidebar-left-inner
+  {
+    margin: 0 10px 0 0;
+    padding: 0;
+  }
+
+/** sidebar-right **/
+  #sidebar-right
+  {
+    float: left;
+    width: 180px;
+    margin-left: 780px; /* Width of content + sidebar-left. */
+    margin-right: -760px; /* Negative value of #sidebar-right's width + left margin. */
+    padding: 0; /* DO NOT CHANGE. Add padding or margin to #sidebar-right-inner. */
+  }
+
+  #sidebar-right-inner
+  {
+    margin: 0 0 0 10px;
+    padding: 0;
+  }
+
+/** footer **/
+  #footer
+  {
+  }
+
+  #footer-inner
+  {
+  }
+
+/** closure **/
+  #closure-blocks /* See also the #page declaration above that this div shares. */
+  {
+  }
+
+/** Prevent overflowing content **/
+  #header,
+  #content,
+  #navbar,
+  #sidebar-left,
+  #sidebar-right,
+  #footer,
+  #closure-blocks
+  {
+    overflow: visible;
+    word-wrap: break-word; /* A very nice CSS3 property */
+  }
+  
+  #navbar
+  {
+    overflow: visible; /* May need to be removed if using a dynamic drop-down menu */
+  }
+
+  /* If a div.clear-block doesn't have any content after it and its bottom edge
+     touches the bottom of the viewport, Firefox and Safari will mistakenly
+     place several pixels worth of space between the bottom of the div and the
+     bottom of the viewport. Uncomment this CSS property to fix this.
+     Note: with some over-large content, this property might cause scrollbars
+     to appear on the #page div.
+  */
+  /*
+  #page
+  {
+    overflow-y: hidden;
+  }
+  */

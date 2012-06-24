@@ -1,0 +1,344 @@
+<?php
+// $Id: seochecklist.install,v 1.15 2010/05/25 13:13:44 eclipsegc Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the seochecklist module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function seochecklist_schema() {
+  $schema['seo_group'] = array(
+    'description' => 'seo_group',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'description' => 'id',
+        'disp-width' => '4'
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'name',
+        'default' => ''
+      ),
+      'description' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'description',
+        'default' => ''
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+  $schema['seo_checklist'] = array(
+    'description' => 'seo_checklist',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'description' => 'id',
+      ),
+      'group_id' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'group_id',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'name',
+        'default' => '',
+      ),
+      'module' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'module',
+        'default' => '',
+      ),
+      'download' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'download',
+        'default' => '',
+      ),
+      'enable' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'enable',
+        'default' => '',
+      ),
+      'configure' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'configure',
+        'default' => '',
+      ),
+      'order_id' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'description' => 'order id',
+        'default' => 0,
+      ),
+      'completed' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'UNIX timestamp of when this task was completed, or 0 if the task has not yet been completed.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The {user}.uid of the account that completed this task.',
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function seochecklist_install() {
+  drupal_install_schema('seochecklist');
+
+  $task_fields = "(id, group_id, name, module, download, enable, configure, order_id)";
+
+  // Page title tasks
+  db_query("INSERT INTO {seo_group} VALUES (1, 'Page Titles', 'The single most important thing you can do for on-site SEO.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (41, 1, 'Token (required for other modules to function)', 'token', 'http://drupal.org/project/token', 'admin/build/modules', '', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (1, 1, 'Page Title Module', 'page_title', 'http://drupal.org/project/page_title', 'admin/build/modules', 'admin/content/page_title', 2)");
+
+  // URL tasks
+  db_query("INSERT INTO {seo_group} VALUES (2, 'URL paths', 'The second most important thing you can do.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (2, 2, 'Clean URLs - Activate (Usually automatic. Please double-check!)', '', '', '', 'admin/settings/clean-urls', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (5, 2, 'Pathauto Module', 'pathauto', 'http://drupal.org/project/pathauto', 'admin/build/modules', 'admin/build/path/pathauto', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (6, 2, 'Global Redirect Module', 'globalredirect', 'http://drupal.org/project/globalredirect', 'admin/build/modules', '', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (38, 2, 'Path Redirect Module', 'path_redirect', 'http://drupal.org/project/path_redirect', 'admin/build/modules', '', 4)");
+
+  // Search engine account tasks
+  db_query("INSERT INTO {seo_group} VALUES (3, 'Create Search Engine Accounts', 'Set yourself up with the search engines.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (7, 3, 'Get a Google Account - You will need this for several of the steps that follow - <a href=\"https://www.google.com/accounts/NewAccount\">https://www.google.com/accounts/NewAccount</a>', '', '', '', '', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (8, 3, 'Get a Yahoo Account - You will need this for steps that follow - <a href=\"http://www.yahoo.com/r/m7\">http://www.yahoo.com/r/m7</a>', '', '', '', '', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (44, 3, 'Get a Windows Live ID - You will need this for steps that follow - <a href=\"https://signup.live.com/\">https://signup.live.com/</a>', '', '', '', '', 2)");
+
+  // Visitor tracking tasks
+  db_query("INSERT INTO {seo_group} VALUES (4, 'Track your visitors', 'Know where your visitors are coming from and what they do while visiting your site.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (9, 4, 'Google Analytics Module', 'googleanalytics', 'http://drupal.org/project/google_analytics', 'admin/build/modules', 'admin/settings/googleanalytics', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (10, 4, 'Sign in to your Google Analytics Account - <a href=\"http://www.google.com/analytics\">http://www.google.com/analytics</a>', '', '', '', '', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (11, 4, 'Create an Analytics for your website', '', '', '', '', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (12, 4, 'Paste Google Analytics code into Google Analytics Module', '', '', '', '', 4)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (13, 4, 'Authenticate your site with Google Analytics', '', '', '', '', 5)");
+
+  // Page content tasks
+  db_query("INSERT INTO {seo_group} VALUES (5, 'Page content', 'Take control of your page content.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (15, 5, 'Meta Tags Module (AKA Nodewords)', 'nodewords', 'http://drupal.org/project/nodewords', 'admin/build/modules', 'admin/content/nodewords', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (16, 5, 'Scheduler Module', 'scheduler', 'http://drupal.org/project/scheduler', 'admin/build/modules', 'admin/settings/scheduler', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (17, 5, 'HTML Purifier Module', 'htmlpurifier', 'http://drupal.org/project/htmlpurifier', 'admin/build/modules', 'admin/settings/filters/1', 4)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (45, 5, '<a href=\"/sites/all/modules/htmlpurifier/INSTALL.txt\">READ THE INSTALL INSTRUCTIONS!</a> then Download HTML Purifier. You will need
+    3.1.0rc1 or later. - <a href=\"http://htmlpurifier.org/\">http://htmlpurifier.org/</a>', '', '', '', '', 5)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (18, 5, 'Search 404 Module', 'search404', 'http://drupal.org/project/search404', 'admin/build/modules', 'admin/settings/search404', 5)");
+
+  // Source code tasks
+  db_query("INSERT INTO {seo_group} VALUES (6, 'Clean code', 'Well written markup is very important to the search engine spiders.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (19, 6, 'Validate your site - <a href=\"http://validator.w3.org/\">http://validator.w3.org/</a>', '', '', '', '', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (20, 6, 'Check your links - <a href=\"http://validator.w3.org/checklink\">http://validator.w3.org/checklink</a>', '', '', '', '', 2)");
+
+  // XML sitemap tasks
+  db_query("INSERT INTO {seo_group} VALUES (7, 'Submit your Site to the search engines.', 'Now that you\'ve got your site ready for the search engines, tell them about it!')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (47, 7, 'Site Verification Module', 'site_verify', 'http://drupal.org/project/site_verify', 'admin/build/modules', '', 0)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (21, 7, 'XML Sitemap Module', 'xmlsitemap', 'http://drupal.org/project/xmlsitemap', 'admin/build/modules', 'admin/settings/xmlsitemap', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (46, 7, 'Site Map Module - a plain text sitemap', 'site_map', 'http://drupal.org/project/site_map', 'admin/build/modules', 'admin/settings/sitemap', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (22, 7, 'Login to Google Webmaster Tools - <a href=\"http://www.google.com/webmasters/tools\">http://www.google.com/webmasters/tools</a>', '', '', '', '', 5)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (23, 7, 'Authenticate your site with Google (page 26)', '', '', '', '', 7)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (24, 7, 'Submit your XML Sitemap to Google - <a href=\"http://www.google.com/webmasters/sitemaps/\">http://www.google.com/webmasters/sitemaps/</a>', '', '', '', '', 9)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (25, 7, 'Login to Yahoo Site Explorer Account - <a href=\"https://siteexplorer.search.yahoo.com/\">https://siteexplorer.search.yahoo.com/</a>', '', '', '', '', 11)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (26, 7, 'Authenticate your site with Yahoo', '', '', '', '', 13)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (27, 7, 'Submit your XML Sitemap to Yahoo - <a href=\"https://siteexplorer.search.yahoo.com/submit\">https://siteexplorer.search.yahoo.com/submit</a>', '', '', '', '', 15)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (42, 7, 'Login to Bing - <a href=\"http://www.bing.com/webmaster/\">http://www.bing.com/webmaster/</a>', '', '', '', '', 17)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (43, 7, 'Authenticate your site with Bing', '', '', '', '', 19)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (28, 7, 'Submit your XML Sitemap to Bing - <a href=\"http://www.bing.com/webmaster/WebmasterAddSitesPage.aspx\">http://webmaster.live.com/webmaster/WebmasterAddSitesPage.aspx</a>', '', '', '', '', 21)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (29, 7, 'If appropriate, submit your company to Google Local Business Center - <a href=\"https://www.google.com/local/add/login\">https://www.google.com/local/add/login</a>', '', '', '', '', 23)");
+
+  // Social links tasks
+  db_query("INSERT INTO {seo_group} VALUES (8, 'Social Media', 'Using Social news sites, blogs, etc? Consider these:')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (30, 8, 'Digg This Module', 'diggthis', 'http://drupal.org/project/diggthis', 'admin/build/modules', 'admin/settings/diggthis', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (31, 8, 'Service Links Module', 'service_links', 'http://drupal.org/project/service_links', 'admin/build/modules', 'admin/settings/service_links', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (32, 8, 'Trackback Module', 'trackback', 'http://drupal.org/project/trackback', 'admin/build/modules', 'admin/settings/trackback', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (48, 8, 'Activity Stream Module', 'activitystream', 'http://drupal.org/project/activitystream', 'admin/build/modules', '', 4)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (49, 8, 'Add to Any Module', 'addtoany', 'http://drupal.org/project/addtoany', 'admin/build/modules', '', 5)");
+
+  // Spam tasks
+  db_query("INSERT INTO {seo_group} VALUES (9, 'Protect your site from Spam', 'If your site will get heavy use from visitors creating accounts, commenting and/or creating content then consider these. NOTE: Most sites just need Mollom. The other modules are here in case Mollom does not work for you for some reason.')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (40, 9, 'HIGHLY RECOMMENDED: Sign up for Mollom\'s free service and get Mollom code - <a href=\"http://mollom.com/user/register\"> http://mollom.com/user/register</a>', '', '', '', '', 0)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (39, 9, 'HIGHLY RECOMMENDED: Mollom Module', 'mollom', 'http://drupal.org/project/mollom', 'admin/build/modules', 'admin/settings/mollom', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (33, 9, 'Captcha Module', 'captcha', 'http://drupal.org/project/captcha', 'admin/build/modules', 'admin/user/captcha', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (34, 9, 'Akismet Module', 'akismet', 'http://drupal.org/project/akismet', 'admin/build/modules', 'admin/settings/akismet', 3)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (36, 9, 'Spam Module', 'spam', 'http://drupal.org/project/spam', 'admin/build/modules', 'admin/settings/spam', 4)");
+
+  // Geographic tasks
+  db_query("INSERT INTO {seo_group} VALUES (10, 'Geographic', '')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (50, 10, 'hCard Module', 'hcard', 'http://drupal.org/project/hcard', 'admin/build/modules', '', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (51, 10, 'Use the Meta Tags module to add geo meta tags to your site.', '', '', '', '', 2)");
+
+  // Optional (but helpful) tasks
+  db_query("INSERT INTO {seo_group} VALUES (11, 'Optional (but helpful)', '')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (52, 11, 'Vertical Tabs Module', 'vertical_tabs', 'http://drupal.org/project/vertical_tabs', 'admin/build/modules', '', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (53, 11, 'Administration Menu', 'admin_menu', 'http://drupal.org/project/admin_menu', 'admin/build/modules', '', 2)");
+
+  // Performance tasks
+  db_query("INSERT INTO {seo_group} VALUES (12, 'Performance', '')");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (54, 12, 'Turn on Drupal\'s built in caching.', '', '', '', 'admin/settings/performance/default', 1)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (55, 12, 'Boost Module', 'boost', 'http://drupal.org/project/boost', 'admin/build/modules', 'admin/settings/performance/boost', 2)");
+  db_query("INSERT INTO {seo_checklist} $task_fields VALUES (56, 12, 'Authcache Module', 'authcache', 'http://drupal.org/project/authcache', 'admin/build/modules', '', 3)");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function seochecklist_uninstall() {
+  drupal_uninstall_schema('seochecklist');
+  variable_del('seo_checklist_link');
+  variable_del('seo_checklist_thanks');
+  variable_del('seo_checklist_podcast');
+  variable_del('seo_checklist_book_references');
+}
+
+/**
+ * Update from 6.x-1.x to 6.x-2.x.
+ */
+function seochecklist_update_6001() {
+  $ret = array();
+
+  $query = db_query("SELECT linked_seo FROM {seo_checklist} ORDER BY id DESC LIMIT 1");
+  $result = db_fetch_object($query);
+  variable_set('seo_checklist_link', intval($result->linked_seo));
+
+  $query = db_query("SELECT extra2, extra3 FROM {seo_checklist} WHERE id = 1");
+  $result = db_fetch_object($query);
+  variable_set('seo_checklist_thanks', intval($result->extra2));
+  variable_set('seo_checklist_podcast', intval($result->extra3));
+
+  db_drop_field($ret, 'seo_checklist', 'extra2');
+  db_drop_field($ret, 'seo_checklist', 'extra3');
+  db_drop_field($ret, 'seo_checklist', 'linked_seo');
+  db_drop_field($ret, 'seo_group', 'subgroup');
+  db_drop_table($ret, 'seo_subgroup');
+
+  return $ret;
+}
+
+/**
+ * Fix the link in the clean URL task.
+ */
+function seochecklist_update_6202() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'Clean URLs - Activate (Usually automatic. Please double-check!)', configure = 'admin/settings/clean-urls' WHERE id = 2");
+  return $ret;
+}
+
+/**
+ * Update from Live to Bing and fix links.
+ */
+function seochecklist_update_6203() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'Get a Windows Live ID - You will need this for steps that follow - <a href=\"https://signup.live.com/\">https://signup.live.com/</a>' WHERE id = 44");
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'Login to Bing - <a href=\"http://www.bing.com/webmaster/\">http://www.bing.com/webmaster/</a>', order_id = 17 WHERE id = 42");
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'Authenticate your site with Bing', order_id = 19 WHERE id = 43");
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'Submit your XML Sitemap to Bing - <a href=\"http://www.bing.com/webmaster/WebmasterAddSitesPage.aspx\">http://webmaster.live.com/webmaster/WebmasterAddSitesPage.aspx</a>', order_id = 21 WHERE id = 28");
+  $ret[] = update_sql("UPDATE {seo_checklist} SET module = 'xmlsitemap' WHERE id = 21");
+  return $ret;
+}
+
+/**
+ * Convert the date_changed and option_checked fields into one UNIX completed
+ * field.
+ */
+function seochecklist_update_6204() {
+  $ret = array();
+
+  db_add_field($ret, 'seo_checklist', 'completed', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'UNIX timestamp of when this task was completed.',
+  ));
+
+  $query = db_query("SELECT id, date_changed FROM {seo_checklist} WHERE option_checked <> 0");
+  while ($record = db_fetch_object($query)) {
+    $record->changed = strtotime($record->date_changed);
+    if (!$record->changed) {
+      $record->changed = time();
+    }
+    $ret[] = update_sql("UPDATE {seo_checklist} SET completed = {$record->changed} WHERE id = {$record->id}");
+  }
+
+  db_drop_field($ret, 'seo_checklist', 'date_changed');
+  db_drop_field($ret, 'seo_checklist', 'option_checked');
+  db_drop_field($ret, 'seo_checklist', 'checked_module');
+
+  return $ret;
+}
+
+/**
+ * Remove the {seo_checklist}.subgroup_id field and add {seo_checklist}.uid.
+ */
+function seochecklist_update_6205() {
+  $ret = array();
+  db_drop_field($ret, 'seo_checklist', 'subgroup_id');
+  db_add_field($ret, 'seo_checklist', 'uid', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'The {user}.uid of the account that completed this task.',
+  ));
+  $ret[] = update_sql("UPDATE {seo_checklist} SET module = LOWER(module)");
+  return $ret;
+}
+
+/**
+ * Fixed the link to Google Local Business Center.
+ */
+function seochecklist_update_6206() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {seo_checklist} SET name = 'If appropriate, submit your company to Google Local Business Center - <a href=\"https://www.google.com/local/add/login\">https://www.google.com/local/add/login</a>' WHERE id = 29");
+  return $ret;
+}
+
+function seochecklist_update_6207() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {seo_group} SET name = 'Social Media' WHERE id = 8");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (47, 7, 'Site Verification Module', 'site_verify', 'http://drupal.org/project/site_verify', 'admin/build/modules', '', 0)");
+  $ret[] = update_sql("INSERT INTO {seo_group} VALUES (10, 'Geographic', '')");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (50, 10, 'hCard Module', 'hcard', 'http://drupal.org/project/hcard', 'admin/build/modules', '', 1)");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (51, 10, 'Use the Meta Tags module to add geo meta tags to your site.', '', '', '', '', 2)");
+  $ret[] = update_sql("INSERT INTO {seo_group} VALUES (11, 'Optional (but helpful)', '')");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (52, 11, 'Vertical Tabs Module', 'vertical_tabs', 'http://drupal.org/project/vertical_tabs', 'admin/build/modules', '', 1)");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (53, 11, 'Administration Menu', 'admin_menu', 'http://drupal.org/project/admin_menu', 'admin/build/modules', '', 2)");
+  $ret[] = update_sql("INSERT INTO {seo_group} VALUES (12, 'Performance', '')");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (54, 12, 'Turn on Drupal\'s built in caching.', '', '', '', 'admin/settings/performance/default', 1)");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (55, 12, 'Boost Module', 'boost', 'http://drupal.org/project/boost', 'admin/build/modules', 'admin/settings/performance/boost', 2)");
+  $ret[] = update_sql("INSERT INTO {seo_checklist} (id, group_id, name, module, download, enable, configure, order_id) VALUES (56, 12, 'Authcache Module', 'authcache', 'http://drupal.org/project/authcache', 'admin/build/modules', '', 3)");
+  return $ret;
+}

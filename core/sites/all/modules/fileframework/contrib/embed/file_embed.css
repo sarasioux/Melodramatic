@@ -1,0 +1,13 @@
+.embed-right {
+  float: right;
+}
+
+.embed-left {
+  float: left;
+}
+
+.embed-caption {
+  text-align: center;
+  font-size: x-small;
+}
+

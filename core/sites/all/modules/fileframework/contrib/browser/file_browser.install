@@ -1,0 +1,42 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File browser module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_browser_enable() {
+  drupal_set_message(t('File browser module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/browser'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_browser_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_browser_uninstall() {
+  variable_del('file_browser_blocks');
+  variable_del('file_browser_vocabularies_all');
+  variable_del('file_browser_vocabularies');
+  variable_del('file_browser_hide_empty');
+  variable_del('file_browser_embed_previews');
+  variable_del('file_browser_folder_properties');
+  variable_del('file_browser_folder_links');
+  variable_del('file_browser_og_vocabularies');
+  variable_del('file_browser_og_upload');
+  variable_del('file_browser_og_preview');
+  variable_del('file_browser_og_unfiled');
+  variable_del('file_browser_og_create');
+  variable_del('file_browser_location_preview');
+}
+

@@ -1,0 +1,521 @@
+<?php
+// $Id: languageinterface.module,v 1.22 2011/01/23 20:29:46 aaronhawkins Exp $
+/**
+ * @file
+ * Creates a language switcher for Drupal 6
+ */
+
+/*
+ * We don't use hook_init here, because then it wouldn't be called on cached pages.
+ * We don't use hook_boot, because some essential info isn't available that early in the page build.
+ */
+if (variable_get('language_redirect', 0) == 1) {
+  $referrer = $_SERVER["HTTP_REFERER"];
+  $lastlanguage = '';
+  global $language;
+  global $base_url;
+  $fullurl = $_SERVER['QUERY_STRING'];
+  $fullurl = str_replace('q=', '', $fullurl);
+  $lastviewed = $_SESSION['cli']['source'];     
+  if (is_numeric(strpos($referrer, $base_url)) || $lastviewed == 'goto') {
+    $internalref = TRUE;
+  }
+  else {
+    $internalref = FALSE;
+  }
+  if ($internalref == FALSE) {
+    // The user arrived through an external source
+    $lastlanguage = $_SESSION['cli']['lang'];
+    if (!empty($lastlanguage) && $lastviewed != 'goto') {
+      $languagepath = languagepath($lastlanguage);
+      if (empty($languagepath['domain'])) {
+        $languagepath = $base_url.'/'.$languagepath['path'];
+      }
+      else {
+        $languagepath = $languagepath['path'];
+      }
+      $_SESSION['cli']['source'] = 'goto';
+      drupal_goto($languagepath);
+    }
+  }
+  if ($internalref == TRUE) {
+    // The user is clicking on a link to navigate
+    $_SESSION['cli'] = array();
+    $_SESSION['cli']['lang']   = array();
+    $_SESSION['cli']['source'] = array();
+    $_SESSION['cli']['lang']   = $language->language;
+    $_SESSION['cli']['source'] = 'int';
+  }
+}
+
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function languageinterface_menu() {
+  $items['admin/settings/language-interface'] = array(
+    'title' => t('Consistent Language Interface Options'),
+    'description' => t('Language Interface Options'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('languageinterface_options'),
+    'access arguments' => array('administer languages'),
+    'type' => MENU_NORMAL_ITEM,  
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_block().
+ */
+
+function languageinterface_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Consistent Language Interface block');
+      $blocks[0]['cache'] = BLOCK_NO_CACHE;
+    return $blocks;
+    
+    case 'view':
+      $block['subject'] = t('Language'); 
+      $block['content'] = language_link_creation();
+  }
+  //end switch ($op)
+  return $block;
+}
+
+function languagepath($lang) {
+  $new_path_array = array();
+  $new_path_options['language'] = $lang;
+  
+  
+  //We get the full url of the page.
+  $fullurl = $_SERVER['QUERY_STRING'];
+  
+  $fullurl = str_replace('q=', '', $fullurl);
+    
+  // We convert the url into an array.
+  $urlarray = explode('/', $fullurl);
+
+  
+  global $language;
+  // We check to see if there is an empty space in the url and remove it if so.
+  if ($urlarray[0] == "") {
+    array_shift($urlarray);
+  }
+  // We check to see if there is a language string in the url and remove it if so.
+  if ($urlarray[0] == $language->prefix) {
+    array_shift($urlarray);
+  }
+  
+  $thislang = db_fetch_object(db_query("SELECT * FROM {languages} WHERE language = '%s'", $lang));
+  
+  $prefix = $thislang->prefix;
+  // We determine if we are looking at a node or some other kind of page.
+  if ((arg(0) == 'node') && (is_numeric(arg(1)))) {
+    $areatype = 'node';
+    $node_nid = arg(1);
+    array_shift($urlarray);
+    array_shift($urlarray);
+  
+    //Since the page is a node we remove two more items from the array
+    //so that the "node/" and the nid are left out.
+    // Since we have determined this to be a node we get the tnid to work with later.
+    
+    $tnid = db_result(db_query("SELECT tnid FROM {node} WHERE nid = %d", $node_nid));
+    if ($tnid) {
+      $translation_nid = specific_translation_exist($tnid, $lang);
+      $destination_nid = $translation_nid;
+    }
+    else {
+      $destination_nid = $node_nid;
+    }
+    $new_path_array['node_path'] = 'node/'.$destination_nid;    
+  }
+  // Endif (current page is node)
+
+  $remaining = implode("/", $urlarray);
+  if ($remaining) {
+    if (strpos('?',$remaining)) {
+      //Some querystrings start with a question mark others start with an &
+      $pre_query = explode('?', $remaining);
+      $new_path_array['remaining'] = $pre_query[0];
+      $query = $pre_query[1];
+    }
+    else {
+      $remaining = explode('&', $remaining);
+      $remaining_pre = $remaining[0];
+      array_shift($remaining);
+      $query = implode('&',$remaining);
+      $remaining = $remaining_pre;     
+    }
+    if ($query) {
+      $link['query'] = $query;
+    }
+    if (!empty($remaining)) {
+      $new_path_array['remaining'] = $remaining;
+    }
+  }
+  $link['path'] = implode('/',$new_path_array);
+  $alias = FALSE;
+  // We look up the alias without the prefix. Otherwise it doesn't work.
+  if ($translation_nid || $destination_nid == $node_nid) {
+    $alias = drupal_lookup_path('alias', $link['path'], $lang);
+    if ($alias != FAlSE) {
+      $link['path'] = $alias;
+    }
+  }
+  
+  if (!empty($prefix)) {
+    // If no alias is returned we add the prefix so that the interface will be translated
+    // If there is no tranlation existing then we 
+    $link['path'] = $prefix.'/'.$link['path'];
+  }
+  if (!empty($thislang->domain)) {
+    // If we are using a domain we put the domain in front of the path.
+    $link['path']     = 'http://'.$thislang->domain.'/'.$link['path'];
+    $link['absolute'] = TRUE;
+    $link['domain']   = $thislang->domain; 
+  }
+  return $link;
+}
+
+function specific_translation_exist($tnid = NULL, $lang) {
+  $lang_nid = db_result(db_query("SELECT nid FROM {node} WHERE language = '%s' AND tnid = %d ",$lang, $tnid));
+  if (!$lang_nid) {
+    $lang_nid = $tnid;
+  }
+  return $lang_nid;
+}
+
+/**
+ * Return an array of enabled languages ordered by weight so that the order of the flags can be customized
+ */
+function get_enabled_languages(){
+  $result = db_query('SELECT language FROM {languages} WHERE enabled = 1 ORDER BY weight ASC');
+  while ($enabled_languages = db_fetch_object($result)) {
+    $languages[] = $enabled_languages->language; 
+  }
+  return $languages;
+}
+
+function language_link_creation() {
+  
+  $customdimensions = variable_get('custom_flag_dimensions', '16x12');
+  $customdimensions = explode('x', $customdimensions);
+  $flagwidth        = $customdimensions[0]; 
+  $flagheight       = $customdimensions[1];
+  $defaultflagpath  = drupal_get_path('module', 'languageinterface') .'/flags/*.png' ;
+  $flagpath         = variable_get('custom_flag_path', $defaultflagpath);
+  if ($flagpath == '') {
+    $flagpath = $defaultflagpath;
+  }
+  $textoptions      = variable_get('languageinterface_text', 'post');
+  $languages = get_enabled_languages();
+  $languagetext = variable_get('tl', '');
+  
+  $tbl = variable_get('tbl', '');
+  $tal = variable_get('tal', '');
+  //$tbl = Text before language icon
+  //$tal = Text after language icon
+  global $base_url;
+  foreach ($languages as $lang) {
+    $path_array = languagepath($lang);
+    if ($lang == currentlanguage()) {
+      $activeclass = TRUE;
+    }
+    else {
+      $activeclass = FALSE;
+    }
+    
+    $src = $base_url .'/'. str_replace('*', $lang, $flagpath);
+    $text = '';
+    
+    $defaulttext = db_result(db_query("SELECT native FROM {languages} WHERE language = '%s'", $lang));
+   
+    if (!empty($languagetext[$lang])) {
+      $ltext = $languagetext[$lang];
+    }
+    else {
+      $ltext = $defaulttext;
+    }
+    
+    if (!empty($tbl[$lang]) && empty($tal[$lang])) {
+      $text = $tbl[$lang] .' '. $ltext;
+    }
+    if (!empty($tal[$lang]) && empty($tbl[$lang])) {
+      $text = $ltext .' '. $tal[$lang];
+    }
+    if (!empty($tal[$lang]) && !empty($tbl[$lang])) {
+      $text = $tbl[$lang] .' '. $ltext .' '. $tal[$lang];
+    }
+     if (empty($tal[$lang]) && empty($tbl[$lang])) {
+      $text = $ltext;
+    }
+   
+    $links[$lang]['text']       = check_plain($text);
+    $links[$lang]['src']        = $src;
+    $links[$lang]['flagheight'] = $flagheight;
+    $links[$lang]['flagwidth']  = $flagwidth;
+    $links[$lang]['position']   = $textoptions;
+    $links[$lang]['path']       = $path_array['path'];
+    $links[$lang]['absolute']   = $path_array['absolute'];
+    $links[$lang]['query']      = $path_array['query'];
+    $links[$lang]['active']     = $activeclass;
+    $links[$lang]['language']   = $lang; 
+  }
+  //End foreach.
+  return theme('languageswitcher', $links);
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function languageinterface_theme() {
+  return array(
+    'languageswitcher' => array(
+      'arguments' => array('links' => NULL ),
+    ),
+  );
+}
+/**
+ * Create a themable language switcher
+ */
+function theme_languageswitcher($links) {
+  /*
+   Here we are manually creating a unordered list due to the fact that
+   theme('item_list') does not assign language specific active classes correctly.
+   The $classes variable is also directly fed to the l() function for the same reason.
+  */
+  $output = '<ul id="language-interface">';
+  foreach ($links as $link) {
+    $classes = '';
+    if ($link['active'] == TRUE) {
+      $classes = 'active'.' '. $link['language'] ;
+    }
+    else {
+      $classes = $link['language'] ;
+    }
+    if ($link['position'] != 'no_image') {
+      $flag = '<img src="'. $link['src'] .'" width = "'. $link['flagwidth'] .'" height = "'. $link['flagheight'] .'" class="'. $classes .'" alt="'. $link['text'] .'"/>';
+    }
+    if ($link['position'] != 'no_text') {
+      $text = $link['text'];
+    }
+    switch ($link['position']) {
+      case 'pre':
+      $display = $text.' '.$flag;
+      break;
+        
+      case 'post';
+      $display = $flag.' '.$text;
+      break;  
+        
+      case 'no_text';
+      $display = $flag;
+      break;    
+        
+      case 'no_image';
+      $display = $text;
+      break;    
+    }
+    // end switch
+    $options['html']                = TRUE;
+    $options['attributes']['class'] = $classes;      
+    $options['language']            = $link['language'];
+    $options['query']               = $link['query'];
+    $options['absolute']            = $link['absolute'];
+    $options['external']            = $link['absolute'];
+    $output .= '<li class="'. $classes .'">'. l($display, $link['path'], $options) .'</li>';
+  }
+  $output .= '</ul>';
+  return $output;
+}
+
+function languageinterface_options() {
+  $customdimensions = variable_get('custom_flag_dimensions', '16x12');
+  $customdimensions = explode('x', $customdimensions);
+  $flagwidth = $customdimensions[0]; 
+  $flagheight = $customdimensions[1];
+  $langsettings = variable_get('language_negotiation', '0');
+  if ($langsettings == '0' || $langsettings == '3') {
+    drupal_set_message(t('Language Negotiation must be set to "Path Prefix" or "Path Prefix with language fallback" for the language swithcher to work. <br /> To change this setting please go to: ').l('admin/settings/language/configure', 'admin/settings/language/configure'), $type = 'error', $repeat = FALSE);
+  }
+  $form['flag_text_config'] = array(
+    '#type' => 'radios',
+    '#title' => t('Text Options'),
+    '#options' => array('pre' => t('Text Before Flag'), 'post' => t('Text After Flag'), 'no_text' => t('Flag only (No text)'), 'no_image' => t('Text only (No flag)')),
+    '#default_value' => variable_get('languageinterface_text', 'post'),
+    '#description' => t('Choose how you want the language text and flags to display.'),
+  );
+  $form['language_order'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Language weights'),
+    '#tree' => TRUE,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#description' => t('Choose the order in which the language switching links will appear.'),
+  );
+  $form['language_text'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Pre and post language text'),
+    '#tree' => TRUE,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#description' => t('Optional text before or after language name.'),
+  );
+  $enabled = get_enabled_languages();
+  $form['language_order']['lang_weight'] = array('#tree' => TRUE);
+  $form['language_text']['pretext'] = array('#tree' => TRUE);
+  $form['language_text']['posttext'] = array('#tree' => TRUE);
+  $form['language_text']['text'] = array('#tree' => TRUE);
+  $tal = variable_get('tal', '');
+  $tbl = variable_get('tbl', '');
+  $tl  = variable_get('tl', '');
+  foreach ($enabled as $lang) {
+    $text = db_result(db_query('SELECT native FROM {languages} WHERE language = "%s"', $lang));
+    if (!empty($tl[$lang])) {
+      $tldef = $tl[$lang];
+    }
+    else {
+      $tldef = $text;
+    }
+    $currentweight = db_result(db_query('SELECT weight FROM {languages} WHERE language = "%s"', $lang));
+    $form['language_order']['lang_weight'][$lang] = array(
+      '#type' => 'weight',
+      '#title' => $text,
+      '#delta' => 10, 
+      '#default_value' => $currentweight,
+    );
+  $form['language_text']['text'][$lang] = array(
+      '#type' => 'textfield',
+      '#title' => t('Language display for') .' '. $text,
+      '#default_value' => $tldef,
+      '#size' => 80,
+      '#description' => t('How the language will display in the link. Useful in situations where the language name should change in the context of the text before it or after it. Example: "Version Fran&ccedil;aise" where the "e" is needed because "version" is feminine.'),
+    );
+   $form['language_text']['pretext'][$lang] = array(
+      '#type' => 'textfield',
+      '#title' => t('Text before language for') .' '. $text,
+      '#default_value' => $tbl[$lang],
+      '#size' => 80,
+      '#description' => t('Text before language. Example: to show "View page in English" Rather than just "English" enter "View page in".'),
+    );
+    $form['language_text']['posttext'][$lang] = array(
+      '#type' => 'textfield',
+      '#title' => t('Text after language for') .' '. $text,
+      '#default_value' => $tal[$lang],
+      '#size' => 80,
+      '#description' => t('Text after language. Example: to show "English version" Rather than just "English" enter "version"'),
+    );
+  }
+    
+   // end foreach
+  $default_flagpath = variable_get('custom_flag_path', drupal_get_path('module', 'languageinterface').'/flags/*.png');
+  if ($default_flagpath == "") {
+    $default_flagpath = drupal_get_path('module', 'languageinterface').'/flags/*.png';
+  }
+  $form['custom_flag_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Custom path to flag icons'),
+    '#default_value' => $default_flagpath,
+    '#size' => 80,
+    '#maxlength' => 180,
+    '#description' => t('Path for language flags, relative to Drupal installation. \'*\' is a placeholder for language code. If you wish to change the image type for the flag be sure to replace the png with the correct file type.'),
+  );
+  $form['custom_dimensions'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Custom Flag Dimensions'),
+    '#tree' => TRUE,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#description' => t('Choose the width and height of the flag icons.'),
+  );
+  $form['custom_dimensions']['flagwidth'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#tree' => TRUE,
+    '#default_value' => $flagwidth,
+     );
+  $form['custom_dimensions']['flagheight'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#tree' => TRUE,
+    '#default_value' => $flagheight,
+     );
+  $form['redirect'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Redirect returning visitors to last viewed language'),
+    '#default_value' => variable_get('language_redirect', 0),
+  );
+  $form['reset_all'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Reset configuration'),
+    '#default_value' => 0,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save Settings'),
+  );
+  return $form;
+}
+
+function languageinterface_options_submit($form, &$form_state) {
+  if ($form_state['values']['reset_all'] == 0) {
+    variable_set('language_redirect', $form_state['values']['redirect']);
+
+    $enabledlanguages = get_enabled_languages();
+    foreach($enabledlanguages as $lang) {
+      $pretext[$lang]  = $form_state['values']['language_text']['pretext'][$lang];
+      $text[$lang] = $form_state['values']['language_text']['text'][$lang];
+      $posttext[$lang] = $form_state['values']['language_text']['posttext'][$lang];
+      
+      
+      $weight = $form_state['values']['language_order']['lang_weight'][$lang];
+      db_query('UPDATE {languages} SET weight = %d WHERE language = "%s"', $weight, $lang);
+    }
+   
+    if (!empty($pretext)) {
+      variable_set('tbl', $pretext);
+    }
+    else {
+      variable_del('tbl');
+    }
+     if (!empty($text)) {
+      variable_set('tl', $text);
+    }
+    else {
+      variable_del('tl');
+    }
+    if (!empty($posttext)) {
+      variable_set('tal', $posttext);
+    }
+    else {
+      variable_del('tal');
+    }
+    if (!empty($form_state['values']['custom_dimensions']['flagwidth']) && !empty($form_state['values']['custom_dimensions']['flagheight'])) {
+      $dimensions = check_plain($form_state['values']['custom_dimensions']['flagwidth']) .'x'. check_plain($form_state['values']['custom_dimensions']['flagheight']) ;
+      variable_set('custom_flag_dimensions', $dimensions);
+    }
+    else {
+      $dimensions = '16x12';
+      variable_set('custom_flag_dimensions', $dimensions);
+    }
+    variable_set('languageinterface_text',$form_state['values']['flag_text_config']);
+    variable_set('custom_flag_path', check_plain($form_state['values']['custom_flag_path']));
+  }
+  if ($form_state['values']['reset_all'] == 1) {
+    variable_set('languageinterface_text', 'post');
+    variable_set('custom_flag_path',  drupal_get_path('module', 'languageinterface') .'/flags/*.png');
+    variable_set('custom_flag_dimensions', '16x12');
+    variable_del('tbl');
+    variable_del('tal');
+    variable_del('tl');
+  }
+  drupal_set_message(t('Your configuration settings have been saved'), $type = 'status', $repeat = FALSE);
+}
+
+function currentlanguage(){
+  global $language;
+  return $language->language;
+}

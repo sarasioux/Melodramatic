@@ -1,0 +1,541 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Supports image file formats.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_IMAGE_USE_IMAGE_MAGIC',      variable_get('file_image_use_image_magic', 0));
+define('FILE_IMAGE_PREVIEW_RESOLUTION',   variable_get('file_image_preview_resolution', '640x640'));
+define('FILE_IMAGE_MEDIUM_RESOLUTION',    variable_get('file_image_medium_resolution', '300x300'));
+define('FILE_IMAGE_THUMBNAIL_RESOLUTION', variable_get('file_image_thumbnail_resolution', '120x120'));
+define('FILE_IMAGE_EXIF',                 variable_get('file_image_exif', 1));
+define('FILE_IMAGE_GEO',                  variable_get('file_image_geo', 1));
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_init().
+ */
+function file_image_init() {
+  foreach (explode("\n", variable_get('file_image_custom_previews', '')) as $line) {
+    $line = trim(preg_replace('/\s+/', ' ', $line));
+    if (!empty($line) && !preg_match('/^#/', $line)) {
+      list($resolution, $handler, $name) = explode(' ', $line, 3);
+      if (!empty($handler)) {
+        eval('
+	  function file_image_'. $handler .'_render($uri, $options = array()) {
+	    $options = array_merge($options, _file_image_render_options($uri, $options));
+	    return theme(\'file_image_image_render\', $options);
+	  }
+	');
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_image_theme() {
+  return array(
+    'file_image_admin_settings' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'file_image.theme.inc'
+    ),
+    'file_image_image_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_image.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_image_menu() {
+  return array(
+    'admin/settings/file/format/image' => array(
+      'title' => 'Images',
+      'description' => 'Manage the image files.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_image_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_image.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function file_image_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'insert':
+      if (module_exists('location') && $node->type == 'file' && !empty($node->file) && preg_match('/^image\//', $node->file->type) && isset($node->locations) && isset($node->locations[0]['locpick']) && empty($node->locations[0]['locpick']['user_latitude']) && empty($node->locations[0]['locpick']['user_longitude'])) {
+        $data = rdf_normalize(rdf_query($node->file->uri, NULL, NULL, array('repository' => FILE_RDF_REPOSITORY)));
+        $namespaces = rdf_get_namespaces();
+        if (($lat = isset($data[$node->file->uri][rdf_qname_to_uri('geo:lat', $namespaces, FALSE)]) ? $data[$node->file->uri][rdf_qname_to_uri('geo:lat', $namespaces, FALSE)][0] : NULL) && ($long = isset($data[$node->file->uri][rdf_qname_to_uri('geo:long', $namespaces, FALSE)]) ? $data[$node->file->uri][rdf_qname_to_uri('geo:long', $namespaces, FALSE)][0] : NULL)) {
+          $node->locations[0]['locpick']['user_latitude'] = $lat;
+          $node->locations[0]['locpick']['user_longitude'] = $long;
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function file_image_link($type, $node = NULL, $teaser = FALSE) {
+  $links = array();
+  if ($type == 'node' && $node->type == 'file' && !empty($node->file) && preg_match('/^image\//', $node->file->type)) {
+    if (!empty($node->file->uri)) {
+      $width = ($width = rdf_value($node->file->uri, rdf_qname_to_uri('exif:width'), NULL, array('repository' => FILE_RDF_REPOSITORY))) ? $width->value : NULL;
+      $height = ($height = rdf_value($node->file->uri, rdf_qname_to_uri('exif:height'), NULL, array('repository' => FILE_RDF_REPOSITORY))) ? $height->value : NULL;
+      if (!empty($width) && !empty($height)) {
+        $links['file_image_resolution'] = array(
+          'title' => t('@resolution pixels', array('@resolution' => $width .'x'. $height)),
+          'html'  => TRUE,
+        );
+      }
+    }
+  }
+
+  return $links;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API hooks
+
+/**
+ * Implementation of hook_mime_handlers().
+ */
+function file_image_mime_handlers() {
+  $handlers = array();
+  foreach (explode("\n", variable_get('file_image_custom_previews', '')) as $line) {
+    $line = trim(preg_replace('/\s+/', ' ', $line));
+    if (!empty($line) && !preg_match('/^#/', $line)) {
+      list($resolution, $handler, $name) = explode(' ', $line, 3);
+      $handlers['file_image_'. $handler] = array(
+        'name' => t($name),
+        'dimensions' => '5x5',
+        'parent' => 'file_image_image',
+        'weight' => 2,
+        'enabled' => 0,
+      );
+    }
+  }
+
+  return array_merge($handlers, array(
+    'file_image_image' => array(
+      'name' => t('Image'),
+      'dimensions' => '5x5',
+      'weight' => 1,
+    ),
+    'file_image_preview' => array(
+      'name' => t('Preview'),
+      'dimensions' => '5x5',
+      'parent' => 'file_image_image',
+      'weight' => 1,
+    ),
+    'file_image_medium' => array(
+      'name' => t('Medium'),
+      'dimensions' => '5x5',
+      'parent' => 'file_image_image',
+      'weight' => 1,
+    ),
+    'file_image_thumbnail' => array(
+      'name' => t('Thumbnail'),
+      'dimensions' => '5x5',
+      'parent' => 'file_image_image',
+      'weight' => 1,
+    ),
+  ));
+}
+
+/**
+ * Implementation of hook_mime_types().
+ */
+function file_image_mime_types() {
+  return array(
+    'image/gif' => array(
+      'name' => t('GIF image'),
+      'handlers' => array('file_image_image'),
+    ),
+    'image/jpeg' => array(
+      'name' => t('JPEG image'),
+      'handlers' => array('file_image_image'),
+    ),
+    'image/pjpeg' => array(
+      'name' => t('JPEG image'),
+      'handlers' => array('file_image_image'),
+      'extensions' => array('pjpeg', 'pjpg'), // this is not defined in mime.types
+    ),
+    'image/jp2' => array(
+      'name' => t('JPEG2000 image'),
+      'handlers' => array('file_image_image'),
+    ),
+    'image/png' => array(
+      'name' => t('PNG image'),
+      'handlers' => array('file_image_image'),
+    ),
+    'image/svg+xml' => array(
+      'name' => t('SVG image'),
+    ),
+    'image/tiff' => array(
+      'name' => t('TIFF image'),
+    ),
+    'image/x-icon' => array(
+      'name' => t('Icon file'),
+      'handlers' => array('file_image_image'),
+    ),
+    'image/x-ms-bmp' => array(
+      'name' => t('Bitmap image'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_converters().
+ */
+function file_image_mime_converters() {
+  return array(
+    'image/tiff' => array(
+      'image/jpeg' => array(
+        'pipeline' => '{mv} "[in_file]" "[in_file].tif"; {convert} "[in_file].tif" "[out_file].jpg"; {mv} "[in_file].tif" "[in_file]"; mv "[out_file].jpg" "[out_file]"',
+        'handlers' => array('file_image_image'),
+      ),
+      'text/plain' => array(
+        'pipeline' => '{mv} "[in_file]" "[in_file].tif"; {tesseract} "[in_file].tif" "[out_file]"; {mv} "[in_file].tif" "[in_file]"; mv "[out_file].txt" "[out_file]"',
+        'handlers' => array('file_text_text'),
+      ),
+    ),
+    'image/svg+xml' => array(
+      'image/jpeg' => array(
+        'pipeline' => '{mv} "[in_file]" "[in_file].svg"; {convert} "[in_file].svg" "[out_file].jpg"; {mv} "[in_file].svg" "[in_file]"; mv "[out_file].jpg" "[out_file]"',
+        'handlers' => array('file_image_image'),
+      ),
+    ),
+    'image/bmp' => array(
+      'image/jpeg' => array(
+        'pipeline' => '{mv} "[in_file]" "[in_file].bmp"; {convert} "[in_file].bmp" "[out_file].jpg"; {mv} "[in_file].bmp" "[in_file]"; mv "[out_file].jpg" "[out_file]"',
+        'handlers' => array('file_image_image'),
+      ),
+    ),
+    'image/x-ms-bmp' => array(
+      'image/jpeg' => array(
+        'pipeline' => '{mv} "[in_file]" "[in_file].bmp"; {convert} "[in_file].bmp" "[out_file].jpg"; {mv} "[in_file].bmp" "[in_file]"; mv "[out_file].jpg" "[out_file]"',
+        'handlers' => array('file_image_image'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_detect().
+ */
+function file_image_mime_detect($filename) {
+  if (function_exists('exif_imagetype')) {
+    if (($type = exif_imagetype($filename))) {
+      return array(image_type_to_mime_type($type) => 1.0);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_metadata_info().
+ */
+function file_image_metadata_info() {
+  $info = array(
+    'exif:width'  => array('name' => t('Width')),
+    'exif:height' => array('name' => t('Height')),
+    'geo:lat' => array('name' => t('Latitude')),
+    'geo:long' => array('name' => t('Longitude')),
+  );
+  foreach (_file_image_exif() as $name => $data) {
+    $info[$data['rdf']] = array('name' => t($data['name']));
+    if (isset($data['theme']))
+      $info[$data['rdf']]['theme'] = $data['theme'];
+  }
+  return $info;
+}
+
+/**
+ * Implementation of hook_metadata_parse().
+ */
+function file_image_metadata_parse($filename, $mimetype) {
+  if (!array_key_exists($mimetype, file_image_mime_types()))
+    return NULL;
+
+  $metadata = array();
+  if ($info = @getimagesize($filename)) {
+    $width = $info[0];
+    $height = $info[1];
+    $metadata =  array_merge(array(
+      'exif:width'  => array((int)$width),
+      'exif:height' => array((int)$height),
+    ), $metadata);
+  }
+
+  // EXIF.
+  if (FILE_IMAGE_EXIF && function_exists('exif_read_data')) {
+    $exif = _file_image_exif();
+    foreach ($exif as $name => $data) {
+      $exif_data_default[$name] = $data['default'];
+    }
+    $exif_data = variable_get('file_image_exif_data', $exif_data_default);
+    if ($info = @exif_read_data($filename)) {
+      $rdf_exif = array();
+      foreach ($exif as $name => $data) {
+        if (isset($exif_data[$name]) && $element = file_get_recursive($info, $data['exif'])) {
+          switch ($data['type']) {
+            case 'date':
+              $rdf_exif[$data['rdf']] = array(rdf_datetime(strtotime($element)));
+              break;
+            case 'geo':
+              $rdf_exif[$data['rdf']] = array(_file_image_geo_convert($element, 'degree'));
+              break;
+            default:
+              $rdf_exif[$data['rdf']] = array($element);
+              break;
+          }
+        }
+      }
+      $metadata =  array_merge($rdf_exif, $metadata);
+      if (FILE_IMAGE_GEO && isset($info['GPSLatitudeRef']) && isset($info['GPSLatitude']) && isset($info['GPSLongitudeRef']) && isset($info['GPSLongitude'])) {
+        // Geo data.
+        $lat = _file_image_geo_convert($info['GPSLatitude'], 'float');
+        $long = _file_image_geo_convert($info['GPSLongitude'], 'float');
+        $rdf_geo = array(
+          'geo:lat'  => $info['GPSLatitudeRef'] == 'N' ? array((string)$lat) : array((string)-$lat),
+          'geo:long' => $info['GPSLongitudeRef'] == 'E' ? array((string)$long) : array((string)-$long),
+        );
+        $metadata =  array_merge($rdf_geo, $metadata);
+      }
+    }
+  }
+  return $metadata;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// MIME handlers
+
+/**
+ * Generates an image preview.
+ */
+function file_image_image_generate($file, $tier = NULL) {
+  // We need converted file's metadata.
+  if (isset($tier) && !file_get_converted($file, $tier))
+    return FALSE;
+
+  $width = isset($tier) ? $file->converted[$tier]->metadata['exif:width'][0] : (isset($file->metadata['exif:width']) ? $file->metadata['exif:width'][0] : NULL);
+  $height = isset($tier) ? $file->converted[$tier]->metadata['exif:height'][0] : (isset($file->metadata['exif:height']) ? $file->metadata['exif:height'][0] : NULL);;
+  if (!isset($width) || !isset($height) || $width == 0 || $height == 0) {
+    watchdog('file_image', 'A file %name, uri=%uri or it\'s derivative is an image with zero width or height.', array('%name' => $file->filename, '%uri' => $file->uri), WATCHDOG_WARNING, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+    return FALSE;
+  }
+
+  if (isset($tier) && !in_array($file->handlers[$tier], isset($file->previews[$file->mimes[$tier]]) ? $file->previews[$file->mimes[$tier]] : array())) {
+    if (!file_data_save($file, $tier))
+      return FALSE;
+    watchdog('file_image', 'The %mime preview was generated for the file %name, uri=%uri.', array('%mime' => $file->mimes[$tier], '%name' => $file->filename, '%uri' => $file->uri), WATCHDOG_NOTICE, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+  }
+
+  $handlers = array();
+  foreach (explode("\n", variable_get('file_image_custom_previews', '')) as $line) {
+    $line = trim(preg_replace('/\s+/', ' ', $line));
+    if (!empty($line) && !preg_match('/^#/', $line)) {
+      list($resolution, $handler, $name) = explode(' ', $line, 3);
+      $handlers['file_image_'. $handler]['resolution'] = $resolution;
+    }
+  }
+  $handlers = array_merge($handlers, array(
+    'file_image_preview' => array('resolution' => FILE_IMAGE_PREVIEW_RESOLUTION),
+    'file_image_medium' => array('resolution' => FILE_IMAGE_MEDIUM_RESOLUTION),
+    'file_image_thumbnail' => array('resolution' => FILE_IMAGE_THUMBNAIL_RESOLUTION),
+  ));
+
+  $previews = array();
+  foreach ($handlers as $handler => $data) {
+    list($max_width, $max_height) = explode('x', $data['resolution']);
+    $ratio = min($max_width / $width, $max_height / $height);
+    if ($ratio > 0.0 && $ratio < 1.0)
+      $previews[(string)$ratio] = array('handler' => $handler, 'resolution' => $data['resolution']);
+  }
+  krsort($previews);
+
+  $mime = isset($tier) ? $file->converted[$tier]->metadata['dc:format'][0] : $file->metadata['dc:format'][0];
+  $tier = isset($tier) ? $tier + 1 : 0;
+  foreach ($previews as $ratio => $data) {
+    list($max_width, $max_height) = explode('x', $data['resolution']);
+
+    // Scale image.
+    $ratio = min($max_width / $width, $max_height / $height);
+    list($width, $height) = array((int)floor($width * $ratio), (int)floor($height * $ratio));
+
+    $file->converters[$tier] = array('pipeline' => FILE_IMAGE_USE_IMAGE_MAGIC ? '{convert} -geometry [width]x[height] "[in_file]" "[out_file]"' : "{image_toolkit_invoke}('[resize]', array('[in_file]', '[out_file]', '[width]', '[height]'))", 'options' => array('resize' => 'resize', 'width' => $width, 'height' => $height));
+    $file->handlers[$tier] = $data['handler'];
+    $file->mimes[$tier] = $mime;
+    if (!in_array($file->handlers[$tier], isset($file->previews[$file->mimes[$tier]]) ? $file->previews[$file->mimes[$tier]] : array())) {
+      if (!file_get_converted($file, $tier))
+        return FALSE;
+      if (!file_data_save($file, $tier))
+        return FALSE;
+      watchdog('file_image', 'The %mime preview %handler was generated for the file %name, uri=%uri.', array('%mime' => $file->filemime, '%handler' => $data['handler'], '%name' => $file->filename, '%uri' => $file->uri), WATCHDOG_NOTICE, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+      file_delete($file->converted[$tier]->filepath);
+      unset($file->converted[$tier]);
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Implements image image handler.
+ */
+function file_image_image_render($uri, $options = array()) {
+  $options = array_merge($options, _file_image_render_options($uri, $options));
+  return theme('file_image_image_render', $options);
+}
+
+/**
+ * Implements image preview handler.
+ */
+function file_image_preview_render($uri, $options = array()) {
+  $options = array_merge($options, _file_image_render_options($uri, $options));
+  return theme('file_image_image_render', $options);
+}
+
+/**
+ * Implements medium image handler.
+ */
+function file_image_medium_render($uri, $options = array()) {
+  $options = array_merge($options, _file_image_render_options($uri, $options));
+  return theme('file_image_image_render', $options);
+}
+
+/**
+ * Implements thumbnail handler.
+ */
+function file_image_thumbnail_render($uri, $options = array()) {
+  $options = array_merge($options, _file_image_render_options($uri, $options));
+  return theme('file_image_image_render', $options);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// RDF API hooks
+
+/**
+ * Implementation of hook_rdf_namespaces().
+ */
+function file_image_rdf_namespaces() {
+  return array(
+    'exif' => 'http://www.w3.org/2003/12/exif/ns',
+    'geo'  => 'http://www.w3.org/2003/01/geo/wgs84_pos#',
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Converts geo data.
+ */
+function _file_image_geo_convert($data, $type = 'degree') {
+  foreach ($data as $n => $d) {
+    list($a, $b) = explode('/', $d);
+    $data[$n] = (float) $a/$b;
+  }
+  switch ($type) {
+    case 'degree':
+      return (int)$data[0] .' '. (int)$data[1] .' '. $data[2];
+      break;
+    case 'float':
+      return $data[0] + $data[1]/60 + $data[2]/3600;
+      break;
+  }
+}
+
+/**
+ * Returns a list of allowed image attributes.
+ */
+function _file_image_allowed_attributes() {
+  return array('id', 'class', 'title', 'style', 'lang', 'xml:lang', 'alt', 'src', 'width', 'height', 'hspace', 'vspace', 'align', 'border');
+}
+
+/**
+ * Renders options for the image display.
+ */
+function _file_image_render_options($uri, $options = array()) {
+  $width = rdf_value($uri, rdf_qname_to_uri('exif:width'), NULL, array('repository' => FILE_RDF_REPOSITORY))->value;
+  $height = rdf_value($uri, rdf_qname_to_uri('exif:height'), NULL, array('repository' => FILE_RDF_REPOSITORY))->value;
+
+  list($max_width, $max_height) = explode('x', FILE_IMAGE_PREVIEW_RESOLUTION);
+  $max_width = (int)(!empty($options['max_width']) ? $options['max_width'] : $max_width);
+  $max_height = (int)(!empty($options['max_height']) ? $options['max_height'] : $max_height);
+
+  $scale = !isset($options['scale']) ? TRUE : !empty($options['scale']);
+  $width = (int)($scale && !empty($options['width']) ? $options['width'] : $width);
+  $height = (int)($scale && !empty($options['height']) ? $options['height'] : $height);
+
+  // Scale image width and height, if requested
+  if ($scale && $width && $width > $max_width) {
+    $ratio = $max_width / $width;
+    list($width, $height) = array((int)floor($width * $ratio), (int)floor($height * $ratio));
+  }
+  if ($scale && $height && $height > $max_height) {
+    $ratio = $max_height / $height;
+    list($width, $height) = array((int)floor($width * $ratio), (int)floor($height * $ratio));
+  }
+
+  $node = node_load($options['nid'], $options['vid']);
+  $title = isset($node->title) ? $node->title : NULL;
+  $src = bitcache_resolve_uri($uri, array('absolute' => FALSE, 'query' => isset($node->vid) ? array('vid' => $node->vid) : array()));
+
+  $options = array_merge(array('class' => 'file-image', 'alt' => $title, 'style' => "max-width: {$max_width}px; max-height: {$max_height}px;", 'border' => '0'), $options);
+  return array_merge($options, compact('width', 'height', 'max_width', 'max_height', 'src', 'title'));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// EXIF settings
+
+/**
+ * Exif to RDF mapping.
+ */
+function _file_image_exif() {
+  return array(
+    'make'              => array('name' => 'Make',                'exif' => array('Make' => NULL),              'rdf' => 'exif:make',              'type' => '',     'default' => 1),
+    'model'             => array('name' => 'Model',               'exif' => array('Model' => NULL),             'rdf' => 'exif:model',             'type' => '',     'default' => 1),
+    'orientation'       => array('name' => 'Orientation',         'exif' => array('Orientation' => NULL),       'rdf' => 'exif:orientation',       'type' => '',     'default' => 0),
+    'xresolution'       => array('name' => 'X resolution',        'exif' => array('XResolution' => NULL),       'rdf' => 'exif:xResolution',       'type' => '',     'default' => 0),
+    'yresolution'       => array('name' => 'Y resolution',        'exif' => array('YResolution' => NULL),       'rdf' => 'exif:yResolution',       'type' => '',     'default' => 0),
+    'resolutionunit'    => array('name' => 'Resolution unit',     'exif' => array('ResolutionUnit' => NULL),    'rdf' => 'exif:resolutionUnit',    'type' => '',     'default' => 0),
+    'software'          => array('name' => 'Software',            'exif' => array('Software' => NULL),          'rdf' => 'exif:software',          'type' => '',     'default' => 0),
+    'datetime'          => array('name' => 'Datetime',            'exif' => array('DateTime' => NULL),          'rdf' => 'exif:dateTime',          'type' => 'date', 'default' => 0),
+    'ycbcrpositioning'  => array('name' => 'YCbCr positioning',   'exif' => array('YCbCrPositioning' => NULL),  'rdf' => 'exif:yCbCrPositioning',  'type' => '',     'default' => 0),
+    'exposuretime'      => array('name' => 'Exposure time',       'exif' => array('ExposureTime' => NULL),      'rdf' => 'exif:exposureTime',      'type' => '',     'default' => 0),
+    'fnumber'           => array('name' => 'F number',            'exif' => array('FNumber' => NULL),           'rdf' => 'exif:fNumber',           'type' => '',     'default' => 0),
+    'exifversion'       => array('name' => 'Exif version',        'exif' => array('ExifVersion' => NULL),       'rdf' => 'exif:exifVersion',       'type' => '',     'default' => 0),
+    'datetimeoriginal'  => array('name' => 'Datetime original',   'exif' => array('DateTimeOriginal' => NULL),  'rdf' => 'exif:dateTimeOriginal',  'type' => 'date', 'default' => 1),
+    'datetimedigitized' => array('name' => 'Datetime digitized',  'exif' => array('DateTimeDigitized' => NULL), 'rdf' => 'exif:dateTimeDigitized', 'type' => 'date', 'default' => 0),
+    'shutterspeedvalue' => array('name' => 'Shutter speed value', 'exif' => array('ShutterSpeedValue' => NULL), 'rdf' => 'exif:shutterSpeedValue', 'type' => '',     'default' => 0),
+    'aperturevalue'     => array('name' => 'Aperture value',      'exif' => array('ApertureValue' => NULL),     'rdf' => 'exif:apertureValue',     'type' => '',     'default' => 0),
+    'exposurebiasvalue' => array('name' => 'Exposure bias value', 'exif' => array('ExposureBiasValue' => NULL), 'rdf' => 'exif:exposureBiasValue', 'type' => '',     'default' => 0),
+    'maxaperturevalue'  => array('name' => 'Max aperture value',  'exif' => array('MaxApertureValue' => NULL),  'rdf' => 'exif:maxApertureValue',  'type' => '',     'default' => 0),
+    'meteringmode'      => array('name' => 'Metering mode',       'exif' => array('MeteringMode' => NULL),      'rdf' => 'exif:meteringMode',      'type' => '',     'default' => 0),
+    'flash'             => array('name' => 'Flash',               'exif' => array('Flash' => NULL),             'rdf' => 'exif:flash',             'type' => '',     'default' => 0),
+    'focallength'       => array('name' => 'Focal length',        'exif' => array('FocalLength' => NULL),       'rdf' => 'exif:focalLength',       'type' => '',     'default' => 0),
+    'colorspace'        => array('name' => 'Color space',         'exif' => array('ColorSpace' => NULL),        'rdf' => 'exif:colorSpace',        'type' => '',     'default' => 0),
+    'sensingmethod'     => array('name' => 'Sensing method',      'exif' => array('SensingMethod' => NULL),     'rdf' => 'exif:sensingMethod',     'type' => '',     'default' => 0),
+    'gpslatituderef'    => array('name' => 'GPS latitude ref',    'exif' => array('GPSLatitudeRef' => NULL),    'rdf' => 'exif:gpsLatitudeRef',    'type' => '',     'default' => 0),
+    'gpslatitude'       => array('name' => 'GPS latitude',        'exif' => array('GPSLatitude' => NULL),       'rdf' => 'exif:gpsLatitude',       'type' => 'geo',  'default' => 0),
+    'gpslongituderef'   => array('name' => 'GPS longitude ref',   'exif' => array('GPSLongitudeRef' => NULL),   'rdf' => 'exif:gpsLongitudeRef',   'type' => '',     'default' => 0),
+    'gpslongitude'      => array('name' => 'GPS longitude',       'exif' => array('GPSLongitude' => NULL),      'rdf' => 'exif:gpsLongitude',      'type' => 'geo',  'default' => 0),
+    'gpsdatestamp'      => array('name' => 'GPS datestamp',       'exif' => array('GPSDateStamp' => NULL),      'rdf' => 'exif:gpsDateStamp',      'type' => 'date', 'default' => 0),
+  );
+}
+

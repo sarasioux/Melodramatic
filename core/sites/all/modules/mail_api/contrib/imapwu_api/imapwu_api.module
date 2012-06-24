@@ -1,0 +1,596 @@
+<?php
+// $Id: imapwu_api.module,v 1.1.2.2 2009/05/14 18:57:02 firmidea Exp $
+
+/**
+ * @file
+ * This sub-module provides IMAP access functionality to Mail API
+ *
+ */
+
+
+$_IMAP_API_TAG_COUNTER = 0;
+
+// set this to true to write debug info to the wathdog
+$IMAPWU_DEBUG=FALSE;
+
+// set this to true to write the error log to the watchdog log
+$IMAPWU_ERRORLOG=FALSE;
+
+
+$_imapwu_api_connection = NULL;
+$_imapwu_api_connect_string = NULL;
+
+/*
+require_once "libs/imap.class.php";
+require_once "libs/imap_mail.class.php";
+require_once "libs/mail.class.php";
+*/
+
+/**
+ * Implementation of the _init hook
+ */
+function imapwu_api_init() {
+
+
+}
+
+/**
+ * Implementation of hook_help()
+ *
+ * @param unknown_type $path
+ * @param unknown_type $arg
+ * @return unknown
+ */
+function imapwu_api_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#imap_api':
+     return t('Implements IMAP protocol based on the Washington University IMAP library.');
+  }
+}
+
+/**
+ * implementation of mail_api_protocols hook
+ *
+ * @return unknown
+ */
+function imapwu_api_mail_api_protocols() {
+  return array('IMAPWU' => t('IMAPWU'));
+}
+
+function imapwu_api_mail_api_authenticate() {
+   //drupal_set_message('imapwu_api_mail_api_authenticate');
+}
+
+function imapwu_api_connect($hostname, $username, $password, $port=143, $folder="", $options=OP_SILENT) {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+
+
+   // make sure the options starts with a slash
+   if ($options!="" && substr($options, 0, 1)!="/") $options="/" . $options;
+
+   $_imapwu_api_connect_string = imapwu_api_assemble_connect_string($hostname, $port, $folder, $options);
+
+   $_imapwu_api_connection = imap_open($_imapwu_api_connect_string, $username, $password, $options);
+
+
+   if ($_imapwu_api_connection) {
+      //drupal_set_message('connected');
+      return TRUE;
+   }
+   else {
+      if ($_imapwu_api_connectionWU_ERRORLOG) watchdog('imapwu', 'cannot connect to the server');
+      return FALSE;
+   }
+
+}
+
+
+function imapwu_api_status($mailbox="INBOX", $options=SA_ALL) {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+
+   //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_status $_imapwu_api_connect_string");
+
+   $status = imap_status($_imapwu_api_connection, $_imapwu_api_connect_string, $options);
+
+   return $status;
+}
+
+/**
+ * Gets the number of messages in the current mailbox
+ *
+ * @param unknown_type $args
+ * @return unknown
+ */
+function imapwu_api_num_msg($args) {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+   //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_num_msg");
+
+   $rs = imap_num_msg($_imapwu_api_connection);
+   return $rs;
+}
+
+
+/**
+ * Returns headers for all messages in a mailbox
+ *
+ * @param unknown_type $args
+ * @return unknown
+ */
+function imapwu_api_headers($args) {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+   //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_headers");
+
+   $rs = imap_headers($_imapwu_api_connection);
+   return $rs;
+}
+
+/**
+ * Returns header for a message
+ * this is used to fetch the full header of the message
+ *
+ * @param unknown_type $args
+ */
+function imapwu_api_header($msgno, $options=FT_UID) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_header");
+
+   //drupal_set_message("message number $msgno");
+
+   $header = imap_fetchheader($_imapwu_api_connection, $msgno, $options);
+   return $header;
+}
+
+
+/**
+ * Read an overview of the information in the headers of the given message
+ *
+ * @param unknown_type $args
+ *
+ * DO NOT USE FT_
+ */
+function imapwu_api_overview($sequence="", $options="") {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+   //drupal_set_message("imapwu_api_overview");
+
+   if ($options=="FT_UID") $options=="";
+
+
+   if ($sequence=="") {
+     $check =  imapwu_api_check();
+     $sequence = "1:{$check->Nmsgs}";
+   }
+
+   //drupal_set_message('sequence: '.$sequence);
+
+   $rs = imap_fetch_overview($_imapwu_api_connection, $sequence, $options);
+   //print_r($rs);
+
+   return $rs;
+}
+
+
+/**
+ * Check current mailbox
+ */
+function imapwu_api_check() {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+   //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_check");
+
+   $rs = imap_check($_imapwu_api_connection);
+   return $rs;
+}
+
+
+/**
+ * Read the message body
+ * FT_UID - The msg_number  is a UID
+ * FT_PEEK - Do not set the \Seen flag if not already set
+ * FT_INTERNAL - The return string is in internal format, will not canonicalize to CRLF.
+ *
+ */
+function imapwu_api_body($msg_number, $options=FT_UID) {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+
+   //echo $msg_number;
+
+   //if(IMAPWU_DEBUG) drupal_set_message("imapwu_api_body");
+
+   $rs = imap_body($_imapwu_api_connection, $msg_number, $options);
+   return $rs;
+}
+
+
+/**
+ * Read the list of mailboxes, returning detailed information on each one
+ *
+ * LATT_NOINFERIORS - This mailbox has no "children" (there are no mailboxes below this one).
+  * LATT_NOSELECT - This is only a container, not a mailbox - you cannot open it.
+  * LATT_MARKED - This mailbox is marked. Only used by UW-IMAPD.
+  * LATT_UNMARKED - This mailbox is not marked. Only used by UW-IMAPD.
+ *
+ * @param unknown_type $pattern
+ * @return unknown
+ */
+function imapwu_api_mailboxes($pattern="*") {
+   global $_imapwu_api_connection, $_imapwu_api_connect_string;
+
+   //if(IMAPWU_DEBUG) drupal_set_message('imapwu_api_mailboxes '.$_imapwu_api_connect_string);
+
+   //print_r($_imapwu_api_connect_string);
+
+
+   $rs = imap_getmailboxes($_imapwu_api_connection, $_imapwu_api_connect_string, $pattern);
+
+   //print_r($rs);
+   //print_r($_imapwu_api_connect_string);
+
+   return $rs;
+}
+
+/*
+ * this internal function assembles the connection string needed for imap
+ */
+function imapwu_api_assemble_connect_string($hostname, $port=143, $folder="", $options="") {
+  // if folder is empty, set it to inbox
+  //if($folder=="") $folder="INBOX";
+
+  // make sure the options starts with a slash
+  if ($options!="" && substr($options, 0, 1)!="/") $options="/" . $options;
+
+  $connect_string = '{'. $hostname .':'. $port . $options .'}'. $folder;
+
+  return $connect_string;
+
+}
+
+/**
+ * appends a message to the current mailbox
+ *
+ * @param unknown_type $message
+ * @return unknown
+ */
+function imapwu_api_append($message) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+ 
+  return imap_append($_imapwu_api_connection, $_imapwu_api_connect_string . $folder, $message);
+}
+
+/**
+ * moves a message from the current mailbox to the specified mailbox
+ *
+ * @param unknown_type $message_uid
+ * @param unknown_type $destination
+ * @return unknown
+ */
+function imapwu_api_move_message($message_uid, $destination) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  $rs = imap_mail_move($_imapwu_api_connection, $message_uid, $destination, CP_UID);
+  return imap_expunge($_imapwu_api_connection);  
+}
+
+/**
+ * deletes a message from the current mailbox
+ *
+ * @param unknown_type $message_uid
+ * @param unknown_type $destination
+ * @return unknown
+ */
+function imapwu_api_delete_message($message_uid) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  $rs = imap_delete($_imapwu_api_connection, $message_uid, FT_UID);
+  return imap_expunge($_imapwu_api_connection);  
+}
+
+
+/**
+ * sets a flag on an IMAP message
+ *
+ * @param unknown_type $message_uid
+ * @param unknown_type $flags
+ * @return unknown
+ */
+function _imapwu_api_set_flag($message_uid, $flags) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  //echo $_imapwu_api_connect_string;
+  
+  $rs = imap_setflag_full($_imapwu_api_connection, $message_uid, $flags, ST_UID);
+  return imap_expunge($_imapwu_api_connection);
+  
+}
+
+function _imapwu_api_clear_flag($message_uid, $flags) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  //echo $_imapwu_api_connect_string;
+  
+  $rs = imap_clearflag_full($_imapwu_api_connection, $message_uid, $flags, ST_UID);
+  return imap_expunge($_imapwu_api_connection);
+  
+}
+
+function imapwu_api_mark_read($message_uid) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  
+  return _imapwu_api_set_flag($message_uid, '\\Seen');
+  
+}
+
+function imapwu_api_mark_unread($message_uid) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  
+  return _imapwu_api_clear_flag($message_uid, '\\Seen');
+  
+}
+
+function imapwu_api_get_structure($message_uid) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  return imap_fetchstructure($_imapwu_api_connection, $message_uid, FT_UID);
+}
+
+
+function imapwu_api_get_map($message_uid) {
+  $structure = imapwu_api_get_structure($message_uid);
+  if (!$structure->parts) {
+    return FALSE;
+  }
+
+  return imapwu_api_create_part_array($structure);
+}
+
+function imapwu_api_create_part_array($structure, $prefix="") {
+  $part_array = array();
+
+  if (sizeof($structure->parts) > 0) {
+    foreach ($structure->parts as $count => $part) {
+      imapwu_api_add_part_to_array($part, $prefix . ($count+1), $part_array);
+    }
+  }
+  
+  return $part_array;
+}
+
+
+
+function imapwu_api_add_part_to_array($obj, $partno, &$part_array) {
+  if (!is_array($part_array) || empty($part_array)) $part_array=array();
+  if ($obj->type == TYPEMESSAGE) {
+    imapwu_api_add_part_to_array($obj->parts[0], $partno .".", $part_array);
+  }
+  else {
+    if (sizeof($obj->parts) > 0) {
+      foreach ($obj->parts as $count => $p) {
+        imapwu_api_add_part_to_array($p, $partno .".". ($count+1), $part_array);
+      }
+    }
+  }
+
+  $part_array[] = array('part_number' => $partno, 'part_object' => $obj);
+}
+
+function imapwu_api_get_plaintext($message_uid, $set_seen=NULL) {
+  $map = imapwu_api_get_map($message_uid);
+
+  if (!$map) {
+    $content = imapwu_api_get_body($message_uid, 1, $set_seen);
+    $encoding = imapwu_api_get_plaintext_encoding($mid);
+    
+    if ($encoding=="base64") {
+      $content = base64_decode($content);
+    }
+    else {
+      $content = quoted_printable_decode($content);
+    }
+
+  }
+  else {
+    // extract the PLAIN part out of all parts
+    foreach ($map as $index => $part_info) {
+      if ($part_info['part_object']->subtype == "PLAIN") {
+        $content  = imapwu_api_get_part($message_uid, $part_info['part_number']);
+        break;
+      }
+    }
+  }
+
+  if (!empty($content)) {
+    return $content;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/*
+returns the charset for the plaintext part of the message
+*/
+function imapwu_api_get_plaintext_charset($message_uid, $options="") {
+  $map = imapwu_api_get_map($message_uid);
+  
+  if (!$map) {
+    $header = imapwu_api_get_header($message_uid);
+    $body = imapwu_api_get_body($message_uid, 0);
+    
+    // see if there's a content type string
+    if (preg_match("/Content-Type/", $body)) {
+      preg_match("/charset=\"?(.*)\"?/", $body, $matches); // charset may or may not be enclosed in quotes
+      $charset = $matches[1];
+      return $charset;
+    }
+
+    return FALSE;
+
+  }
+  else {
+    foreach ($map as $index => $part_info) {
+      if ($part_info['part_object']->subtype == "PLAIN" && is_array($part_info['part_object']->parameters)) {
+
+        foreach ($part_info['part_object']->parameters as $parameter_id => $parameter_info) {
+          if ($parameter_info->attribute=="charset") {
+            $charset = $parameter_info -> value;
+            break;
+          }
+        }
+      }
+
+    }
+
+  }
+
+  if (!empty($charset)) {
+    return $charset;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function imapwu_api_get_plaintext_encoding($message_uid) {
+  $body = imapwu_api_get_body($message_uid, 0);
+
+  // see if there's a content transfer string
+  if (preg_match("/Content-Transfer-Encoding:/", $body)) {
+    preg_match("/Content-Transfer-Encoding:(.*)/", $body, $matches);
+    $encoding = trim($matches[1]);
+    return $encoding;
+  }
+
+  return FALSE;
+}
+
+/**
+ * returns a part of the IMAP message according to the supplied map
+ *
+ * @param unknown_type $message_uid
+ * @param unknown_type $part
+ * @return unknown
+ */
+function imapwu_api_get_part($message_uid, $part) {
+  $map = imapwu_api_get_map($message_uid);
+  
+  if (!$map) return FALSE;
+
+  foreach ($map as $index => $part_info) {
+    if ($part_info['part_number']==$part) {
+      if ($part_info['part_object']->type ==0 || $part_info['part_object']->type =="") {
+        if ($part_info['part_object']->encoding==3) {
+          $content = base64_decode(imapwu_api_get_body($message_uid, $part));
+        }
+        elseif ($part_info['part_object']->encoding==4) {
+          $content = quoted_printable_decode(imapwu_api_get_body($message_uid, $part));
+        }
+        else {
+          $content = imapwu_api_get_body($message_uid, $part);
+        }
+
+      }
+      else {
+        // handle complex encoded data
+        // handle base64 encoded data
+        if ($part_info['part_object']->encoding==3) $content = base64_decode(imapwu_api_get_body($message_uid, $part));
+        
+        // handle quoted data
+        if ($part_info['part_object']->encoding==4) $content = quoted_printable_decode(imapwu_api_get_body($message_uid, $part));
+      }
+      
+      return $content;
+
+    }
+  }
+
+  return FALSE;
+}
+
+function imapwu_api_get_body($message_uid, $part, $set_seen=NULL) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  
+  $merged_flags = FT_UID;
+  if ($set_seen) $merged_flags = $merged_flags & FT_PEEK;
+  return imap_fetchbody($_imapwu_api_connection, $message_uid, $part, $merged_flags);
+}
+
+function imapwu_api_get_attachment_overview($message_uid) {
+  $map = imapwu_api_get_map($message_uid);
+  
+  // this message contains no attachemnts
+  if (!$map) return FALSE;
+
+  foreach ($map as $index => $part_info) {
+    if ($part_info['part_object']->ifdisposition == 1) {
+      $attachments[] = array(
+      'part_number' => $part_info['part_number'],
+      'type' => $part_info['part_object']->subtype,
+      'size' => $part_info['part_object']->bytes,
+      'file' => $part_info['part_object']->dparameters[0]->value
+      );
+    }
+  }
+
+  return $attachments;
+}
+
+function imapwu_api_get_attachment_files($message_uid) {
+  // first get the overview
+  $att_overview = imapwu_api_get_attachment_overview($message_uid);
+  
+  // now return only those that have actual file names
+  if (empty($att_overview)) return FALSE;
+  if (sizeof($att_overview)<=0) return FALSE;
+  
+  foreach ($att_overview as $att_id => $att_info) {
+    if (!empty($att_info['file'])) $rs[]=$att_info;
+  }
+  
+  return $rs;
+
+}
+
+function imapwu_api_get_part_object($message_uid, $part) {
+  global $_imapwu_api_connection, $_imapwu_api_connect_string;
+  
+  $map = imapwu_api_get_map($message_uid);
+  
+  foreach ($map as $map_id => $part_info) {
+    if ($part_info['part_number']==$part) return $part_info['part_object'];
+  }
+  
+  return FALSE;
+}
+
+function imapwu_api_get_part_mime_type($mid, $part) {
+    $part = imapwu_api_get_part_object($mid, $part);
+
+
+
+      switch (strtoupper($part->subtype)) {
+        # Applications
+        case 'PDF':
+        case 'PS':
+        case 'POST-SCRIPT':
+          $mime = 'application/pdf';
+          break;
+        case 'MSWORD':
+          $mime = 'application/msword';
+          break;
+        case 'PNG':
+        case 'GIF':
+        case 'BMP':
+        case 'JPG':
+        case 'JPEG':
+          $mime = "image/$type";
+          break;
+        case 'MP3':
+        case 'WMA':
+        case 'X-MS-WMA':
+        case 'AAC':
+          $mime = "audio/$type";
+          break;
+        case 'MPEG':
+        case 'WMV':
+        case 'AVI':
+          $mime = "video/$type";
+          break;
+        default:
+          $mime = 'text/x-generic';
+      }
+
+      return $mime;
+}

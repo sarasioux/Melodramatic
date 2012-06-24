@@ -1,0 +1,12 @@
+#admin-menu,
+#webmail_plus_top_buttons-wrapper,
+.actions,
+#logo-floater,
+.webmail_plus_header_buttons,
+.breadcrumb,
+.attachments,
+#webmail_plus_bottom_buttons,
+#webmail_plus_message_tags,
+#webmail_plus_header_buttons {
+  display: none;
+}

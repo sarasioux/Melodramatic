@@ -1,0 +1,72 @@
+/**  Color Definitions  **/
+
+/*  Background Images  */
+#header {
+    background: url([field_scheme_header_color]) top right no-repeat;
+}
+#site-name a:hover {
+    background: url(/sites/melodramatic/themes/melo/images/head-over.png) 4px 8px no-repeat;
+}
+
+/*  Body colors  */
+body, #header, #active-users-container, #active-users-loading {
+    background-color: [field_scheme_bg_color];
+    color: [field_scheme_body_text];
+}
+body a, #page #header a {
+    color: [field_scheme_body_link];
+}
+
+/*  Page colors  */
+#page, #page #header ul.nice-menu a.active, #page #header ul.nice-menu-down li.menuparent li, #page #header ul.nice-menu-down li:hover {
+    background-color: [field_scheme_body_color];
+    color: [field_scheme_page_text];
+}
+#page a {
+  color: [field_scheme_page_link];
+}
+
+/*  Menu colors  */
+#page #header ul.nice-menu a {
+  color: [field_scheme_body_text];
+}
+#page #header ul.nice-menu a.active,
+#page #header ul.nice-menu a:hover,
+#page #header ul.nice-menu ul li a {
+  color: [field_scheme_page_link];
+}
+#page #header ul.nice-menu a.active, #page #header ul.nice-menu-down li.menuparent li {
+  background-color: [field_scheme_page_background];
+}
+
+/*  Box colors  */
+
+/*  Box Header  */
+#content-header h1.title, 
+#sidebar-left .block h2.title, 
+#sidebar-right .block h2.title,
+#comment-input h2.title, #comments #comments-title,
+body.front .fp-col h2.title
+{
+    background-color: [field_scheme_block_header];
+    color: [field_scheme_block_header_text];
+}
+#content-inner, #sidebar-left .block, #sidebar-right .block,
+body.front .fp-col .block {
+    border: solid [field_scheme_block_header] 1px;
+}
+
+/*  Box Body  */
+#content-inner, #sidebar-left .block, #sidebar-right .block,
+body.front .fp-col .block {
+    background: [field_scheme_block_body];
+    color: [field_scheme_block_text];
+}
+
+/*  Box Links  */
+#content-inner a, #sidebar-left .block a, #sidebar-right .block a,
+body.front .fp-col .block a {
+    color: [field_scheme_link_color];
+}
+
+[field_custom_css]

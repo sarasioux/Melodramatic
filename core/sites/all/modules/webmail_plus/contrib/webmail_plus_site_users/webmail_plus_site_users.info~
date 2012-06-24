@@ -1,0 +1,6 @@
+; $Id:
+name = Webmail Plus Notify
+description = Notify the user that they have received an email in their webmail plus email account
+package = "Webmail Plus"
+dependencies[] = webmail_plus
+core = 6.x

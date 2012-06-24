@@ -1,0 +1,183 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Supports document file formats.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_document_theme() {
+  return array(
+    'file_document_mm_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_document.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_document_menu() {
+  return array(
+    'file_document/mm' => array(
+      'title' => 'Mind Map file',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_document_mm',
+      'page arguments' => array(2, 3, 4),
+      'access callback' => TRUE,
+      'file' => 'file_document.pages.inc',
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API hooks
+
+/**
+ * Implementation of hook_mime_handlers().
+ */
+function file_document_mime_handlers() {
+  return array(
+    'file_document_mm' => array(
+      'name' => t('Mind map'),
+      'dimensions' => '600x500',
+
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_types().
+ */
+function file_document_mime_types() {
+  return array(
+    'text/rtf' => array(
+      'name' => t('Rich text document'),
+      'extensions' => array('rtf'),
+      'icon' => 'rtf.gif',
+    ),
+    'application/rtf' => array(
+      'name' => t('Rich text document'),
+      'icon' => 'rtf.gif',
+    ),
+    'application/vnd.oasis.opendocument.text' => array(
+      'name' => t('OpenDocument Text'),
+      'icon' => 'oo-write.gif',
+    ),
+    'text/vnd.ms-word' => array(
+      'name' => t('Word document'),
+      'extensions' => array('doc'),
+      'icon' => 'word.gif',
+    ),
+    'application/msword' => array(
+      'name' => t('Word document'),
+      'icon' => 'word.gif',
+    ),
+    'application/x-freemind' => array(
+      'name' => t('Mind Map document'),
+      'handlers' => array('file_document_mm'),
+
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_converters().
+ */
+function file_document_mime_converters() {
+  return array(
+    'text/rtf' => array(
+      'text/plain'  => array(
+        'pipeline' => '{unrtf} --nopict --text "[in_file]" > "[out_file]"',
+        'handlers' => array('file_text_text'),
+      ),
+    ),
+    'application/rtf' => array(
+      'text/plain'  => array(
+        'pipeline' => '{unrtf} --nopict --text "[in_file]" > "[out_file]"',
+        'handlers' => array('file_text_text'),
+      ),
+    ),
+    'application/vnd.oasis.opendocument.text' => array(
+      'application/pdf' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].odt"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f pdf "[in_file].odt"; {mv} "[in_file].odt" "[in_file]"; {mv} "[in_file].pdf" "[out_file]"',
+        'handlers' => array('file_slideshow_pdf'),
+      ),
+      'application/vnd.ms-word' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].odt"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f doc "[in_file].odt"; {mv} "[in_file].odt" "[in_file]"; {mv} "[in_file].doc" "[out_file]"',
+      ),
+      'application/zip' => array(
+        'pipeline' => '{mkdir} "[in_file].tmp"; cd "[in_file].tmp"; {mv} "[in_file]" "[filename]"; {gzip} -c * > "[out_file]"; cd "[tmpdir]"; {touch} "[in_file]"; {rm} -rf "[in_file].tmp"',
+      ),
+    ),
+    'text/vnd.ms-word' => array(
+      'text/plain' => array(
+        'pipeline' => '{catdoc} "[in_file]" > "[out_file]"',
+        'handlers' => array('file_text_text'),
+      ),
+      'application/pdf' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].doc"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f pdf "[in_file].doc"; {mv} "[in_file].doc" "[in_file]"; {mv} "[in_file].pdf" "[out_file]"',
+        'handlers' => array('file_slideshow_pdf'),
+      ),
+      'application/vnd.oasis.opendocument.text' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].doc"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f odt "[in_file].doc"; {mv} "[in_file].doc" "[in_file]"; {mv} "[in_file].odt" "[out_file]"',
+      ),
+      'application/zip' => array(
+        'pipeline' => '{mkdir} "[in_file].tmp"; cd "[in_file].tmp"; {mv} "[in_file]" "[filename]"; {gzip} -c * > "[out_file]"; cd "[tmpdir]"; {touch} "[in_file]"; {rm} -rf "[in_file].tmp"',
+      ),
+    ),
+    'application/msword' => array(
+      'text/plain' => array(
+        'pipeline' => '{catdoc} "[in_file]" > "[out_file]"',
+        'handlers' => array('file_text_text'),
+      ),
+      'application/pdf' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].doc"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f pdf "[in_file].doc"; {mv} "[in_file].doc" "[in_file]"; {mv} "[in_file].pdf" "[out_file]"',
+        'handlers' => array('file_slideshow_pdf'),
+      ),
+      'application/vnd.oasis.opendocument.text' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].doc"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f odt "[in_file].doc"; {mv} "[in_file].doc" "[in_file]"; {mv} "[in_file].odt" "[out_file]"',
+      ),
+      'application/zip' => array(
+        'pipeline' => '{mkdir} "[in_file].tmp"; cd "[in_file].tmp"; {mv} "[in_file]" "[filename]"; {gzip} -c * > "[out_file]"; cd "[tmpdir]"; {touch} "[in_file]"; {rm} -rf "[in_file].tmp"',
+      ),
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// MIME handlers
+
+/**
+ * Implements a mind map handler.
+ */
+function file_document_mm_render($uri, $options = array()) {
+  $options = array_merge($options, _file_document_render_options($uri, $options));
+
+  $src = url('file_document/mm/'. $options['nid'] .'/'. $options['vid'] .'/'. file_get_hash($uri) .'/file.mm', array('absolute' => TRUE));
+  $options = array_merge($options, compact('src'));
+
+  return theme('file_document_mm_render', $options);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Renders options for the document display.
+ */
+function _file_document_render_options($uri, $options = array()) {
+  $node = node_load($options['nid'], $options['vid']);
+  $title = isset($node->title) ? $node->title : NULL;
+  $src = bitcache_resolve_uri($uri, array('absolute' => FALSE, 'query' => isset($node->vid) ? array('vid' => $node->vid) : array()));
+
+  return array_merge($options, compact('src', 'title'));
+}
+

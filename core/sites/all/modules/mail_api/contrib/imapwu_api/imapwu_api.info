@@ -1,0 +1,13 @@
+name = IMAP-WU API
+package = Mail API
+description = Provides an MAIL API IMAP interface using Washington University IMAP.
+core = 6.x
+dependencies[] = mail_api
+version = 6.x-1.x-dev
+
+; Information added by drupal.org packaging script on 2009-05-14
+version = "6.x-1.7"
+core = "6.x"
+project = "mail_api"
+datestamp = "1242328873"
+

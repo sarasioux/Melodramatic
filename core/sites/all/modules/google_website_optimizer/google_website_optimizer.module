@@ -1,0 +1,151 @@
+<?php
+// $Id: google_website_optimizer.module,v 1.2.4.3 2009/06/23 12:14:27 neochief Exp $
+
+/**
+ * @file
+ * Easily insert the nessesary javascript code for your Google Website Optimizer tests.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function google_website_optimizer_menu() {
+  $items['admin/settings/google_website_optimizer'] = array(
+    'title' => 'Google Website Optimizer',
+    'description' => 'Create and manage your Google Website Optimizer tests.',
+    'page callback' => 'google_website_optimizer_admin_overview',
+    'access arguments' => array('administer google_website_optimizer'),
+    'file' => 'google_website_optimizer.admin.inc',
+  );
+  $items['admin/settings/google_website_optimizer/list'] = array(
+    'title' => 'List',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+  );
+  $items['admin/settings/google_website_optimizer/add'] = array(
+    'title' => 'Add Test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('google_website_optimizer_admin_form'),
+    'access arguments' => array('administer google_website_optimizer'),
+    'file' => 'google_website_optimizer.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/settings/google_website_optimizer/edit/%'] = array(
+    'title' => 'Edit test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('google_website_optimizer_admin_form', 4),
+    'access arguments' => array('administer google_website_optimizer'),
+    'file' => 'google_website_optimizer.admin.inc',
+  );
+  $items['admin/settings/google_website_optimizer/delete/%'] = array(
+    'title' => 'Delete test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('google_website_optimizer_delete_confirm', 4),
+    'access arguments' => array('administer google_website_optimizer'),
+    'file' => 'google_website_optimizer.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function google_website_optimizer_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/google_website_optimizer#pages':
+      return "node/*\nuser/*\ncomment/*";
+    case 'admin/settings/google_website_optimizer':
+    case 'admin/help#google_website_optimizer' :
+      return '<p>'. t('Google Website Optimizer allows you to test different content and layout on your pages to increase your conversion rate. Learn more about <a href="http://www.google.com/websiteoptimizer">Google Website Optimizer</a>.') .'</p>'.
+               '<p>'. t('This module provides an easy way to output the javascript code on the appropriate pages.') .'</p>'.
+               '<p>'. t('When you create a test in Google Website Optimizer, create a new test here and input the code provided into the appropriate places. The module will do the rest.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function google_website_optimizer_perm() {
+  return array('administer google_website_optimizer');
+}
+
+/**
+ * Implementation of hook_boot() to insert Javascript on the page
+ * I don't know if this is the hook to use
+ */
+function google_website_optimizer_init() {
+  $tests = google_website_optimizer_test_load();
+  foreach ($tests as $test) {
+    $testing_page = _google_website_optimizer_page_match($test->test_page_path);
+    $conversion_page = _google_website_optimizer_page_match($test->conversion_page_path);
+    $variation_page = _google_website_optimizer_page_match($test->variation_page_path);
+    if ($conversion_page) {
+      drupal_add_js('
+        /* Start Google Website Optimizer Conversion Script code */
+        '."\n//--><!]]>\n".'</script>'. $test->conversion_script .'<script type="text/javascript">'."\n<!--//--><![CDATA[//><!--\n".'
+        /* End Google Website Optimizer Conversion Script code */
+        ', 'inline', 'footer', FALSE);
+    }
+    else if ($testing_page) {
+      // This is done so that we can specify * (everything) as the testing page but still have the conversion page work
+      // The additional <script> tags are used because drupal_add_js automatically adds script tags
+      // This is a crude solution until I work out how to do it more elegantly
+      drupal_add_js('
+        /* Start Google Website Optimizer Control Script code */
+        '."\n//--><!]]>\n".'</script>'. $test->control_script .'<script type="text/javascript">'."\n<!--//--><![CDATA[//><!--\n".'
+        /* End Google Website Optimizer Control Script code */
+        ', 'inline', 'header', FALSE);
+      drupal_add_js('
+        /* Start Google Website Optimizer Tracking Script code */
+        '."\n//--><!]]>\n".'</script>'. $test->tracking_script .'<script type="text/javascript">'."\n<!--//--><![CDATA[//><!--\n".'
+        /* End Google Website Optimizer Tracking Script code */
+        ', 'inline', 'footer', FALSE);
+    } elseif ($variation_page) {
+      drupal_add_js('
+        /* Start Google Website Optimizer Variation Tracking Script code */
+        '."\n//--><!]]>\n".'</script>'. $test->variation_tracking_script .'<script type="text/javascript">'."\n<!--//--><![CDATA[//><!--\n".'
+        /* End Google Website Optimizer Variation Tracking Script code */
+        ', 'inline', 'footer', FALSE);
+    }
+  }
+}
+
+/**
+ * Module Functions :: Private
+ */
+
+/**
+ * Load all tests. Just load one test if $test_id is passed in.
+ */
+function google_website_optimizer_test_load($test_id = '') {
+  static $tests = array();
+
+  if (!$tests) {
+    $result = db_query('SELECT * FROM {google_website_optimizer}');
+    while ($data = db_fetch_object($result)) {
+      $tests[$data->test_id] = $data;
+    }
+  }
+
+  return ($test_id ? $tests[$test_id] : $tests);
+}
+
+/**
+ * Determine if the current page matches the testing or conversion page path.
+ *
+ * @return
+ *   TRUE if yes, FALSE if no.
+ */
+function _google_website_optimizer_page_match($paths) {
+  $page_match = FALSE;
+
+  $path = drupal_get_path_alias($_GET['q']);
+  $regexp = '/^('. preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1'. preg_quote(variable_get('site_frontpage', 'node'), '/') .'\2'), preg_quote($paths, '/')) .')$/';
+  // Compare with the internal and path alias (if any).
+  $page_match = preg_match($regexp, $path);
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || preg_match($regexp, $_GET['q']);
+  }
+
+  return $page_match;
+}

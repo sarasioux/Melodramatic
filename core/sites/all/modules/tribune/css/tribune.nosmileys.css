@@ -1,0 +1,12 @@
+.tribune_posts .smiley {
+    color: inherit;
+    cursor: inherit;
+}
+
+.tribune_posts .smiley img {
+    display:    none;
+}
+
+.tribune_posts .smiley:hover img {
+    display:    none;
+}

@@ -1,0 +1,25 @@
+<?php
+// $Id: format_number.install,v 1.1.2.2 2009/11/30 23:14:56 markuspetrux Exp $
+
+/**
+ * @file
+ * Module installation/uninstallation hooks.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function format_number_uninstall() {
+  variable_del('format_number_user_configurable');
+  variable_del('format_number_thousands_sep');
+  variable_del('format_number_decimal_point');
+}
+
+/**
+ * Clear theme registry to enable theme function used by numeric input element.
+ */
+function format_number_update_6000() {
+  $ret = array();
+  $ret[] = array('success' => TRUE, 'query' => 'Format Number API has been updated.');
+  return $ret;
+}

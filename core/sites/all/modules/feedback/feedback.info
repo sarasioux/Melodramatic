@@ -1,0 +1,11 @@
+name = Feedback
+description = Allows site visitors and users to report issues about this site.
+package = Development
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-07-07
+version = "6.x-2.2"
+core = "6.x"
+project = "feedback"
+datestamp = "1310072216"
+

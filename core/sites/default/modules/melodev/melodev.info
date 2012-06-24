@@ -1,0 +1,5 @@
+; $Id: melodev.info
+name = Melodev
+description = Custom melo module.
+core = 6.x
+package = "Melo"

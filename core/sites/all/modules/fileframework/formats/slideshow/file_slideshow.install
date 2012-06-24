@@ -1,0 +1,32 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File slideshow module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_slideshow_enable() {
+  drupal_set_message(t('File slideshow module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/format/slideshow'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_slideshow_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_slideshow_uninstall() {
+  variable_del('file_slideshow_pdf');
+  variable_del('file_slideshow_pdf_data');
+  variable_del('file_slideshow_convert_pipelines');
+}
+

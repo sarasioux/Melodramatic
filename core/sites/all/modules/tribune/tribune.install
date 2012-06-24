@@ -1,0 +1,645 @@
+<?php
+// vim:filetype=php expandtab tabstop=2 softtabstop=2 shiftwidth=2 autoindent smartindent
+// $Id: tribune.install,v 1.24.2.3 2009/04/10 23:14:37 seeschloss Exp $
+
+function tribune_update_6209() {
+  $ret = array();
+  db_add_field($ret, "tribune_tribunes", "shortcuts",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+      'description' => "Javascript shortcuts, in a serialized PHP array.",
+    )
+  );
+  return $ret;
+}
+
+function tribune_update_6208() {
+  $ret = array();
+  db_add_field($ret, "tribune_tribunes", "idle_delay",
+    array(
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+      'description' => "Delay before the tribune stop automatically reloading when an user is inactive, in seconds (0 to disable idle mode).",
+    )
+  );
+  return $ret;
+}
+
+function tribune_update_6207() {
+  $ret = array();
+
+  $schema['tribune_tribunes'] = array(
+    'description' => t("The table containing all tribunes and their names"),
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the corresponding node",
+      ),
+      'banned_useragents' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of useragents banned from posting in this tribune",
+      ),
+      'banned_usernames' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of usernames banned from posting in this tribune",
+      ),
+      'banned_messages' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of strings forbidden in this tribune",
+      ),
+      'max_message_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 512,
+        'description' => "Maximum length of a post",
+      ),
+      'history_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 25,
+        'description' => "Number of posts displayed in the page view",
+      ),
+      'xml_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 100,
+        'description' => "Number of posts displayed in the XML backend",
+      ),
+      'rss_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 50,
+        'description' => "Number of posts displayed in the RSS backend",
+      ),
+      'reload_delay' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 15,
+        'description' => "Delay between AJAX reloading of new posts (0 to disable automatic reloading)",
+      ),
+      'flood_protection_delay' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Minimum time before someone can post again (0 disables flood protection)",
+      ),
+      'posts_order' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether new posts are displayed at the top (0) or at the bottom (1) of the page",
+      ),
+      'show_pager' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether to display a pager or not",
+      ),
+      'enabled_filters' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Serialized array of enabled filters for this tribune",
+      ),
+      'variables' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Serialized array of filters settings for this tribune",
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+  db_create_table($ret, 'tribune_tribunes', $schema['tribune_tribunes']);
+
+  db_add_field($ret, "tribune", "tribune_id",
+      array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "ID of the corresponding tribune",
+      ),
+      array(
+        'indexes' => array(
+          'tribune_id' => array('tribune_id'),
+        ),
+      )
+    );
+
+  db_add_field($ret, "tribune", "tribune_post_id",
+      array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Unique and sequential ID per post per tribune",
+      ),
+      array(
+        'indexes' => array(
+          'tribune_post_id' => array('tribune_post_id'),
+        ),
+      )
+    );
+
+  drupal_set_message(t('Your tribune module has been updated. From now, tribunes are nodes instead of just one page, which means you now have to create a tribune node. The !page should take care of everything.', array('!page' => l('migration page', 'admin/settings/tribune/migration'))));
+
+  return $ret;
+}
+
+function tribune_update_6206() {
+  $ret = array();
+
+  db_add_field($ret, "tribune", "uid",
+      array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "UID of the user who posted this post (0 for anonymous users)",
+      ),
+      array(
+        'indexes' => array(
+          'uid' => array('uid'),
+        ),
+      )
+    );
+
+  db_add_field($ret, "tribune", "sid",
+    array(
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE,
+      'default' => '',
+      'description' => "SID of the user who posted this post (for tracking anonymous users)",
+    ),
+    array(
+      'indexes' => array(
+        'sid' => array('sid'),
+      ),
+    )
+  );
+
+  return $ret;
+}
+
+function tribune_update_6205() {
+  $schema['tribune_post_references'] = array(
+    'description' => t("The table for storing which post answers which other posts"),
+    'fields' => array(
+      'reference_id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => "ID of the source/reference row",
+      ),
+      'target_post_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the referenced post",
+      ),
+      'source_post_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the referencing post",
+      ),
+      'ref_clock_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "Number of the referencing clock inside the referencing post",
+      ),
+    ),
+    'primary key' => array('reference_id'),
+    'indexes' => array(
+      'source_post_id' => array('source_post_id'),
+      'target_post_id' => array('target_post_id'),
+      'source_clock_id' => array('source_post_id', 'ref_clock_id'),
+    ),
+  );
+  $ret = array();
+  db_create_table($ret, 'tribune_post_references', $schema['tribune_post_references']);
+
+
+  $nb_updated = 0;
+  $r = db_query("SELECT post_id, referenced_by FROM {tribune}");
+  while ($post = db_fetch_array($r)) {
+    $target_post_id = $post['post_id'];
+
+    $clocks = explode("|", $post['referenced_by']);
+    foreach ($clocks as $clock) {
+      $split = explode("#", $clock);
+
+      if (count($split) == 2) {
+        $source_post_id = $split[0];
+        $ref_clock_id   = $split[1];
+        db_query("INSERT INTO {tribune_post_references}
+                          SET target_post_id = %d,
+                              source_post_id = %d,
+                              ref_clock_id   = %d",
+                  $target_post_id,
+                  $source_post_id,
+                  $ref_clock_id);
+        $nb_updated++;
+      }
+    }
+  }
+
+  if ($nb_updated) {
+    $ret[] = array('success' => TRUE, 'query' => $nb_updated .' post references updated');
+  }
+
+  db_drop_field($ret, 'tribune', 'referenced_by');
+  return $ret;
+}
+
+function tribune_update_6204() {
+  $ret = array();
+
+  db_change_field($ret, "tribune", "post_id", "post_id",
+    array(
+      'type' => 'serial',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "login", "login",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "info", "info",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "message", "message",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "post_time", "post_time",
+    array(
+      'type' => 'varchar',
+      'length' => 14,
+      'not null' => TRUE,
+      'default' => ''
+    ),
+    array(
+      'indexes' => array(
+        'post_time' => array('post_time'),
+      ),
+    )
+  );
+
+  db_change_field($ret, "tribune", "is_alone", "is_alone",
+    array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0
+    )
+  );
+
+  db_change_field($ret, "tribune", "post_rank", "post_rank",
+    array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0
+    )
+  );
+
+  db_change_field($ret, "tribune", "parsed_message", "parsed_message",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "referenced_by", "referenced_by",
+    array(
+      'type' => 'text',
+      'not null' => TRUE,
+    )
+  );
+
+  db_change_field($ret, "tribune", "last_modified", "last_modified",
+    array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0
+    ),
+    array(
+      'indexes' => array(
+        'last_modified' => array('last_modified'),
+      ),
+    )
+  );
+
+  db_change_field($ret, "tribune", "moderated", "moderated",
+    array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0
+    )
+  );
+
+  return $ret;
+}
+
+function tribune_update_6203() {
+  tribune_parse_last_messages(NULL);
+
+  return array();
+}
+
+function tribune_update_6202() {
+  $enabled_filters = variable_get('tribune_enabled_filters', array('totoz' => "totoz", 'url' => "url"));
+  $enabled_filters['url'] = "url";
+  variable_set('tribune_enabled_filters', $enabled_filters);
+
+  return array();
+}
+
+function tribune_update_6201() {
+  $enabled_filters = variable_get('tribune_enabled_filters', array('totoz' => "totoz"));
+  $enabled_filters['totoz'] = "totoz";
+  variable_set('tribune_enabled_filters', $enabled_filters);
+
+  tribune_parse_last_messages(NULL);
+
+  return array();
+}
+
+function tribune_update_6200() {
+  $ret = array();
+  db_add_field($ret, "tribune", "moderated", array("type" => "int", "size" => "tiny", "not null" => TRUE, "initial" => 0, "default" => 0));
+  return $ret;
+}
+
+function tribune_schema() {
+  $schema['tribune'] = array(
+    'description' => t("The table for storing tribune posts"),
+    'fields' => array(
+      'post_id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => "Unique id of every post",
+      ),
+      'tribune_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "ID of the corresponding tribune",
+      ),
+      'tribune_post_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Unique and sequential ID per post per tribune",
+      ),
+      'login' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Username of the author, or nothing for anonymous posts",
+      ),
+      'info' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Useragent of the author",
+      ),
+      'message' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Message as it has been posted by the user and after it has been modified by 'before slip' filters",
+      ),
+      'post_time' => array(
+        'type' => 'varchar',
+        'length' => 14,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "Time of the post, in UTC, formatted as 'YYYYMMDDhhmmss', used for clocks matching",
+      ),
+      'is_alone' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether other messages where posted at the same second or not",
+      ),
+      'post_rank' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "If other messages where posted at the same second, indicates the rank of a post. 0 if no other posts exist at the same post_time",
+      ),
+      'parsed_message' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Message after it has been modified by 'after slip' filters, with tags filters and ready to be safely printed",
+      ),
+      'last_modified' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Time of the last modification of a post, used for ajax reloading",
+      ),
+      'moderated' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether a post is moderated or not, moderated posts will only be seen by moderators",
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "UID of the user who posted this post (0 for anonymous users)",
+      ),
+      'sid' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'default' => '',
+        'description' => "SID of the user who posted this post (for tracking anonymous users)",
+      ),
+    ),
+    'primary key' => array('post_id'),
+    'indexes' => array(
+      'post_time' => array('post_time'),
+      'last_modified' => array('last_modified'),
+      'uid' => array('uid'),
+      'sid' => array('sid'),
+      'tribune_id' => array('tribune_id'),
+      'tribune_post_id' => array('tribune_post_id'),
+    ),
+  );
+  $schema['tribune_post_references'] = array(
+    'description' => t("The table for storing which post answers which other posts"),
+    'fields' => array(
+      'reference_id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => "ID of the source/reference row",
+      ),
+      'target_post_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the referenced post",
+      ),
+      'source_post_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the referencing post",
+      ),
+      'ref_clock_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "Number of the referencing clock inside the referencing post",
+      ),
+    ),
+    'primary key' => array('reference_id'),
+    'indexes' => array(
+      'source_post_id' => array('source_post_id'),
+      'target_post_id' => array('target_post_id'),
+      'source_clock_id' => array('source_post_id', 'ref_clock_id'),
+    ),
+  );
+  $schema['tribune_tribunes'] = array(
+    'description' => t("The table containing all tribunes and their names"),
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "ID of the corresponding node",
+      ),
+      'banned_useragents' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of useragents banned from posting in this tribune",
+      ),
+      'banned_usernames' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of usernames banned from posting in this tribune",
+      ),
+      'banned_messages' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "List of strings forbidden in this tribune",
+      ),
+      'max_message_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 512,
+        'description' => "Maximum length of a post",
+      ),
+      'history_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 25,
+        'description' => "Number of posts displayed in the page view",
+      ),
+      'xml_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 100,
+        'description' => "Number of posts displayed in the XML backend",
+      ),
+      'rss_size' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 50,
+        'description' => "Number of posts displayed in the RSS backend",
+      ),
+      'reload_delay' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 15,
+        'description' => "Delay between AJAX reloading of new posts (0 to disable automatic reloading)",
+      ),
+      'idle_delay' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Delay before the tribune stop automatically reloading when an user is inactive, in seconds (0 to disable idle mode).",
+      ),
+      'flood_protection_delay' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Minimum time before someone can post again (0 disables flood protection)",
+      ),
+      'posts_order' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether new posts are displayed at the top (0) or at the bottom (1) of the page",
+      ),
+      'show_pager' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Whether to display a pager or not",
+      ),
+      'enabled_filters' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Serialized array of enabled filters for this tribune",
+      ),
+      'variables' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Serialized array of filters settings for this tribune",
+      ),
+      'shortcuts' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => "Javascript shortcuts, in a serialized PHP array.",
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}
+
+function tribune_install() {
+  drupal_install_schema("tribune");
+}
+
+function tribune_uninstall() {
+  drupal_uninstall_schema("tribune");
+
+  variable_del('tribune_global_variables');
+  variable_del('tribune_active_users');
+  variable_del('tribune_pager');
+  variable_del('tribune_order');
+  variable_del('tribune_flood_protection_delay');
+  variable_del('tribune_message');
+  variable_del('tribune_name');
+  variable_del('tribune_reload_delay');
+  variable_del('tribune_max_message_size');
+  variable_del('tribune_xml_size');
+  variable_del('tribune_rss_size');
+  variable_del('tribune_history_size');
+  variable_del('tribune_history_block_size');
+  variable_del('tribune_enabled_filters');
+  variable_del('tribune_blocks');
+}

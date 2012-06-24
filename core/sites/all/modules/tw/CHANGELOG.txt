@@ -1,0 +1,54 @@
+//$Id: CHANGELOG.txt,v 1.1.2.37 2010/05/17 17:54:49 mikeryan Exp $
+
+Table Wizard 1.2
+===========
+
+Features
+- #792194 - Support table sorting of relationships
+- #610896 - Allow specifying PKs (permits using MySQL views in Views)
+- #610128 - Support views combining tables across databases, for MySQL
+- #424454 - Make analysis filters and relationships page tabs
+- #610036 - Add descriptions to tables and columns in hook_schema()
+- #429130, #558094 - Allow disabling default views, and providing explicit names
+- #605546 - Initally sort by both connection and table name
+- #572732 - Document PHP settings for importing large files
+
+Bug fixes
+- #779650 - Quote identifiers on delimited import
+- #758028 - Fix missing group on joined table
+- #742720 - Use Views field handler
+- #685972 - Escape single quotes in descriptions on export
+- #698934 - Fix display of node relationship
+- #645944 - Fix automatic joins - bogus group
+- #605520 - Undefined variable in default view hook
+- #568762 - Private download wrong tempdir path
+- #513534 - Don't just clear menu cache, rebuild menus
+- #462658 - Blank default for CSV imports breaks with Windows MySQL default configuration
+- #550856 - Clear menu cache after analysis
+- #742112 - Remove unnecessary reference for PHP 5.3.
+
+Table Wizard 1.1
+===========
+
+Features
+- #433840 - Added support for Views joins as well as relationships
+- #426650 - Allow tables managed by other modules (such as the node table) to be added
+            and used in relationships.
+- #433656 - Added support for exporting views definitions
+- #430376 - Added support for Views arguments
+- #521210 - Option to skip full analysis when adding tables
+- #506708 - Order tables to be added alphabetically in pgsql
+- #463552 - Improved cache flushing, major performance improvement. Also use Batch API
+            when removing tables.
+- Added help directory (support for advanced_help)
+- Added CHANGELOG.txt
+
+Bug fixes
+- #479614, #495234, #519748 - Fixes to postgres support
+- #513534 - Clear menu cache so new default views are accessible
+- #462004 - Handle lack of available keys on Relationships page
+- #450170 - Another place requiring tw_quote_identifier()
+- #460808 - Bad link to analyze link from default view
+- #463544 - Make need to define Available Key (FK) more clear
+- #519166 - Typo in relationships form
+- #507374 - Missing unsigned on existing_view_data in schema

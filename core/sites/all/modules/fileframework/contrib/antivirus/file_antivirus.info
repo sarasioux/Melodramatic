@@ -1,0 +1,14 @@
+; $Id$
+name = Antivirus
+description = Allows files to be scaned on the upload.
+package = File management
+dependencies[] = file
+core = 6.x
+php = 5.2
+
+; Information added by drupal.org packaging script on 2011-12-08
+version = "6.x-1.0-alpha6"
+core = "6.x"
+project = "fileframework"
+datestamp = "1323331547"
+

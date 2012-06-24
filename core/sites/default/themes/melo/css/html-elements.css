@@ -1,0 +1,200 @@
+#page
+{
+  font-size:1em;
+  line-height:1.286em;
+}
+
+.block ul,
+.item-list ul
+{
+  margin:1em 0;
+  padding:0 0 0 2em;
+}
+
+.form-text,select,textarea
+{
+  border:solid #bbb 1px;
+  font-size:1.2em;
+  padding:2px;
+  font-family:"Helvetica Neue", "Trebuchet MS", Helvetica, Arial;
+}
+select {
+  font-size: 1.1em;
+}
+
+.item-list ul li
+{
+  list-style:inherit;
+  margin:0;
+  padding:0;
+}
+
+a
+{
+  text-decoration:none;
+}
+
+a:hover, a.active
+{
+  text-decoration: underline;
+}
+
+abbr
+{
+  border-bottom:1px dotted #666;
+  cursor:help;
+  white-space:nowrap;
+}
+
+abbr.created
+{
+  border:none;
+  cursor:auto;
+  white-space:normal;
+}
+
+dd
+{
+  margin:0 0 0 2em;
+  padding:0;
+}
+
+fieldset
+{
+  border:solid #ccc 1px;
+  margin:0 0 10px;
+  padding:1em;
+}
+
+h1
+{
+  font-size:2em;
+  line-height:1.3em;
+  margin-bottom:.5em;
+  margin-top:0;
+}
+
+h2
+{
+  font-size:1.5em;
+  line-height:1.3em;
+  margin-bottom:.667em;
+  margin-top:.667em;
+}
+
+h3
+{
+  font-size:1.3em;
+  line-height:1.3em;
+  margin-bottom:.769em;
+  margin-top:.769em;
+}
+
+h4,h5,h6
+{
+  font-size:1.1em;
+  line-height:1.3em;
+  margin-bottom:.909em;
+  margin-top:.909em;
+}
+
+hr
+{
+  border:1px solid #666;
+  height:1px;
+}
+
+img
+{
+  border: solid #000 1px;
+}
+
+legend
+{
+  padding:0 5px;
+}
+
+li, ul.menu li,
+li.expanded,li.collapsed,li.leaf,dt,form
+{
+  margin:0;
+  padding:0;
+}
+
+ol ol
+{
+  list-style-type:lower-alpha;
+}
+
+ol,ol ol ol
+{
+  list-style-type:decimal;
+}
+
+p,ul,ol,dl,pre,table,fieldset,blockquote
+{
+  margin:1em 0;
+}
+
+pre,code
+{
+  font-family:"Bitstream Vera Sans Mono", "Courier New", monospace;
+  font-size:1.1em;
+}
+
+table
+{
+  border-collapse:collapse;
+  margin:0;
+  width:100%;
+}
+
+table td
+{
+  padding:5px;
+  vertical-align: top;
+}
+
+tbody
+{
+  border-top:none;
+}
+
+th img,thead th img,tbody th img
+{
+  border:none;
+}
+
+th,thead th,tbody th
+{
+  border-bottom:none;
+  padding-right:0;
+  text-align:left;
+  font-size: 0.8em;
+}
+
+ul
+{
+  list-style-type:disc;
+}
+
+ul ul ul
+{
+  list-style-type:square;
+}
+
+ul ul,ul ol,ol ol,ol ul,.block ul ul,.block ul ol,.block ol ol,.block ol ul,.item-list ul ul,.item-list ul ol,.item-list ol ol,.item-list ol ul
+{
+  margin:0;
+}
+
+ul ul,ul ul ul ul
+{
+  list-style-type:circle;
+}
+
+ul,ol
+{
+  margin-left:0;
+  padding-left:2em;
+}

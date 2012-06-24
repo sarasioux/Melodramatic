@@ -1,0 +1,83 @@
+<?php
+/**
+ * @file
+ * Use tac_lite to control which terms can be used when creating new
+ * content.  Unlike tac_lite.module, which relies on Drupal's node_access
+ * features, this module uses hook_form_alter to change which terms are
+ * presented by the taxonomy module.
+ *
+ * Original implementation by markDrupal http://drupal.org/user/93970.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function tac_lite_create_form_alter(&$form, $form_state, $form_id) {
+  if (strpos($form_id, 'node_form') !== FALSE) {
+    global $user;
+
+    if (user_access('administer tac_lite')) {
+      // no need to restrict based on update permission in this cases
+      return;
+    }
+
+    // the vocabularies containing protected info.
+    $vids = variable_get('tac_lite_categories', array(0));
+
+    // the terms this user is allowed to edit
+    $tids = array();
+    for ($i = 1; $i <= variable_get('tac_lite_schemes', 1); $i++) {
+      $config = _tac_lite_config($i);
+      if ((isset($config['tac_lite_create']) && $config['tac_lite_create']) ||
+        in_array('grant_update', $config['perms'])) {
+        $tids = array_merge($tids, _tac_lite_user_tids($user, $i));
+      }
+    }
+
+    if (isset($form['taxonomy'])) {
+      foreach ($form['taxonomy'] as $vid => $data) {
+        if (!is_numeric($vid) || !in_array($vid, $vids)) {
+          // Not a vid, or not controlled by tac_lite.
+          continue;
+        }
+        foreach ($data['#options'] as $num => $term) {
+          if (!is_numeric($num)) {
+            continue;
+          }
+          if (!in_array(key($term->option), $tids)) {
+            if (!in_array(key($term->option), $form['taxonomy'][$vid]['#default_value'])) {
+              // The term is not the default value, and user is not allowed to create with it.
+              unset($form['taxonomy'][$vid]['#options'][$num]);
+            }
+          }
+        }
+
+        if (count($form['taxonomy'][$vid]['#options']) == 0 && $form['taxonomy'][$vid]['#required'] == TRUE) {
+          drupal_set_message(t('You have no permissions to add content to the required %name vocabulary. Please contact the site administrator if you believe you should have permission to add content.', array('%name' => $form['taxonomy'][$vid]['#title'])));
+          drupal_access_denied();
+          exit();
+        }
+        
+        if (count($form['taxonomy'][$vid]['#options']) <= 1) {
+          // Don't show if the only option left is <none>.
+          unset($form['taxonomy'][$vid]);
+        }
+        if (isset($form['taxonomy'][$vid]['#size']) &&
+          $form['taxonomy'][$vid]['#size'] > count($form['taxonomy'][$vid]['#options'])) {
+          $form['taxonomy'][$vid]['#size'] = count($form['taxonomy'][$vid]['#options']);
+        }
+      }
+    }
+  }
+  elseif ($form_id == 'tac_lite_admin_scheme_form') {
+    $config = $form['#tac_lite_config'];
+    $scheme = $form['#parameters'][2];
+
+    $form['tac_lite_config_scheme_' . $scheme]['tac_lite_create'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Visibility on create and edit forms',
+      '#default_value' => isset($config['tac_lite_create']) ? $config['tac_lite_create'] : FALSE,
+      '#description' => t('Show terms when creating content.  This <strong>does not</strong> control which users can create a given content type. This <strong>does</strong> control which terms appear on the node edit forms.  <br/>Note that schemes granting <em>update</em> permission (above) imply <em>visibility on forms</em> as well.'),
+    );
+  }
+}

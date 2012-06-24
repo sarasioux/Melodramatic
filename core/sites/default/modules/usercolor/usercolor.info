@@ -1,0 +1,5 @@
+name = User Color
+description = "Allow users to create custom color schemes"
+package = Melo
+core = 6.x
+

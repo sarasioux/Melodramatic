@@ -1,0 +1,12 @@
+; $Id: node_limitnumber.info,v 1.1.4.2.2.4 2011/01/24 19:08:06 jdwfly Exp $
+name = Node limit number
+description = Limit the number of nodes or comments a user can create.
+dependencies[] = rules
+core = 6.x
+package = Rules
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "6.x-2.0-beta2"
+core = "6.x"
+project = "node_limitnumber"
+datestamp = "1295973738"
+

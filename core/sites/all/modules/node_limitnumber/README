@@ -1,0 +1,51 @@
+$Id: README,v 1.1.2.6 2010/06/09 15:42:31 jdwfly Exp $
+Node Limit Number v2.0-dev
+
+DESCRIPTION
+--------------------------------------------------------------------------------
+This module allows for the creation of rules that limit the creation of content
+on a site. The 1.0 version of this module is a direct port of the Drupal 5
+version and has its own UI and database table. It worked quite well, but when 
+tied to together with the Rules module this module allows for nearly any kind
+of special conditions. The 2.0 branch of this module is a complete rewrite 
+allowing it to integrate with Rules. Instead of creating limits you create 
+rules using the special event and the special condition.
+
+INSTALL
+--------------------------------------------------------------------------------
+You must have downloaded and installed the Rules module first.
+
+1. Download the latest release from drupal.org/project/node_limitnumber.
+2. Extract the files.
+3. Put the files into your modules folder for your drupal site.
+4. Enable the module at admin/build/modules.
+5. Start making your rules.
+
+USAGE
+--------------------------------------------------------------------------------
+One example rule have been provided. This rule can be modified with whatever
+conditions and actions you need to enforce your limit. The only requirement is 
+that you must include the special limit condition and it must also use the 
+special event that it is already set to.
+
+When modifying the rules to create your own limits the possibilities are 
+endless. Limits can be set per role, per user, with time limits, per node types.
+The rule can then be enabled or disabled as needed.
+
+CONFLICTING LIMITS
+--------------------------------------------------------------------------------
+Be careful during the creation of your rules so that you do not create conflicting
+limits because the lowest limit will always take precedence. Example:
+Role A can create 1 example node
+Role B can create 2 example nodes
+User Z has role A and B
+User Z can only create 1 example node
+ 
+GETTING HELP
+--------------------------------------------------------------------------------
+If you need some help creating a rule you can post a support request in the
+issue queue, but you would get better help if you posted in the forums. I will
+try to help as much as I can but it can be very hard to create a rule without
+knowing all of the information. Please be very descriptive about your needs and
+I will respond to any support requests in a timely manner. Support requests will
+be closed after 2 weeks of inactivity.

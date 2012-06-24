@@ -1,0 +1,14 @@
+; $Id: viewreference.info,v 1.2.2.4 2009/09/08 08:56:29 danielb Exp $
+name = View Reference
+description = Defines a field type for referencing a view from a node.
+core = 6.x
+dependencies[] = content
+dependencies[] = text
+dependencies[] = views
+package = CCK
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "6.x-3.5"
+core = "6.x"
+project = "viewreference"
+datestamp = "1297392458"
+

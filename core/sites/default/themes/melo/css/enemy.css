@@ -1,0 +1,41 @@
+/*  Enemy CSS  */
+
+  body.page-enemy #content-inner
+  {
+    background: #000 url(/sites/melodramatic/themes/melo/images/fuckyou.jpg) left center no-repeat;
+    color: white;
+    height: 350px;
+    padding: 20px 0 0 440px;
+  }
+  body.page-enemy h1.title {
+    font-size: 24pt;
+    color: #660000;
+    line-height: 24pt;
+    width: 250px;
+  }
+  body.page-enemy #content-area {
+    padding: 0;
+    padding-top: 20px;
+    width: 250px;
+  }
+  div.reasons {
+    height: 190px;
+  }
+  div.reasons h2 {
+    font-weight: normal;
+    font-size: 9pt;
+    color: #333;
+  }
+  div.reasons p {
+    font-size: 11pt;
+  }
+  div.links {
+    color: #333;
+  }
+  div.links a {
+    color: #660000;
+    text-transform: capitalize;
+  }
+  div.links a:hover {
+    text-decoration: underline;
+  }

@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * @file
+ * Install required touch tables and settings.
+ */
+
+/**
+ * Install required tables.
+ */
+function touches_install() {
+  drupal_install_schema('touches');
+}
+
+/**
+ * Implementation of hook_schema
+ **/
+/*
+function touches_schema() {
+  $schema = array();
+
+  $schema['touch_types'] = array(
+    'description' => t('Different types of configured touches.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'label' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'label_plural' => array('type' => 'varchar', 'length' => 40, 'not null' => TRUE),
+      'content_types' => array('type' => 'text', 'not null' => FALSE),
+      'display_type' => array('type' => 'int', 'unsigned' => true, 'not null' => TRUE, 'default' => 1, 'size' => 'tiny'),
+      'limit_type' => array('type' => 'varchar', 'length' => 40, 'not null' => TRUE, 'default' => 'global'),
+      'touch_self' => array('type' => 'boolean', 'default' => FALSE)
+    ),
+    'unique keys' => array('name' => array('name')),
+    'primary key' => array('id'),
+  );
+  
+  $schema['touch_counts'] = array(
+    'description' => t('User limits on touches.'),
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'tid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'available_touches' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'primary key' => array('uid', 'tid'),
+  );
+
+  return $schema;
+}
+*/
+/**
+ * Implementation of hook_update().
+ */
+function touches_update_5001() {
+  $ret = array();
+  $ret[] = update_sql("ALTER TABLE {touch_types} ADD touch_self boolean NOT NULL default FALSE");
+  return $ret;
+}
+
+/**
+* Implementation of hook_uninstall().
+*/
+function touches_uninstall() {
+  drupal_uninstall_schema('touches');
+}

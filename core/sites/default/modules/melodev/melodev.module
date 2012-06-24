@@ -1,0 +1,2077 @@
+<?php
+
+/**
+ * @file
+ * Controls custom functionality for Melodramatic.com.
+ *
+ * This module includes functionality for custom access control,
+ * blocks, relationships, karma & stats, and other random pieces of
+ * Meloism.  There was an attempt to organize it in a logical manner
+ * but it is still under development.
+ */
+
+module_load_include('inc', 'melodev', 'melodev.access');
+module_load_include('inc', 'melodev', 'melodev.blocks');
+module_load_include('inc', 'melodev', 'melodev.relationships');
+module_load_include('inc', 'melodev', 'melodev.karma');
+module_load_include('inc', 'melodev', 'melodev.stats');
+module_load_include('inc', 'melodev', 'melodev.vbo.action');
+module_load_include('inc', 'melodev', 'melodev.ubercart');
+module_load_include('inc', 'melodev', 'melodev.cron');
+module_load_include('inc', 'melodev', 'melodev.batches');
+
+/**
+ * The name of the category used for storing hidden profile fields.
+ */
+define('MELO_PROFILE_CATEGORY', 'About Me');
+/**
+ * The name of the category used for storing preferences.
+ */
+define('MELO_PREFS_CATEGORY', 'Preferences');
+/**
+ * The name of the category used for storing preferences.
+ */
+define('MELO_ELITE_RID', '4');
+/**
+ * The gift product id.
+ */
+define('MELO_ELITE_GIFT_NID', '469');
+/**
+ * The subscription product id.
+ */
+define('MELO_ELITE_SUBSCRIPTION_NID', '463');
+/**
+ * The gift subscription product id.
+ */
+define('MELO_ELITE_SUBSCRIPTION_GIFT_NID', '5481291');
+/**
+ * The yearly product id.
+ */
+define('MELO_ELITE_YEARLY_NID', '465');
+/**
+ * The monthly-no-recur product id.
+ */
+define('MELO_ELITE_MONTHLY_NORECUR', '5481290');
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function melodev_menu() {
+  $items = array();
+  
+  // Home Page Callback
+  $items['home'] = array(
+//    'title' => 'Home',
+    'page callback' => 'melodev_home_page',
+    'access arguments' => array('access content'),
+    'description' => 'Melo Home Page',
+    'type' => MENU_CALLBACK,
+  );
+
+  // Enemy Page Callback
+  $items['enemy/%'] = array(
+    'title' => 'Enemy',
+    'page callback' => 'melodev_enemy_page',
+    'access arguments' => array('access content'),
+    'description' => 'You have made a powerful enemy my friend.',
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.inc',
+  );
+  
+  // Karma Configuration
+  $items['admin/settings/karma'] = array(
+    'title' => 'Karma',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('melodev_karma_settings'),
+    'access arguments' => array('administer karma'),
+    'description' => 'Administer karma settings.',
+    'type' => MENU_NORMAL_ITEM
+  );
+  
+  // Karma Page on My Melo
+  $items['mymelo/you/karma'] = array(
+    'title' => 'Karma',
+    'page callback' => 'melodev_karma_page',
+    'access arguments' => array('create blog entries'),
+    'description' => 'Your karma breakdown.',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'melodev.pages.inc',
+    'weight' => 9
+  );  
+
+  // You Pages Default
+  $arr = array(
+    'page callback' => 'melodev_user_edit_page',
+    'access arguments' => array('edit own profile content'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'melodev.pages.inc',    
+    );
+  
+  // You Page on My Melo
+  global $user;
+  $item = array_merge($arr, array('title' => 'You', 'description' => 'All About You.') );
+  $items['mymelo/you'] = $item;
+    
+  // You Page on My Melo Account
+  $items['mymelo/you/account'] = array(
+    'title' => 'Account',
+    'description' => 'All About You.',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );  
+
+  // Census Page on My Melo
+  $item = array_merge($arr, array('title' => 'Census', 'description' => 'Melo Demographics.', 'page arguments' => array('Census')) );
+  $items['mymelo/you/census'] = $item;
+ 
+ // Picture Page on My Melo
+  $item = array_merge($arr, array('title' => 'Picture', 'description' => 'Edit Your Profile Picture.', 'page arguments' => array('content_profile')) );
+  $items['mymelo/you/picture'] = $item;
+  
+  // Profile Page on My Melo
+  $item = array_merge($arr, array('title' => 'Profile', 'description' => 'Edit Your Profile.', 'page arguments' => array('About Me')) );
+  $items['mymelo/you/profile'] = $item;
+
+  // Preferences Page on My Melo
+  $item = array_merge($arr, array('title' => 'Preferences', 'description' => 'Customize your Melo Preferences.', 'page arguments' => array('Preferences'), 'weight' => 2 ));
+  $items['mymelo/you/preferences'] = $item;  
+
+  // Delete Self on My Melo
+  $item = array_merge($arr, array('title' => 'Delete Me', 'description' => 'Delete yourself.', 'page arguments' => array('Delete'), 'weight' => 2 ));
+  $item['type'] = MENU_CALLBACK;
+  $item['access callback'] = 'user_delete_access';
+  $item['access arguments'] = array(1);
+  $items['mymelo/you/delete'] = $item;  
+
+  // Eliteness
+  $items['eliteness'] = array(
+    'title' => 'Eliteness',
+    'page callback' => 'melodev_elite_page',
+    'access arguments' => array('access content'),
+    'file' => 'melodev.pages.inc',
+    'type' => MENU_CALLBACK
+    );
+    
+  // Active users callback
+  $items['active-users/load'] = array(
+    'page callback' => 'melodev_active_users_load',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.inc',    
+    );
+    
+  // Random tour
+  $items['random'] = array(
+    'page callback' => 'melodev_random_tour',
+    'access arguments' => array('access random tour'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.inc',    
+    );
+    
+  // My Cliques page
+  $items['mycliques'] = array(
+    'title' => 'My Cliques',
+    'description' => 'Your Cliques',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'melodev_mycliques_page',
+    'file' => 'melodev.pages.inc',
+    'access arguments' => array('my cliques'),
+    'weight' => -10
+  );      
+  $items['mycliques/overview'] = array(
+    'title' => 'My Cliques',
+    'description' => 'Your Cliques',
+    'type' => MENU_DEFAUL_LOCAL_TASK
+    );
+    
+  // GOD Functions
+  
+  // rebuild user access
+  $items['admin/god/access/%'] = array(
+    'title' => 'Rebuild User Access',
+    'page callback' => 'melodev_rebuild_user_access',
+    'access arguments' => array('administer users'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  // add user to reimport queue
+  $items['admin/god/reimport/queue/%'] = array(
+    'title' => 'Add User to Reimport Queue',
+    'page callback' => 'melodev_reimport_user_queue',
+    'access arguments' => array('administer users'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  // reimport user
+  $items['admin/god/reimport/user/%'] = array(
+    'title' => 'Reimport User Journals',
+    'page callback' => 'melodev_reimport_user_entries',
+    'access arguments' => array('administer users'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  // reimport node
+  $items['admin/god/reimport/node/%'] = array(
+    'title' => 'Reimport One Node',
+    'page callback' => 'melodev_reimport_node_page',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  // process logs
+  $items['admin/reports/processlogs'] = array(
+    'title' => 'Process Logs',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('melodev_access_logs_confirm'),
+    'access arguments' => array('administer site configuration'),
+    'description' => 'Process access logs for ownership.',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );  
+  $items['admin/god/elite/recalculate'] = array(
+    'title' => 'Recalculate Elites',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('melodev_recalculate_expiration_form'),
+    'access arguments' => array('view all orders'),
+    'description' => 'Recalculate all users.',
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );
+
+  // FP Rotates
+  $items['admin/god/fpart/rotate'] = array(
+    'title' => 'Rotate FP Art',
+    'page callback' => 'melodev_rotate_fpart_page',
+    'access arguments' => array('administer front page'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );  
+  $items['admin/god/fppoll/rotate'] = array(
+    'title' => 'Rotate FP Poll',
+    'page callback' => 'melodev_rotate_fppoll_page',
+    'access arguments' => array('administer front page'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );  
+  // reimport user
+  $items['admin/god/orders/%'] = array(
+    'title' => 'Historic Order Report',
+    'page callback' => 'melodev_historic_order_report',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  // elite comparison
+  $items['admin/god/elite/compare'] = array(
+    'title' => 'Elite Comparison',
+    'page callback' => 'melodev_elite_expiration_comparison',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );   
+
+  // elite comparison
+  $items['admin/god/elite/report'] = array(
+    'title' => 'Elite Report',
+    'page callback' => 'melodev_elite_report_page',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );   
+    
+  //  CACHE MANAGEMENT
+  
+  // Block management
+  $items['admin/build/cache_browser/blocks'] = array(
+    'title' => 'Block Cache',
+    'description' => 'Manage Block Cache',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'melodev_block_cache_page',
+    'file' => 'melodev.pages.admin.inc',
+    'access arguments' => array('administer site configuration'),
+    'weight' => -9
+  );        
+
+  // View management
+  $items['admin/build/cache_browser/views'] = array(
+    'title' => 'View Cache',
+    'description' => 'Manage View Cache',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'melodev_view_cache_page',
+    'file' => 'melodev.pages.admin.inc',
+    'access arguments' => array('administer site configuration'),
+    'weight' => -8
+  );        
+  $items['admin/build/cache_browser/browse'] = array(
+    'title' => 'Browse',
+    'description' => 'Cache Browser',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+    );
+    
+  $items['legacy/paypal_ipn'] = array(
+    'title' => 'Legacy Paypal IPN Callback',
+    'page callback' => 'melodev_legacy_paypal_ipn',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.inc',
+  );
+  $items['melodev/index.php'] = array(
+    'title' => 'Legacy Paypal IPN Callback',
+    'page callback' => 'melodev_legacy_paypal_ipn',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.inc',
+  );
+    
+  return $items;
+}
+
+/**
+ * Page callback for the home page.
+ * 
+ * This is done in place of using panels.  The home page gets its own template
+ * file and custom regions, and blocks can be placed independently of any
+ * additional modules.  We needed a menu callback to hold those regions and blocks
+ * but no standard content area, so we return empty output.
+ */
+function melodev_home_page() {
+  return '&nbsp;';
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ *
+ * Remove some default tabs and turn others into callbacks.
+ */
+function melodev_menu_alter(&$items) {
+
+  // Remove user recurring fees callback
+  $items['user/%user/recurring-fees']['access callback'] = FALSE;
+  
+  // Remove the track tab
+  $items['user/%user/track/navigation']['access callback'] = FALSE;
+  
+  // Remove Orders tab but not callback
+  $items['user/%user/orders']['type'] = MENU_CALLBACK;
+  
+  // Remove the Email settings but not the callback
+  $items['user/%user/webmail_plus']['type'] = MENU_CALLBACK;
+
+  // Remove node track callbacks
+  $items['node/%node/track']['access callback'] = FALSE;
+  
+  // Remove the default user view tab
+  $items['user/%user/view']['type'] = MENU_CALLBACK;
+  
+  // Remove the contact tab
+  $items['user/%user/contact']['type'] = MENU_CALLBACK;
+  
+}
+
+/**
+ * Implementation of hook_link_alter().
+ *
+ * Alter node links as necessary.
+ */
+function melodev_link_alter(&$links, $node) {
+  global $user;
+
+  unset($links['comment_forbidden']);
+  
+  // Change comment links to gspot links
+  if(isset($links['comment_comments'])) {
+    $links['comment_comments']['title'] = str_replace('comment', 'gspot', $links['comment_comments']['title']);
+    $links['comment_comments']['attributes']['title'] = str_replace('comment', 'gspot', $links['comment_comments']['attributes']['title']);
+  }
+  if(isset($links['comment_add'])) {
+    $links['comment_add']['title'] = t('Add Gspot');
+  }
+  if($node->comment_count > 0 && !isset($links['comment_comments']) && isset($links['comment_add'])) {
+    $links['comment_add']['title'] = format_plural($node->comment_count, '@count gspot', '@count gspots');
+    $links['comment_add']['href'] = 'node/'.$node->nid;
+    $links['comment_add']['fragment'] = 'comments';
+  }
+  if(isset($links['comment_new_comments'])) {
+    unset($links['comment_new_comments']);
+  }
+
+  // Ignore nodequeue links for already-featured FP content -- A little hacky but Nodequeue isn't friendly
+  if($node->type == 'poll') {
+    $queues = nodequeue_load_queues_by_type($node->type);
+    // Featured homepage queue
+    $queue = $queues[4];
+    if($pos = nodequeue_queue_position($queue->qid, $node->nid)) {
+      // Disable all nodequeue links
+      foreach($links as $id => $link) {
+        if(eregi('nodequeue', $id)) {
+          unset($links[$id]);
+        }
+      }
+      // Disable submission flag links
+      unset($links['flag-fppoll']);
+    }
+  } else if($node->type == 'fpart' && $node->status == 1) {
+    // Disable all nodequeue links
+    foreach($links as $id => $link) {
+      if(eregi('nodequeue', $id)) {
+        unset($links[$id]);
+      }
+    }
+  }
+  
+  // No reads on Page nodes
+  if($node->type == 'page') {
+    unset($links['statistics_counter']);
+  }
+}
+
+/**
+ * Implementation of hook_menu_link_alter().
+ *
+ * Keeps menu items active when we want them to be.
+ */
+function _melodev_menu_link_alter(&$item, $menu) {
+  echo '<pre>';
+  print_r($item);
+  print_r($menu);
+//  exit();
+  // Example 1 - make all new admin links hidden (a.k.a disabled).
+  if (strpos($item['link_path'], 'admin') === 0 && empty($item['mlid'])) {
+    $item['hidden'] = 1;
+  }
+  // Example 2  - flag a link to be altered by hook_translated_menu_link_alter()
+  if ($item['link_path'] == 'devel/cache/clear') {
+    $item['options']['alter'] = TRUE;
+  }
+}
+
+
+/**
+ * Implementation of hook_cron().
+ *
+ * Runs the time-based Melo cleanup required to various pieces
+ * of custom functionality.
+ *
+ * Current crontab:
+ *
+ *    # cron
+ *    * /5 * * * *  /usr/bin/drush -u sara -r /home/sites/melogamma -l gamma.melodramatic.com cron >> /home/sites/logs/melocron.log; echo "cron" >> /home/sites/logs/melocron.log;
+ *     
+ *    # touches
+ *    0 0 * * * /usr/bin/drush -u sara -r /home/sites/melogamma -l gamma.melodramatic.com eval 'melodev_cron_reset_touches(true);' >> /home/sites/logs/melocron.log
+ *     
+ *    # stats
+ *    0 1 * * * /usr/bin/drush -u sara -r /home/sites/melogamma -l gamma.melodramatic.com eval 'melodev_cron_stats_daily(true);' >> /home/sites/logs/melocron.log
+ *    
+ *    #logs
+ *    * /2 * * * * /usr/bin/drush -u sara -r /home/sites/melogamma -l gamma.melodramatic.com eval 'melodev_cron_process_logs(true);' >> /home/sites/logs/melocron.log; echo "logs" >> /home/sites/logs/melocron.log;
+ *
+ *    # karma
+ *    * /30 * * * * /usr/bin/drush -u sara -r /home/sites/melogamma -l gamma.melodramatic.com eval 'melodev_cron_today_karma(true);' >> /home/sites/logs/melocron.log; echo "logs" >> /home/sites/logs/melocron.log;
+ *
+ */
+function melodev_cron() {
+  
+  // Calculate karma
+  // melodev_cron_today_karma();
+
+  // Rotate the front page art
+  melodev_cron_fpart_rotate();
+  
+  // Rotate the front page poll
+  melodev_cron_fppoll_rotate();
+
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * In this example, we will use a simple permission to determine whether a user
+ * has access to "private" content. This permission is defined here.
+ */
+function melodev_perm() {
+  return array('administer front page', 'access all FO posts', 'access all private posts', 'create custom thumbnail', 'search by username', 'personal tag cloud',
+               'administer user roles', 'access random tour');
+}
+
+/**
+ * implementation of hook_nodeapi
+ */
+function melodev_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'insert':
+      // Update Cliques
+      if(count($node->og_groups) > 0) {
+        foreach($node->og_groups as $cid) {
+          $cnode = melodev_node_load($cid);
+          $cnode->changed = mktime();
+          node_save($cnode);
+        }
+      }
+      // Stats
+      melodev_stats_nodeapi($node, $op, $teaser, $page);
+      break;
+    case 'delete':
+      // Stats
+      melodev_stats_nodeapi($node, $op, $teaser, $page);
+      break;
+    case 'update':
+      // Stats
+      melodev_stats_nodeapi($node, $op, $teaser, $page);
+      break;
+    case 'load':
+      // Access
+      melodev_access_nodeapi($node, $op, $teaser, $page);
+      break;
+    case 'presave':
+      // Access
+      melodev_access_nodeapi($node, $op, $teaser, $page);
+      
+      // Feed API - Force Zazzle to be owned by Sara (workaround since "Feeds" module still lacks inheritence)
+      if($node->type == 'zazzle') {
+        // Force owner & format on import
+        $node->uid = 1;
+        $node->name = 'sara';
+        $node->format = 3;
+      }
+      break;
+    case 'view':
+      // Access
+      melodev_access_nodeapi($node, $op, $teaser, $page);
+      // Stats
+      melodev_stats_nodeapi($node, $op, $teaser, $page);
+      
+      // Modify Specific Node types
+      switch($node->type) {
+        // Dev Ticket
+        case 'devticket':
+          if(isset($node->content['field_feedback_reference']['field']['items'][0]['#item']['value'])) {
+            $fid = $node->content['field_feedback_reference']['field']['items'][0]['#item']['value'];
+            $sql = "SELECT f.*, u.name FROM {feedback} f INNER JOIN {users} u ON f.uid = u.uid where f.fid = %d";
+            $feedback = db_fetch_object(db_query($sql, $fid));
+            
+            $node->content['body']['#value'] .= '<blockquote>
+              <strong>Reported By:</strong> '.l($feedback->name, 'user/'.$feedback->uid).'<br />
+              <strong>URL:</strong> '.l($feedback->location_masked, $feedback->location_masked).'<br />
+              <p>'.$feedback->message.'</p></blockquote>';
+            unset($node->content['field_feedback_reference']);
+          }
+        break;
+        
+        // Folder
+        case 'folder':
+          // Add the guestbook view
+          if($page) {
+            $view = views_get_view('Guestbook');
+            if (!empty($view)) {
+               $view_args = array($node->uid, $node->field_folder_permission[0]['value'], $node->field_folder_permission[0]['value']);
+//               $view_args = array($node->uid);
+               $guestbook = $view->execute_display('block_1', $view_args);
+            }
+            $node->content['guestbook'] = array(
+              '#value' => $guestbook['content'],
+              '#weight' => 10
+              );
+          }
+        
+        break;
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_feeds_node_processor_targets_alter().
+ *
+ * @see FeedsNodeProcessor::getMappingTargets().
+ */
+function melodev_feeds_node_processor_targets_alter(&$targets, $content_type) {
+
+  $info = content_types($content_type);
+  $fields = array();
+  if (isset($info['fields']) && count($info['fields'])) {
+    foreach ($info['fields'] as $field_name => $field) {
+      if (in_array($field['type'], array('emimage'))) {
+        $fields[$field_name] = isset($field['widget']['label']) ? $field['widget']['label'] : $field_name;
+      }
+    }
+  }
+  foreach ($fields as $k => $name) {
+    $targets[$k] = array(
+      'name' => $name,
+      'callback' => 'melodev_feeds_set_target',
+      'description' => t('The Emimage !name field of the node.', array('!name' => $name)),
+    );
+  }
+}
+
+/**
+ * Callback for mapping. Here is where the actual mapping happens.
+ *
+ * When the callback is invoked, $target contains the name of the field the
+ * user has decided to map to and $value contains the value of the feed item
+ * element the user has picked as a source.
+ */
+function melodev_feeds_set_target($node, $target, $value, $source_item) {
+  // Grab the value manually
+  $value = $source_item['raw']['enclosures'][0]->link;
+  $items = array(0=>array('value'=>$value, 'provider'=>'custom_url'));
+  emimage_field('presave', $node, $target, $items, FALSE, FALSE); 
+  $node->$target = $items;
+}
+
+/**
+ * Implementation of hook_feeds_after_import().
+ *
+ * Rebuild term hierarchy after import.
+ */
+function _melodev_feeds_after_import($importer, $source) {
+  echo '<pre>';
+  print_r($importer);
+  print_r($source);
+  exit();
+  if ($importer->processor instanceOf FeedsTermProcessor && $importer->processor->config['vocabulary']) {
+    if (variable_get('geotaxonomy_'. $importer->processor->config['vocabulary'], FALSE)) {
+
+      geotaxonomy_rebuild_hierarchy($importer->processor->config['vocabulary']);
+      drupal_set_message(t('Rebuilt term hierarchy.'));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_action_info().
+ */
+function melodev_action_info() {
+  $actions = array();
+  $files = file_scan_directory(drupal_get_path('module', 'melodev'), '(.*).action.inc$');
+  if ($files) foreach ($files as $file) {
+    require_once($file->filename);
+    $action_info_fn = str_replace('.', '_', basename($file->filename, '.inc')).'_info';
+    $action_info = call_user_func($action_info_fn);
+    if (is_array($action_info)) $actions += $action_info;
+  }
+  return $actions;
+}
+
+/**
+ * Implementation of hook_views_data()
+ */
+function melodev_views_data() {
+
+  // Submodules implementing this hook
+  $mods = array('stats', 'access');
+  $data = array();
+  foreach($mods as $mod) {
+    $func = 'melodev_'.$mod.'_views_data';
+    $data += $func();
+  }
+
+  return $data;
+}
+
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function melodev_form_alter(&$form, &$form_state, $form_id) {
+
+  global $user;
+
+  // Prefill fields from the querystring
+  if(arg(1) == 'add' && count($form_state['post']) < 1) {
+    foreach($_REQUEST as $key => $var) {
+      if(isset($form[$key])) {
+        // Autocomplete Node Reference Fields
+        if(!isset($form[$key]['#default_value'])) {
+          foreach($form[$key] as $i => $val) {
+            if(is_array($val)) {
+              if(is_array($val['#default_value'])) {
+                foreach($val['#default_value'] as $k => $v) {
+                  if(substr($k, 0, 1) != '_') { // ignore private values
+                    $form[$key][$i]['#default_value'][$k] = $var;
+        
+                    $form[$key][$i]['#prefix'] = '<div class="prefill_form">';
+                    $form[$key][$i]['#suffix'] = '</div>';
+                  }
+                }
+              } else {
+                $form[$key][$i]['#default_value'] = $var;
+                $form[$key][$i]['#prefix'] = '<div class="prefill_form">';
+                $form[$key][$i]['#suffix'] = '</div>';
+              }
+            }
+          }       
+          
+        // Select Box Fields
+        } else if(is_array($form[$key]['#default_value'])) {
+          foreach($form[$key]['#default_value'][0] as $i => $val) {
+            if(substr($i, 0, 1) != '_') {
+              $form[$key]['#default_value'][0][$i] = $var;
+              $form[$key]['#prefix'] = '<div class="prefill_form">';
+              $form[$key]['#suffix'] = '</div>';
+            }
+          }
+          
+        // Plain Fields
+        } else {
+          $form[$key]['#default_value'] = $var;
+          $form[$key]['#prefix'] = '<div class="prefill_form">';
+          $form[$key]['#suffix'] = '</div>';
+        }
+      }
+    }
+  } 
+
+  // Hide all weight fields from node forms
+  if(isset($form['field_weight'])) {
+    $form['field_weight']['#prefix'] = '<div style="display: none">';
+    $form['field_weight']['#suffix'] = '</div>';
+  }
+  
+  // Hide all split summary at cursor
+  if(isset($form['body_field']['teaser_include'])) {
+    $form['body_field']['teaser_include']['#access'] = FALSE;
+    $form['body_field']['teaser_js']['#access'] = FALSE;
+    // Hide teasers
+    //  unset($form['body_field']['teaser_js']);
+
+  }
+  
+  // Set default folder as my public folder for new nodes
+  if(arg(1) == 'add' && isset($form['field_folder_reference'])) {
+    $form['field_folder_reference']['#default_value'][0]['nid'] = melodev_get_public_fid();
+  }
+  
+  // Hide Folder from OG Node Forms
+  if(isset($_REQUEST['gids'])) {
+    if(count($_REQUEST['gids']) > 1) {
+      watchdog('melodev.cliques', 'Multiply gids found: '.print_r($_REQUEST['gids'], true));
+      drupal_set_message('Items cannot be posted into more than one clique.');
+      drupal_goto('<front>');
+    } else {
+      $form['field_folder_reference']['#prefix'] = '<div style="display: none">';
+      $form['field_folder_reference']['#suffix'] = '</div>';
+    }    
+  }
+  
+  // Alter tags fields
+  if(isset($form['taxonomy']['tags'][2])) {
+    $form['taxonomy']['tags'][2]['#description'] = 'A comma separated list of descriptive words related to your post topic.  For example, a post about your new tattoo could be tagged like this, "tattoo, ink, body mods, tribals are the worst, trampstamp" etc.';
+    unset($form['taxonomy']['tags'][2]['#autocomplete_path']);
+  }
+
+  // Enforce admin restrictions
+  if($form['#id'] == 'node-form' && (is_numeric($form['nid']['#value']) && $form['uid']['#value'] != $user->uid)) {
+    melodev_admin_restrictions($form);
+  }
+
+  switch($form_id) {
+
+    // Registration form
+    case 'user_register':
+      $form['#redirect'] = 'thanks';
+      
+      // Strip private text
+      foreach($form as $fid => $field) {
+        if(is_array($form[$fid])) {
+          if(is_array($form[$fid])) {
+            foreach($form[$fid] as $kid => $kield) {
+              if(is_array($form[$fid][$kid]) && eregi('The content of this field is kept private and will not be shown publicly.', $form[$fid][$kid]['#description'])) {
+                $form[$fid][$kid]['#description'] = eregi_replace('The content of this field is kept private and will not be shown publicly.', '', $form[$fid][$kid]['#description']);
+              }
+            }
+          } else {
+            if(eregi('The content of this field is kept private and will not be shown publicly.', $form[$fid]['#description'])) {
+              $form[$fid]['#description'] = eregi_replace('The content of this field is kept private and will not be shown publicly.', '', $form[$fid]['#description']);
+            }
+          }
+        }
+      }      
+    break;
+    
+    // Census form and Private Text
+    case 'user_profile_form':
+    
+      // Enforce admin restrictions
+      if((isset($form['#uid']) && $form['#uid'] != $user->uid) || (isset($form['_account']) && $form['_account']['#value']->uid != $user->uid)) {
+        melodev_admin_restrictions($form);
+      }
+    
+      // Strip private text
+      foreach($form as $fid => $field) {
+        if(is_array($form[$fid])) {
+          if(is_array($form[$fid])) {
+            foreach($form[$fid] as $kid => $kield) {
+              if(is_array($form[$fid][$kid]) && eregi('The content of this field is kept private and will not be shown publicly.', $form[$fid][$kid]['#description'])) {
+                $form[$fid][$kid]['#description'] = eregi_replace('The content of this field is kept private and will not be shown publicly.', '', $form[$fid][$kid]['#description']);
+              }
+            }
+          } else {
+            if(eregi('The content of this field is kept private and will not be shown publicly.', $form[$fid]['#description'])) {
+              $form[$fid]['#description'] = eregi_replace('The content of this field is kept private and will not be shown publicly.', '', $form[$fid]['#description']);
+            }
+          }
+        }
+      }  
+      
+      // Modify the Census    
+      if($form['_category']['#value'] == 'Census') {
+        $acct = $form['_account']['#value'];
+        // Prefill the birthday if we have it
+        if(!$form['Census']['profile_census_birthday']['#default_value'] && count($acct->profile_birthday) == 3) {
+          $form['Census']['profile_census_birthday']['#default_value'] = $acct->profile_birthday;
+        }
+      }
+      
+      // Remove profile picture, language, and contact from account
+      if($form['_category']['#value'] == 'account') {
+        unset($form['picture']);
+        unset($form['contact']);
+        unset($form['locale']);
+      }
+    break;
+    
+    case 'profile_node_form':
+      $form['#redirect'] = 'mymelo/you/picture';
+      $form['#submit'][] = 'mymelo_profile_picture_callback';
+      $form['field_user_thumbnail']['#after_build'][] = 'melodev_profile_picture_thumb_callback';
+      unset($form['buttons']['preview']);
+    break;
+    
+    // Comment Form
+    case 'comment_form':
+      $nid = $form['nid']['#value'];
+      
+      $form['_author']['#title'] = t('Submitting as');
+      unset($form['comment_filter']['comment']['#title']);
+  
+      // Check if HTML is disabled    
+      // @TODO: OPTIMIZE
+      $node = melodev_node_load($nid);
+      $author = melodev_user_load($node->uid);
+      if($author->profile_guestbook_html == 1) {
+        foreach($form['comment_filter']['format'] as $key => $var) {
+          if(is_numeric($key) && $key != 1) {
+            unset($form['comment_filter']['format'][$key]);
+          }
+        }
+        $form['comment_filter']['format'][1]['#default_value'] = 1;
+      }    
+    break;
+    
+    // Blog form
+    case 'blog_node_form':
+      drupal_set_title('New Entry');
+    break;
+    
+    // Favorite form
+    case 'favorite_node_form':
+      $form['#validate'][] = 'melodev_favorite_form_validate';
+      drupal_set_title('New Favorite');
+    break;
+    
+    // Poll form
+    case 'poll_node_form':
+      drupal_set_title('New Poll');
+    break;
+
+    // Photo form
+    case 'photo_node_form':
+      drupal_set_title('New Photo');
+    break;
+
+    // Folder form
+    case 'folder_node_form':
+      drupal_set_title('New Folder');
+      // Set redirection back to folders (AJAX must be OFF)
+      $form['#redirect'] = 'mymelo/content/folders';
+    break;
+    
+    // Colors form
+    case 'color_scheme_node_form':
+      drupal_set_title('New Colors');
+    break;
+    
+    // Clique post form
+    case 'cliquepost_node_form':
+      drupal_set_title('New Clique Post');
+    break;
+    
+    // FP Art post form
+    case 'fpart_node_form':
+      drupal_set_title('Submit Your Art');
+    break;
+    
+    // Elite Gift form
+    case 'uc_product_add_to_cart_form_469':
+      $form['#validate'][] = 'melodev_gift_form_validate';
+    break;
+    
+    // VBO Forms
+    case 'views_bulk_operations_form__1':
+      melodev_vbo_form_alter($form, $form_state, $form_id);
+    break;
+    
+    // Feedback form
+    case 'feedback_admin_view_form':
+      $form['#submit'][] = 'melodev_feedback_admin_submit';
+    break;
+    
+    case 'tribune_history_form_user':
+      unset($form['by-user']['by-user-user']['#autocomplete_path']);
+    break;
+    
+    case 'user_admin_account':
+      if($user->uid != 1) {
+        unset($form['options']);
+//        unset($form['accounts']);
+/*
+        echo '<pre>';
+        print_r($form);
+        exit();
+*/
+      }
+    break;
+  }
+}
+
+
+/**
+ * Callback for custom theming the thumbnail in the form.
+ */
+function melodev_profile_picture_thumb_callback($form, &$form_state) {  
+  $path = $form[0]['#default_value']['filepath'];
+  $form[0]['preview']['#value'] = theme('imagecache', 'user_thumb', $path, '', '', '', FALSE);
+  return $form;
+}
+
+/**
+ * Callback for content profile form to set profile picture.
+ */
+function mymelo_profile_picture_callback(&$form, $form_state) {
+  $path = $form_state['values']['field_user_picture'][0]['filepath'];
+  // Load the Photo
+  if(file_exists($path)) {
+    melodev_photo_make_default($path); 
+  } else {
+    // Save it to the users table
+    $user->picture = null;
+    user_save($user, array('picture'=>null));
+  }
+}
+
+
+/**
+ * Melodev make a photo default.
+ */
+function melodev_photo_make_default($path) {
+  global $user;
+
+  // Scale and resize the image if necessary
+  $info = image_get_info($path);
+  $newpath = variable_get('user_picture_path', 'pictures') .'/picture-'. $user->uid .'.'. $info['extension'];
+  list($maxwidth, $maxheight) = explode('x', variable_get('user_picture_dimensions', '85x85')); 
+  if (image_get_toolkit()) {
+    file_copy($path, $newpath, FILE_EXISTS_REPLACE);
+    $newpath = file_create_path($newpath);
+    image_scale($newpath, $newpath, $maxwidth, $maxheight);
+  }
+  // Save it to the users table
+  $user->picture = $newpath;
+  user_save($user, array('picture'=>$newpath));
+  
+  if(module_exists('imagecache')) {
+    imagecache_image_flush($newpath);
+    imagecache_image_flush($user->picture);
+  }
+}
+
+
+/**
+ * Ensure no more than 10 favorite per folder
+ */
+function melodev_favorite_form_validate($form, &$form_state) {
+  global $user;
+  $nid = $form_state['values']['field_folder_reference'][0]['nid'];
+  // Count how many we already have
+  $row = db_fetch_array(db_query('SELECT count(n.nid) as total from {node} n, {content_field_folder_reference} r where n.nid = r.nid and n.uid = %d and n.type = "favorite" and r.field_folder_reference_nid = %d', $user->uid, $nid));
+  if($row['total'] >= 10) {
+    form_set_error('field_folder_reference', t('Sorry, only 10 Favorites are allowed per Folder.'));
+  }
+}
+
+/**
+ * Ensure that a username was supplied as the attribute
+ */
+function melodev_gift_form_validate($form, &$form_state) {
+  $name = $form_state['values']['attributes'][1];
+  $account = user_load(array('name'=>$name));
+  if($account->uid < 1) {
+    form_set_error('attributes', t('Please enter a valid Melo username.  It is sometimes helpful to copy and paste it from another page.'));
+  } else {
+    $form_state['values']['gift_uid'] = $account->uid;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for views_exposed_form.
+ */
+function melodev_form_views_exposed_form_alter(&$form, &$form_state) {
+  $view = $form_state['view'];
+  switch($view->name) {
+//    case 'Blogs':
+      default:
+      $form['#prefix'] = '<h2 class="title">'.t('Filter').'</h2>';
+      // Strip the leading slash
+      $url = (substr($form['#action'], 0, 1) == '/') ? substr($form['#action'], 1) : $form['#action'];
+      // Add the clear form button
+      $form['clear'] = array(
+        '#type' => 'markup',
+        '#value' => l(t('Clear'), $url),
+        '#weight' => 9,
+        );
+      // Move user search fields to the end
+      $form['uid']['#weight'] = 10;
+      // Remove user search field autocomplete
+      unset($form['uid']['#autocomplete_path']);
+    break;
+  }
+}
+
+/**
+ * Implementation of hook_comment().
+ */
+function melodev_comment(&$a1, $op) {
+  if ($op == 'insert') {
+    
+    // Save virgin iD
+    $node = melodev_node_load($a1['nid']);
+    $field = 'profile_virgin_gspot_uid';
+    if(!is_numeric(melodev_get_profile_field($node->uid, $field))) {
+      melodev_save_profile_field($node->uid, $field, $a1['uid']);
+      drupal_set_message('You just popped a cherry.');
+      // Give virgin to comment poster
+      melodev_save_stat($a1['uid'], 'virgin');
+    }
+    
+    // Save notifications
+
+    // if node owner is not comment author
+    if($node->uid != $a1['uid']) {
+      melodev_save_profile_field($node->uid, 'profile_last_gspot_timestamp', mktime());
+      // Give stats to comment receiver
+      melodev_save_stat($node->uid, 'gspotreceived');  
+      // Give stats to comment poster
+      melodev_save_stat($a1['uid'], 'comment');  
+    }
+    
+    // if reply-to exists and is not comment author and is not node owner
+    if(is_numeric($a1['pid'])) {
+      // reply to exists
+      if($pcomment = _comment_load($a1['pid'])) {
+        // replied-to comment owner is not current comment poster
+        if($pcomment->uid != $a1['uid']) {
+          // replied-to comment's node owner is not the same owner we just alerted above
+          // $cnode = node_load($pcomment->nid);
+          // WE haven't already alerted this user
+          if($pcomment->uid != $node->uid) {
+            melodev_save_profile_field($pcomment->uid, 'profile_last_reply_timestamp', mktime());
+            // Give stats to comment reply receiver
+            melodev_save_stat($pcomment->uid, 'gspotreplies');  
+          }
+        }
+      }
+    }
+    
+    // Clear appropriate caches
+    melodev_handler_cache_clear('comment', $op, $a1, $node, $pcomment, $cnode);
+   
+  } else if($op == 'delete') {
+    // Stats
+    melodev_stats_comment($comment, $op);
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function melodev_user($op, &$edit, &$account, $category = NULL) {
+
+  // Create URLs
+  switch($op) {
+    case 'update':
+      // Handle elite URL
+      if(in_array('elite', $account->roles)) {
+         path_set_alias('user/'.$account->uid, null);
+         path_set_alias('user/'.$account->uid, 'elite/'.$account->name);
+         path_set_alias('user/'.$account->uid, 'users/'.$account->name);
+      } else {
+         path_set_alias(null, 'elite/'.$account->name);    
+         path_set_alias('user/'.$account->uid, 'users/'.$account->name);
+      }
+    break;    
+    
+    case 'insert':
+      // Create User Folders
+    
+      module_load_include('inc', 'melodev', 'melodev.contentapi');
+  
+      // Create a base folder array
+      $basenode = array(
+        'type' => 'folder',
+        'uid' => $account->uid,
+        'name' => $account->name,
+        'comment' => 2,
+        'status' => 1,
+      );
+      
+      // Save the initial public folder for this user
+      $node = $basenode;
+      $node['title'] = 'Public';
+      $node['field_folder_permission'] = 'public';
+      $node['field_weight'] = '1';
+      $nid = melodev_create_node($node);
+      
+      // Save this node id to the user profile field
+      $edit['profile_public_folder_id'] = $nid;
+      
+      // Save the initial Friends Only folder
+      $node = $basenode;
+      $node['title'] = t('Friends Only');
+      $node['field_folder_permission'] = 'friends';
+      $node['field_weight'] = '2';
+      $nid = melodev_create_node($node);
+  
+      // Save the initial Private folder
+      $node = $basenode;
+      $node['title'] = t('Private');
+      $node['field_folder_permission'] = 'private';
+      $node['field_weight'] = '3';
+      $nid = melodev_create_node($node);
+    break;
+    
+    case 'view':
+      // Stats
+      melodev_stats_user($op, $edit, $account, $category);
+    break;
+  }
+}
+
+/**
+ * Get the current profile user ID regardless of node type.
+ */
+function melodev_get_profile_uid() {
+  if(arg(0) == 'user') {
+    $uid = arg(1);
+  } else if(arg(0) == 'node') {
+    $nid = arg(1);
+    if($node = melodev_node_load($nid)) {
+      $uid = $node->uid;
+    }
+  // For tag view pages
+  } else if(arg(0) == 'users' && arg(2) == 'tags') {
+    $name = arg(1);
+    if($account = user_load(array('name'=>$name))) {
+      $uid = $account->uid;
+    }
+  }
+  return $uid;
+}
+
+/**
+ * Get the current user's public folder ID from the URL.
+ */
+function melodev_get_profile_fid() {
+  if(arg(0) == 'user') {
+    $uid = arg(1);
+    $nid = melodev_get_public_fid($uid);
+  } else if(arg(0) == 'node') {
+    $nid = arg(1);
+    if(is_numeric($nid) && !arg(2)) {
+      $node = melodev_node_load($nid);
+      if($node->type == 'folder') {
+        $nid = $node->nid;
+      }
+    }
+  }
+  return $nid;
+}
+
+/**
+ * Get a user's public folder ID.
+ */
+function melodev_get_public_fid($uid=null) {
+  if(is_null($uid)) {
+    global $user;
+    $acct = $user;
+  } else {
+    $acct = user_load($uid);
+  }
+  if(!is_numeric($acct->profile_public_folder_id)) {
+    profile_load_profile($acct);
+  }
+  return $acct->profile_public_folder_id;
+}
+
+/**
+ * Print a profile comment box. 
+ */
+function melodev_profile_comment() {
+  if(user_access('post comments')) {
+      $nid = melodev_get_profile_fid();
+      if(is_numeric($nid)) {
+        $output  = '<div id="comment-input">profile comment:';
+        $array = array('nid' => $nid);
+        $output .= comment_form_box($array, t('leave a gspot'));
+        $output .= '</div>';
+      }
+      return $output;
+  }
+}
+
+/**
+ * Get the currently logged in user's folders.
+ *
+ * @return
+ *   An array of nid => "name - perm" or an empty array if no folders found.
+ */
+function melodev_get_my_folders() {
+  global $user;
+  static $user_options;
+  if(isset($user_options[$user->uid])) {
+    return $user_options[$user->uid];
+  } else {
+    $options = array();
+    $view = views_get_view('MyFolders');
+    $view->set_items_per_page(0);
+    $view->execute();
+    foreach($view->result as $folder) {
+      $options[$folder->nid] = $folder->node_title.' - '.$folder->node_data_field_folder_permission_field_folder_permission_value;
+    }
+    $user_options[$user->uid] = $options;
+    return $options;
+  }
+}
+
+/**
+ * Theme override the default profile output.
+ */
+function phptemplate_user_profile($account) {
+  global $user;
+  
+  // Check if logged in is required
+  if($user->uid < 1 && $account->profile_logged_in == 1) {
+    // Save this access attempt
+    drupal_set_message('You must be logged in to visit '.$account->name.'.');
+    // Hard redirect
+    header('Location: /user/login');
+    exit();
+  }
+
+  // Figure out if I'm an enemy
+  melodev_check_enemy_ban($user->uid, $account->uid, $account->name);
+
+  $nid = $account->profile_public_folder_id;
+  if(!is_numeric($nid)) {
+    drupal_set_message('An error occurred attempting to retrieve that user.');
+    drupal_goto('<front>');
+  } else {
+    $node = melodev_node_load($nid);
+    drupal_set_title($account->name);
+
+/*
+    // Remove for now
+    // Show the comment form for new users
+    if($node->comment_count == 0) {
+      $comments = '<div id="comment-input">';
+      if (user_access('post comments')) {
+        $comments .= comment_form_box(array('nid' => $node->nid), t('leave a gspot')) . '(new)';
+      }
+      $comments .= '</div>';
+    }
+*/
+    
+    // Add user colors
+    // Change to color permissions
+    if(is_numeric($account->profile_default_color_scheme_id)) {
+      $colornode = melodev_node_load($account->profile_default_color_scheme_id);
+      if(file_check_path($colornode->css)) {
+         drupal_add_css($colornode->css);
+      }
+    }
+    
+    $comments .= comment_render($node);
+    return node_view($node, false, true).$comments;
+  }
+}
+
+/**
+ * Modify the default comment query to include an OR.
+ */
+function melodev_views_query_alter(&$view, &$query) {
+
+  switch($view->name) {
+    // Rewrite comment query to include an OR
+    case 'Guestbook': 
+      switch($view->current_display) {
+        case 'block_1':
+          // Make these an OR since they can never happen at the same time
+
+          if(in_array('node_data_field_folder_permission_value_0.field_folder_permission_value = \'%s\'', $query->where[0]['clauses']) &&
+             in_array('node_node_data_field_folder_reference_node_data_field_folder_permission.field_folder_permission_value = \'%s\'', $query->where[0]['clauses'])
+             ) {
+              $arrkey = count($query->where);
+              $nodekey = array_search('node_data_field_folder_permission_value_0.field_folder_permission_value = \'%s\'', $query->where[0]['clauses']);
+              $foldkey = array_search('node_node_data_field_folder_reference_node_data_field_folder_permission.field_folder_permission_value = \'%s\'', $query->where[0]['clauses']);
+              
+              $query->where[$arrkey] = array(
+                'clauses' => array(
+                  0 => $query->where[0]['clauses'][$nodekey],
+                  1 => $query->where[0]['clauses'][$foldkey],
+                ),
+                'args' => array(
+                  0 => $query->where[0]['args'][1],
+                  1 => $query->where[0]['args'][2],
+                ),
+                'type' => 'OR'
+                );
+              unset($query->where[0]['clauses'][$nodekey]);
+              unset($query->where[0]['clauses'][$foldkey]);
+              unset($query->where[0]['args'][1]);
+              unset($query->where[0]['args'][2]);
+              
+              // Change != operator
+              unset($query->table_queue['node_node_data_field_folder_reference_node_data_field_folder_permission']['join']->extra);
+              unset($query->table_queue['node_node_data_field_folder_reference_node_data_field_folder_permission']['join']->extra_type);
+              
+              // Unset the second set of wheres
+//              unset($query->where[1]);
+/*
+            echo '<pre>';
+            echo $query->query()."\n";
+            print_r($query);
+            exit();
+            
+            
+*/
+              
+          } // end if in_array
+/*          else {
+            echo '<pre>';
+            echo 'heeeeeeere';
+            echo $query->query()."\n";
+            print_r($query);
+            exit();
+          }
+*/        break;
+      }
+    break;
+    case 'Blogs':
+//      $query = array();
+      /*
+      echo '<pre>';
+      print_r($query);
+      exit();
+      */
+    break;
+    
+    case 'Relationships':
+      switch($view->current_display) {
+        case 'page_1':
+          $query->fields['flag_content_content_id']['table'] = 'flag_content_users';
+          unset($query->table_queue['flag_content']);
+          /*
+          echo '<pre>';
+          print_r($query);
+          exit();
+          */
+        break;
+      }
+    break;
+  }
+}
+
+/**
+ * @defgroup melodev_pathauto Melodev PathAuto
+ *
+ * Custom path functionality.
+ *
+ * Certain functionality had to be added to default pathing solutions.
+ * These functions interact with pathauto and provide the URLs we need.
+ * @{
+ */
+ 
+/**
+ * Implementation of hook_pathauto() for aliases.
+ */
+function melodev_pathauto($op) {
+  switch ($op) {
+    case 'settings':
+      $settings = array();
+      $settings['module'] = 'melodev';
+      $settings['token_type'] = 'user';
+      $settings['groupheader'] = t('Melodev');
+      
+      $settings['patterndescr'] = t('Default path pattern for gspot reply paths');
+      $settings['patterndefault'] = 'users/[user-raw]/replies';
+      $patterns = module_invoke_all('token_list', 'user');
+      foreach ($patterns['user'] as $pattern => $description) {
+        $settings['placeholders']['['. $pattern .']'] = $description;
+      }
+
+      $settings['bulkname'] = t('Bulk generate aliases for user paths that are not aliased');
+      $settings['bulkdescr'] = t('Generate aliases for all existing user pages which do not already have aliases.');
+      return (object) $settings;
+    default:
+      break;
+  }
+}
+  
+/**
+ * Bulk generate aliases for all users without aliases.
+ */
+function melodev_pathauto_bulkupdate() {
+
+  $count = 0;
+
+  // Do replies first
+  $query = "SELECT uid, name, src, dst FROM {users} LEFT JOIN {url_alias} ON CONCAT('user/', CAST(uid AS CHAR), '/replies') = src WHERE uid > 0 AND src IS NULL";
+  $result = db_query_range($query, 0, variable_get('pathauto_max_bulk_update', 50));
+  $placeholders = array();
+  while ($user = db_fetch_object($result)) {
+    $placeholders = pathauto_get_placeholders('user', $user);
+    $src = 'user/'. $user->uid . '/replies';
+    if ($alias = pathauto_create_alias('melodev', 'bulkupdate', $placeholders, $src, $user->uid)) {
+      $count++;
+    }
+  }
+  
+
+  drupal_set_message(format_plural($count,
+    'Bulk generation of users completed, one alias generated.',
+    'Bulk generation of users completed, @count aliases generated.'));
+}
+/**
+* @} End of "melodev_pathauto"
+*/
+
+/**
+ * @defgroup melodev_profilefields Melodev Profile Fields
+ *
+ * Interacting with user profile fields.
+ *
+ * Drupal core does not include all of the profile field interactions
+ * that Melo required.  These functions are intended as helpers to wrap
+ * around existing Drupal functionality.  If similar APIs are added in
+ * the future these functions will be deprecated.
+ * @{
+ */
+ 
+/**
+ * Save a single profile field.
+ */
+function melodev_save_profile_field($uid, $field, $value) {
+  if($field = melodev_get_profile_field_id($field)) {
+    // Save the user's field
+    db_query("DELETE FROM {profile_values} WHERE fid = %d AND uid = %d", $field, $uid);
+    db_query("INSERT INTO {profile_values} (fid, uid, value) VALUES (%d, %d, '%s')", $field, $uid, $value);
+  }
+}
+
+/**
+ * Load a single profile field.
+ */
+function melodev_get_profile_field($uid, $field) {
+  if($field = melodev_get_profile_field_id($field)) {
+    // Save the user's field
+    if($row = db_fetch_array(db_query("select value FROM {profile_values} WHERE fid = %d AND uid = %d", $field, $uid))) {
+      return $row['value'];
+    }
+  }  
+}
+
+/**
+ * Load a profile field id by name or id.
+ */
+function melodev_get_profile_field_id($field) {
+  // Load field by name if no id provided
+  if(!is_numeric($field)) {
+    if($row = db_fetch_array(db_query('select fid from {profile_fields} where name = "%s"', $field))) {
+      if(is_numeric($row['fid'])) {
+        $field = $row['fid'];
+      } else {
+        drupal_set_message('Invalid fid '.$row['fid'].' for field '.$field.'.');
+        return false;
+      }
+    } else {
+      drupal_set_message('Invalid field name '.$field.'.');
+        return false;
+    }
+  }
+  return $field;
+}
+
+/**
+* @} End of "melodev_profilefields"
+*/
+
+/**
+*  Jump to user form.
+*/
+function melodev_jumpto_user_form() {
+  $form = array();
+  
+  $form['#action'] = url($_REQUEST['q']);
+  
+  $form['#submit'] = array('melodev_jumpto_user_form_submit');
+  
+  $form['jumpto_username'] = array(
+    '#type' => 'textfield',
+    '#size' => 14,
+    '#default_value' => t('jump to user'),
+    '#attributes' => array(
+      'onFocus' => 'this.value=""',
+      'onBlur' => 'this.value="jump to user"',
+    )
+  );
+  
+  $form['jump'] = array(
+    '#type' => 'submit',
+    '#value' => t('jump'),
+    '#ajax' => array(
+      'submitter' => TRUE
+      ),
+  );
+    
+  $form['#ajax'] = array(
+    'enabled' => TRUE
+    );
+    
+  return $form;
+}
+
+/**
+*  Jump to user form.
+*/
+function melodev_jumpto_user_form_validate(&$form, &$form_state) {
+  $name = $form_state['values']['jumpto_username'];
+  
+  if($account = user_load(array('name'=>$name))) {
+    // all is well
+    return true;
+  } else {
+    form_set_error('jumpto_username', t('User %name not found.', array('%name' => $name)));  
+  }
+}
+
+/**
+*  Jump to user form.
+*/
+function melodev_jumpto_user_form_submit($form, &$form_state) {
+  $name = $form_state['values']['jumpto_username'];
+  
+  if($account = user_load(array('name'=>$name))) {
+    $form_state['redirect'] = 'user/'.$account->uid;
+  } else {
+    drupal_set_message(t('No user found named %name.', array('%name' => $name)));
+  }
+}
+
+function melodev_handler_cache_clear($type, $op) {
+  $args = func_get_args();
+  switch($type) {
+    case 'comment':
+      switch($op) {
+        case 'insert':
+          $a1 = $args[2];          
+          $node = $args[3]; // node that was commented on
+          
+          // Get the related folder permission
+          if($node->type == 'folder') {
+            $perm = $node->field_folder_permission[0]['value'];
+          } else {
+            // Load this node's folder
+            if(isset($node->field_folder_reference[0]['nid'])) {
+              if($foldernode = melodev_node_load($node->field_folder_reference[0]['nid'])) {
+                $perm = $foldernode->field_folder_permission[0]['value'];
+              }              
+            }          
+          }
+          
+          // Clear the permissioned guestbook for $node->uid
+          if($perm) {
+            $view = views_get_view('Guestbook');
+            $view->set_arguments(array($node->uid, $perm, $perm));
+            $view->build('block_1');
+            $cache = $view->display_handler->get_cache_plugin();
+            $key = $cache->get_results_key();
+            db_query('delete from {cache_views_data} where cid = "%s"', $key);
+          }
+            
+          if($pcomment = $args[4]) {
+            if(is_numeric($pcomment->uid)) {
+              // Clear replies guestbook for $pcomment->uid
+              $view = views_get_view('Guestbook');
+              $view->set_arguments(array($pcomment->uid));
+              $view->build('page_2');
+              $cache = $view->display_handler->get_cache_plugin();
+              $key = $cache->get_results_key();
+              db_query('delete from {cache_views_data} where cid = "%s"', $key);
+  
+/*              
+              echo '<pre>';
+              echo "key=".$key."\n";
+              print_r($view->build_info);
+              exit();
+  
+              echo '<pre>';
+              print_r($cache);
+              exit();
+              $view->cache_flush();
+*/
+            }
+          }
+          if($cnode = $args[5] && is_numeric($cnode->uid) && $cnode->uid != $node->uid) {
+            // Clear guestbook for $cnode->uid
+            
+          }  
+        break;
+      }
+    break;
+  }
+}
+
+function melodev_feedback_admin_submit($form, &$form_state) {
+  global $user;
+  $c=0;
+  foreach($form_state['clicked_button']['#post']['feedback-messages-0'] as $id => $val) {
+    // If we provided a comment
+    if($msg = $form_state['clicked_button']['#post']['edit-feedback-messages-'.$id.'-admin-note']) {
+      // Load the original feedback
+      $feedback = feedback_load(array('fid'=>$id));
+      if(count($feedback) == 1) {
+        $feedback = $feedback[$id];
+        if($feedback->uid > 0) {
+          // Load the user's public id
+          if($fid = melodev_get_public_fid($feedback->uid)) {
+            // Prepare a comment to save
+            $edit = array(
+              'nid' => $fid,
+              'status' => 1,
+              'timestamp' => mktime(),
+              'subject' => 'Melo System Message',
+              'comment' => '<span class="gspot-re"><strong>Thanks for your Melo Feedback!</strong></span><p>'.$msg.'</p><br /><span class="gspot-re"><em>Your Feedback Was:<br />'.$feedback->message.'</em></span>',
+              'format' => 2,
+              'uid' => $user->uid,
+              'name' => $user->name,
+              );
+            comment_save($edit);
+            $c++;
+          }
+        }
+      }
+    }
+  }
+  drupal_get_messages();
+  drupal_set_message('Feedback was successfully updated.  '.$c.' gspots were sent.');
+}
+  
+function melodev_reimport_blog($oldid, $newid) {
+  // Load the new body
+  $newbody = db_query('select body from node_revisions where nid = %d', $newid);
+  if(!$newbody) {
+    watchdog('melodev', 'Unable to load node body for nid '.$newid.'.');
+    return false;
+  }
+  // Load the old body
+  $sql = 'select text_body from journal_entries where container_item_id = '.$oldid;
+  $oldbody = melodev_pg_good_query($sql);
+  if(!$oldbody) {
+    watchdog('melodev', 'Unable to load old body for id '.$oldid.'.');
+    return false;
+  }
+}
+
+function melodev_pg_good_query($sql) {
+  // Connect to postgres
+  global $pg_link;
+  if(!$pg_link) {
+    $pg_link = pg_connect(variable_get('pg_connect', false));
+    if(!$pg_link) {
+      watchdog('melodev', 'Unable to create pg_link with connection '.variable_get('pg_connect', false).'.');
+      return false;
+    }
+  }
+  $res = pg_query($sql);
+  if(!$res) {
+    watchdog('melodev', 'Local PG query failed: '.$sql);
+  }
+  $return = array();
+  while($row = pg_fetch_assoc($res)) {
+    if(is_array($row) && count($row) > 0) {
+      foreach($row as $i => $val) {
+        $row[$i] = trim(stripslashes($val));
+      }
+      $return[] = $row;
+    }
+  }
+  return $return;
+}
+
+function melodev_dblog_watchdog($log) {
+  // Check if we want to log this, then return it
+  $returnlog = $log;
+  
+  // Ignore all content logs for now
+  if($log['type'] == 'content') {
+    $returnlog = false;
+  }
+  // Ignore all page not founds for now
+  if($log['type'] == 'page not found') {
+    $returnlog = false;
+  }
+  // Ignore all user actions for now
+  if($log['type'] == 'user') {
+    $returnlog = false;
+  }
+  // Ignore access denied for now
+  if($log['type'] == 'access denied') {
+    $returnlog = false;
+  }
+  // Ignore imagecache 404s
+  if($log['type'] == 'imagecache' && (substr($log['message'], 0, 4) == '404:' || substr($log['message'], 0, 17) == 'Failed generating')) {
+    $returnlog = false;  
+  }
+  // Ignore comments
+  if($log['type'] == 'action' && substr($log['message'], 0, 19) == 'Unpublished comment') {
+    $returnlog = false;
+  }
+  // Ignore comments
+  if($log['type'] == 'locale' && substr($log['message'], 0, 17) == 'Parsed javascript') {
+    $returnlog = false;
+  }
+
+  return $returnlog;
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function melodev_link($type, $object, $teaser = FALSE) {
+  global $user;
+  $links = array();
+  switch ($type) {
+    case 'node':
+      $node = &$object;
+      // If i'm the owner, add an edit link
+      if($user->uid == $node->uid) {
+        $links['owner_edit_link'] = array(
+          'title' => t('Edit'),
+          'href' => 'node/'.$node->nid.'/edit',
+          'weight' => -10,
+          'query' => 'destination='.$_REQUEST['q'],
+        );
+      }
+      // If i'm an admin, add a reimport link
+      if($node->type == 'blog' && user_access('administer nodes')) {
+        $links['node_reimport_link'] = array(
+          'title' => t('Reimport'),
+          'href' => 'admin/god/reimport/node/'.$node->nid,
+          'query' => 'destination='.$_REQUEST['q'],
+        );        
+      }
+    break;     
+  }
+  return $links;
+}
+
+function melodev_estimate_current_expiration($uid) {
+
+  $account = melodev_user_load($uid);
+
+  // Add my orders to the timeblocks
+  $orders = db_query('select * from {uc_orders} where uid = %d and order_status in("completed", "payment_received") order by created asc', $uid);
+  $timeblocks = array();
+  while($order = db_fetch_object($orders)) {
+    // Load the order products
+    $products = db_query('select * from {uc_order_products} where order_id = %d', $order->order_id);
+    while($product = db_fetch_object($products)) {
+      melodev_product_eval($uid, $timeblocks, $product, $order);
+    }
+  }
+  
+  // Add any of my gifts to the timeblocks
+  $searcharr = array('attributes'=>array('Username'=>array($account->name)));
+  $searchkey = serialize(serialize($searcharr));  
+  $products = db_query('select * from {uc_order_products} where data = "%s"', $searchkey);
+  while($product = db_fetch_object($products)) {
+    melodev_product_eval($uid, $timeblocks, $product);
+  }
+
+  // Now find the expiration
+  ksort($timeblocks);
+  
+  $expiration = 0;
+  foreach($timeblocks as $start => $block) {
+    if($expiration == 0) {
+      $expiration = $start;
+    }
+    $end = $start + $block['days'] * (60*60*24);          
+    if($start > $expiration) {
+      $newstart = $start;
+    } else {
+      $newstart = $expiration;
+    }
+    $timeblocks[$start]['start'] = date('M/d/Y', $newstart);
+    $timeblocks[$start]['end'] = date('M/d/Y', $end);
+    $expiration = $end;
+  }
+  
+  /*
+  // If new expiration is older than old expiration, use old
+  $res = melodev_pg_good_query('select expire_date from elite_accts where entity_id = '.$uid.' limit 1');
+  $oldexpire = $res[0]['expire_date'];
+  if($oldexpire > $expiration) {
+    watchdog('melodev', 'Setting expiration to old value for uid '.$uid.'. ('.$oldexpire.' vs '.$expiration.')');
+    $expiration = $oldexpire;
+  }
+  */
+  
+  $estimate = (object)array(
+    'uid' => $uid,
+    'expiration' => $expiration,
+    );
+  drupal_write_record('melodev_expiration_estimate', $estimate, 'uid');
+  
+  return array('expiration'=>$expiration, 'timeblocks'=>$timeblocks);
+}
+
+function melodev_product_eval($uid, &$timeblocks, $product, $order=null) {
+  $account = melodev_user_load($uid);
+  $days = 0;
+  if(is_null($order)) {
+    $order = db_fetch_object(db_query('select * from {uc_orders} where order_id = %d', $product->order_id));
+  }
+  switch($product->model) {
+    case 'monthly-norecur':
+      $days = 30*$product->qty;
+      break;
+    case 'gift-monthly':
+      if($product->model == 'gift-monthly') {
+        $data = unserialize(unserialize($product->data));
+        // Check if the name is a mismatch
+        if(isset($data['attributes']['Username'][0]) && $data['attributes']['Username'][0] != $account->name) {
+          $days = 0;
+          break;
+        } else
+        // Check if it's a recurring payment
+        if($product->title == 'Renewal of product Elite Monthly Gift') {
+          // Try to find the original product ID
+          $comment = db_fetch_object(db_query('select * from {uc_order_admin_comments} where order_id = %d and message like "Order created as a recurring fee for order%"', $product->order_id));
+          preg_match(':^Order created as a recurring fee for order <a href="/admin/store/orders/([0-9]*)(.+)?$:', $comment->message, $matches);
+          if(is_numeric($matches[1])) {
+            // Load the original product
+            $product = db_fetch_object(db_query('select * from {uc_order_products} where order_id = %d', $matches[1]));
+            $data = unserialize(unserialize($product->data));
+            // It was me, gimme a time block
+            if($data['attributes']['Username'][0] == $account->name) {
+              $timeblocks[round($comment->created, -2)] = array(
+                'order_id' => $product->order_id,
+                'days' => 30,
+                'created' => date('M/d/Y', $comment->created)
+                );
+              $days = 0;
+              break;
+            }
+          }
+        } else 
+        // Check if it's from Sara
+        if($product->cost == 0) {
+          $days = 30;
+          break;
+        }
+      }
+      // Add timeblocks for any recurring payments
+      $sql = 'select * from {uc_order_products} where order_id in (select order_id from uc_order_admin_comments where message like "Order created as a recurring fee for order%>'.$order->order_id.'<%")';
+      $products = db_query($sql);
+      while($subproduct = db_fetch_object($products)) {
+        melodev_product_eval($uid, $timeblocks, $subproduct);
+      }
+    case 'monthly':
+      // Add timeblocks for all the payments
+      $payments = db_query('select * from {uc_payment_receipts} where order_id = %d', $order->order_id);
+      while($payment = db_fetch_object($payments)) {
+        $timeblocks[round($payment->received, -2)] = array(
+          'order_id' => $payment->order_id,
+          'days' => 30,
+          'created' => date('M/d/Y', $payment->received)
+          );
+      }
+      $days = 0;
+    break;
+    case 'yearly':
+      $days = 365*$product->qty;
+    break;
+    case 'gift':
+      // Check if the name is a match
+      $data = unserialize(unserialize($product->data));
+      if(isset($data['attributes']['Username'][0]) && $data['attributes']['Username'][0] == $account->name) {
+        $days = 365;
+      } else {
+        $days = 0;
+      }
+      break;
+    case 'shirt-alone':
+    case 'shirt-pcb':
+    case 'donation':
+      $days = 0;
+    break;
+    default:
+      drupal_set_message('Unknown product model '.$product->model);
+      return array();
+  }
+  if($days > 0) {
+    $timeblocks[round($order->created, -2)] = array(
+      'order_id' => $order->order_id,
+      'days' => $days,
+      'created' => date('M/d/Y', $order->created),
+      );
+  }
+}
+
+function melodev_admin_notes_submit($form, $form_state) {
+  global $user;
+  $form_id = $form['form_id']['#value'];
+  $note = (object)array(
+    'form_id' => $form['form_id']['#value'],
+    'admin_uid' => $user->uid,
+    'uid' => $form['#uid'],
+    'nid' => $form['#nid'],
+    'note' => $form_state['values']['admin_note'],
+    'form' => serialize($form)
+  );
+  drupal_write_record('melodev_admin_notes', $note);
+}
+
+function melodev_admin_restrictions(&$form) {
+  if(user_access('administer users')) {
+    $form['admin_note'] = array(
+      '#type' => 'textarea',
+      '#required' => true,
+      '#title' => 'Administration Notes',
+      '#description' => 'Enter an administrative note about why you are updating this user.  Be descriptive and include links if possible.',
+      '#rows' => 5,
+      '#weight' => 10,
+    );
+    $form['#submit'][] = 'melodev_admin_notes_submit';
+  
+    if(isset($form['account']['roles']) && !user_access('administer user roles')) {
+      $form['account']['roles']['#disabled'] = true;
+    }
+  }
+}
+
+/**
+ * Cache wrapper for user_load.
+ */
+function melodev_user_load($uid) {
+  static $users;
+  
+  if(!is_array($users)) { $users = array(); }
+  
+  if(is_numeric($uid) && isset($users[$uid])) {
+    return $users[$uid];
+  } else {
+    if($account = user_load($uid)) {
+      profile_load_profile($account);
+      $users[$account->uid] = $account;
+      return $account;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Cache wrapper for node_load.
+ */
+function melodev_node_load($nid) {
+  static $nodes;
+  
+  if(!is_array($nodes)) { $nodes = array(); }
+  
+  if(is_numeric($nid) && isset($nodes[$nid])) {
+    return $nodes[$nid];
+  } else {
+    if($node = node_load($nid)) {
+      $nodes[$node->nid] = $node;
+      return $node;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Cache wrapper for comment_load.
+ */
+function melodev_comment_load($cid) {
+  static $comments;
+  
+  if(!is_array($comments)) { $comments = array(); }
+  
+  if(is_numeric($cid) && isset($comments[$cid])) {
+    return $comments[$cid];
+  } else {
+    if($comment = comment_load($cid)) {
+      $comments[$comment->cid] = $comment;
+      return $comment;
+    }
+  }
+  
+  return false;
+}
+function melodev_fix_user_folders() {
+
+	module_load_include('inc', 'melodev', 'melodev.contentapi');
+
+	// Load users with missing folders
+	$sql = 'select uid, name from users where uid > 0 and uid not in (select uid from profile_values where fid = 8) limit 100';
+    $result = db_query($sql);
+    
+	while($account = db_fetch_object($result)) {
+	
+		// Load a folder for this user
+		$folder = db_fetch_object(db_query('select * from node where uid = '.$account->uid.' and type = \'folder\' order by nid asc limit 1'));
+		if(!$folder) {		
+			// Create User Folders    
+			
+			// Create a base folder array
+			$basenode = array(
+			'type' => 'folder',
+			'uid' => $account->uid,
+			'name' => $account->name,
+			'comment' => 2,
+			'status' => 1,
+			);
+			
+			// Save the initial public folder for this user
+			$node = $basenode;
+			$node['title'] = 'Public';
+			$node['field_folder_permission'] = 'public';
+			$node['field_weight'] = '1';
+			$nid = melodev_create_node($node);
+		} else {
+			$nid = $folder->nid;
+		}
+		
+		if(is_numeric($nid)) {
+			echo 'Update user profile for uid='.$account->uid.' to nid='.$nid;
+			$sql = 'insert into profile_values (fid, uid, value) values(8, '.$account->uid.', '.$nid.')';
+			db_query($sql);
+		}
+	}
+}

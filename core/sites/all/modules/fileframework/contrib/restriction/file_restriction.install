@@ -1,0 +1,37 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File antivirus module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_restriction_enable() {
+  drupal_set_message(t('File restriction module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/restriction'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_restriction_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_restriction_uninstall() {
+  variable_del('file_restriction_extensions_allowed');
+  variable_del('file_restriction_size');
+  variable_del('file_restriction_quota');
+  variable_del('file_restriction_quota_generated');
+  variable_del('file_restriction_roles_extensions_allowed');
+  variable_del('file_restriction_roles_size');
+  variable_del('file_restriction_roles_quota');
+  variable_del('file_restriction_roles_quota_generated');
+}
+

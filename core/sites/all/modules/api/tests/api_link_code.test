@@ -1,0 +1,95 @@
+<?php
+
+include_once './'. drupal_get_path('module', 'api') .'/tests/api_test_case.php';
+
+class ApiLinkCodeTest extends ApiTestCase {
+  function getInfo() {
+    return array(
+      'name' => t('api_link_code()'),
+      'description' => t('Test the api_link_code() function.'),
+      'group' => 'API Module',
+    );
+  }
+  
+  function testApiLinkCode() {
+    $branch = $this->getBranch();
+    $interface = api_object_load('SampleInterface', $branch, 'interface', 'classes.php');
+    $class = api_object_load('Sample', $branch, 'class', 'classes.php');
+
+    $tests = array(
+      // Should be linked
+      array(
+        'message' => 'Marked-up function name linking',
+        'data' => '<span class="php-function-or-constant">sample_function</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/test/sample.php/function/sample_function/6') .'" title="A sample function." class="local">sample_function</a></span>',
+      ),
+      array(
+        'message' => 'Linking to method defined in multiple classes',
+        'data' => '<span class="php-function-or-constant">foo</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/test/classes.php/function/SampleInterface::foo/6') .'" title="Implement this API." class="local">foo</a></span>',
+      ),
+      array(
+        'message' => 'Linking to method defined in multiple classes from class',
+        'data' => '<span class="php-function-or-constant">foo</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/test/classes.php/function/Sample::foo/6') .'" title="Metasyntatic member function." class="local">foo</a></span>',
+        'class_did' => $class->did,
+      ),
+      array(
+        'message' => 'Linking to method defined in multiple classes from interface',
+        'data' => '<span class="php-function-or-constant">foo</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/test/classes.php/function/SampleInterface::foo/6') .'" title="Implement this API." class="local">foo</a></span>',
+        'class_did' => $interface->did,
+      ),
+      array(
+        'message' => 'Linking to method defined in multiple subclasses from interface',
+        'data' => '<span class="php-function-or-constant">baz</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/search/'. $branch->branch_name . '/baz') .'" title="Multiple implementations exist." class="local">baz</a></span>',
+        'class_did' => $interface->did,
+      ),
+      array(
+        'message' => 'Marked-up class name linking',
+        'data' => '<span class="php-function-or-constant">Sample</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/test/classes.php/class/Sample/6') .'" title="Sample class." class="local">Sample</a></span>',
+      ),
+      array(
+        'message' => 'Duplicate function name linking',
+        'data' => '<span class="php-function-or-constant">duplicate_function</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/search/6/duplicate_function') .'" title="Multiple implementations exist." class="local">duplicate_function</a></span>',
+      ),
+      array(
+        'message' => 'Duplicate constant linking',
+        'data' => '<span class="php-function-or-constant">DUPLICATE_CONSTANT</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="'. url('api/search/6/DUPLICATE_CONSTANT') .'" title="Multiple implementations exist." class="local">DUPLICATE_CONSTANT</a></span>',
+      ),
+      array(
+        'message' => 'Linking to a PHP function',
+        'data' => '<span class="php-function-or-constant">strpos</span>',
+        'expected' => '<span class="php-function-or-constant"><a href="http://php.net/strpos" title="int strpos(string $haystack, mixed $needle [, int $offset = &#039;&#039;]) Find position of first occurrence of a string" class="php-manual">strpos</a></span>',
+      ),
+
+      // Should not be linked
+      array(
+        'message' => 'Function name linking',
+        'data' => 'sample_function',
+        'expected' => 'sample_function',
+      ),
+      array(
+        'message' => 'Function name linking with (',
+        'data' => 'sample_function(',
+        'expected' => 'sample_function(',
+      ),
+    );
+
+    foreach ($tests as $test) {
+      if (!isset($test['class_did'])) {
+        $test['class_did'] = NULL;
+      }
+      $result = api_link_code($test['data'], $this->getBranch(), $test['class_did']);
+      // Compare result and expected with slightly liberal matching -- all
+      // whitespace is considered equal for HTML.
+      $result = preg_replace('|\s+|', ' ', $result);
+      $expected = preg_replace('|\s+|', ' ', $test['expected']);
+      $this->assertEqual($result, $expected, $test['message'] . ' Got: <code>' . check_plain($result) . '</code>');
+    }
+  }
+}

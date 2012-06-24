@@ -1,0 +1,36 @@
+--- block.module.orig	2009-03-08 19:34:38.000000000 +0100
++++ block.module	2009-03-18 00:06:11.000000000 +0100
+@@ -454,6 +454,7 @@
+     $blocks[$region] = array();
+   }
+ 
++  $time = time();
+   foreach ($blocks[$region] as $key => $block) {
+     // Render the block content if it has not been created already.
+     if (!isset($block->content)) {
+@@ -466,13 +467,23 @@
+           // Try fetching the block from cache. Block caching is not compatible with
+           // node_access modules. We also preserve the submission of forms in blocks,
+           // by fetching from cache only if the request method is 'GET'.
+-          if (!count(module_implements('node_grants')) && $_SERVER['REQUEST_METHOD'] == 'GET' && ($cid = _block_get_cache_id($block)) && ($cache = cache_get($cid, 'cache_block'))) {
++          if ($_SERVER['REQUEST_METHOD'] == 'GET' &&
++            ($cid = _block_get_cache_id($block)) && ($cache = cache_get($cid, 'cache_block')) &&
++            (_blockcache_alter_check_expire($cache, $time))) {
+             $array = $cache->data;
+           }
+           else {
+             $array = module_invoke($block->module, 'block', 'view', $block->delta);
+             if (isset($cid)) {
+-              cache_set($cid, $array, 'cache_block', CACHE_TEMPORARY);
++              $blocklife = variable_get('bc_life_' . $block->module .'_' . $block->delta, '');
++              $blocklife = (int)$blocklife;
++              if (!empty($blocklife))
++              cache_set($cid, $array, 'cache_block', $blocklife + time());
++              else
++              cache_set($cid, $array, 'cache_block', CACHE_PERMANENT);
++              if (variable_get('bca_debug', FALSE) && user_access('administer site configuration')) {
++                drupal_set_message('Block re-cached: ' . $block->title . '_' .$block->module . '_' . $block->delta . '_' . $blocklife . '_' . time());
++              }
+             }
+           }
+ 

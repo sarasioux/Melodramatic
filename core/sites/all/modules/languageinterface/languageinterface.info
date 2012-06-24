@@ -1,0 +1,15 @@
+; $Id: languageinterface.info,v 1.7 2009/11/15 04:44:33 aaronhawkins Exp $ 
+name = Consistent Language Interface
+description = Creates an independent language interface block.
+dependencies[] = locale
+package = Multilanguage
+version = 1.0
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2011-10-10
+version = "6.x-3.7"
+core = "6.x"
+project = "languageinterface"
+datestamp = "1318258007"
+

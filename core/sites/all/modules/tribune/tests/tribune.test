@@ -1,0 +1,231 @@
+<?php
+// vim:filetype=php expandtab tabstop=2 softtabstop=2 shiftwidth=2 autoindent smartindent
+// $Id: tribune.test,v 1.3 2008/08/30 22:51:38 seeschloss Exp $
+
+class TribuneTestCase extends DrupalTestCase {
+  private $last_post_id = 0;
+
+  function getInfo() {
+    return array(
+      'name' => t("Tribune Module"),
+      'description' => t("Post things, etc."),
+      'group' => t("Tribune"),
+    );
+  }
+
+  function getLastPost() {
+    $this->last_post_id = tribune_last_post_id();
+
+    return tribune_get_post($this->last_post_id);
+  }
+
+  function testAjaxCoinCoinPost() {
+    $message = "";
+    for ($i = 0 ; $i < 513 ; $i++) {
+      // a three-byte character
+      $message .= "湖";
+    }
+    $this->post(url("tribune/post", array('absolute' => TRUE)), array('message' => $message));
+    $post = $this->getLastPost();
+
+    $this->assertHeader("X-Post-Id", $post['id'], "X-Post-Id header");
+    $this->assertEqual($post['parsed_message'], substr($message, 0, 512*3), "Truncating too long messages");
+
+    db_query("DELETE FROM {tribune} WHERE post_id = %d", $post['id']);
+  }
+
+  function testPost() {
+    $posttime = time();
+    $message = "abcdef ß 湖中堡 ". $posttime;
+
+    $user = $this->drupalCreateUserRolePerm(array('post tribune'));
+    $this->drupalLoginUser($user);
+    $this->drupalPost("tribune", array("message" => $message), "Post");
+
+    $post = $this->getLastPost();
+
+    $this->assertText($post['message'], "Posting a message");
+
+    $this->drupalGet("tribune.xml");
+    $this->assertWantedRaw($post['message'], "Testing backend");
+
+    $this->drupalGet("tribune/post-json/". $post['id']);
+    $this->assertWantedRaw($post['message'], "Testing single JSON post");
+
+    $this->drupalGet("tribune/newposts-json/". $posttime);
+    $this->assertWantedRaw($post['message'], "Testing new JSON posts");
+
+    $message = "";
+    for ($i = 0 ; $i < 513 ; $i++) {
+      // a three-byte character
+      $message .= "湖";
+    }
+    $this->drupalVariableSet('tribune_max_message_size', 512);
+    $this->drupalPost("tribune", array("message" => $message), "Post");
+    $this->assertNoText($message, "Refusing too long messages");
+  }
+
+  function testModeration() {
+    $post = $this->getLastPost();
+
+    $admin = $this->drupalCreateUserRolePerm(array('moderate tribune'));
+    $this->drupalLoginUser($admin);
+
+    $this->drupalGet('tribune/moderation/delete/'. $post['id']);
+    $this->assertText(t("Post number !nb was moderated", array('!nb' => $post['id']), "Post moderation"));
+    $moderated = db_result(db_query("SELECT moderated FROM {tribune} WHERE post_id = %d", $post['id']));
+    $this->assertTrue($moderated, "Really moderating a post");
+
+    $this->drupalGet('tribune');
+    $this->assertWantedRaw("tribune/moderation/undelete/". $post['id']);
+
+    $this->drupalGet('tribune/moderation/undelete/'. $post['id']);
+    $this->assertText(t("Post number !nb was restored", array('!nb' => $post['id']), "Post moderation"));
+    $moderated = db_result(db_query("SELECT moderated FROM {tribune} WHERE post_id = %d", $post['id']));
+    $this->assertFalse($moderated, "Really restoring a post");
+
+    $this->drupalGet('tribune');
+    $this->assertWantedRaw("tribune/moderation/delete/". $post['id']);
+
+      $this->drupalGet('tribune/post-json/'. $post['id']);
+    $this->assertWantedRaw($post['message'], "Moderated content for moderators");
+
+    $this->drupalGet("tribune/newposts-json/". ($post['last_modified'] - 1));
+    $this->assertWantedRaw($post['message'], "Moderated content for moderators");
+  }
+
+  function testNoModeration() {
+    $post = $this->getLastPost();
+
+    db_query("UPDATE {tribune} SET moderated = 1 WHERE post_id = %d", $post['id']);
+
+    $user = $this->drupalCreateUserRolePerm(array());
+    $this->drupalLoginUser($user);
+
+    $this->drupalGet('tribune/moderation/delete/'. $post['id']);
+    $this->assertResponse(403, "Post deleting only for moderators");
+
+    $this->drupalGet('tribune/moderation/undelete/'. $post['id']);
+    $this->assertResponse(403, "Post undeleting only for moderators");
+
+    $this->drupalGet('tribune');
+    $this->assertNoUnwantedRaw("tribune/moderation/delete", "No moderation links for non-moderators");
+    $this->assertNoUnwantedRaw("tribune/moderation/undelete", "No moderation links for non-moderators");
+
+      $this->drupalGet('tribune.xml');
+    $this->assertNoUnwantedRaw($post['message'], "No moderated content for non-moderators");
+
+      $this->drupalGet('tribune/post-json/'. $post['id']);
+    $this->assertNoUnwantedRaw($post['message'], "No moderated content for non-moderators");
+
+    $this->drupalGet("tribune/newposts-json/". ($post['last_modified'] - 1));
+    $this->assertNoUnwantedRaw($post['message'], "No moderated content for non-moderators");
+  }
+
+  function testDeleteModeratedPosts() {
+    $post = $this->getLastPost();
+
+    $admin = $this->drupalCreateUserRolePerm(array('moderate tribune'));
+    $this->drupalLoginUser($admin);
+    $this->drupalGet('tribune/moderation/delete/'. $post['id']);
+    $this->assertText(t("Post number !nb was moderated", array('!nb' => $post['id'])));
+
+    require_once drupal_get_path('module', 'tribune') ."/tribune.moderation.inc";
+    tribune_delete_moderated_messages();
+
+    $result = db_result(db_query("SELECT COUNT(*) FROM {tribune} WHERE post_id = %d", $post['id']));
+    $this->assertEqual($result, 0, "Deleting moderated posts");
+  }
+}
+
+class TribuneSlipTestCase extends DrupalTestCase {
+  function getInfo() {
+    return array(
+      'name' => t("Tribune Slip"),
+      'description' => t("Tests whether the slip correctly escapes HTML."),
+      'group' => t("Tribune"),
+    );
+  }
+
+  function setUp() {
+    require_once drupal_get_path('module', 'tribune')  ."/tribune.sleep.inc";
+  }
+
+  function test_plain_text() {
+    // plain ASCII, and some unicode characters
+    $original_message = "abcdefghijklmnopqrstuvwxyz éèçàüß 湖中堡";
+
+    // the message is 37 characters and 49 bytes long
+    $parsed_message = tribune_sleep($original_message, 37);
+    $this->assertEqual($parsed_message, $original_message, "Plain text parsing");
+
+    // without the last two three-byte characters, the message should be 43 bytes long
+    $parsed_message = tribune_sleep($original_message, 35);
+    $this->assertEqual($parsed_message, substr($original_message, 0, 43), "Message length limit");
+  }
+
+  function test_control_characters() {
+    $original_message = chr(0x7F);
+    for ($i = 0x00 ; $i < 0x20 ; $i++) {
+      $original_message .= chr($i);
+    }
+
+    $parsed_message = tribune_sleep($original_message, 512);
+    $this->assertEqual($parsed_message, "", "Stripping of control characters");
+  }
+
+  function test_html_entities() {
+    $original_message = "><'\"";
+    $parsed_message = tribune_sleep($original_message, 512);
+    $this->assertEqual($parsed_message, htmlentities($original_message, ENT_QUOTES), "Escaping of HTML entities");
+  }
+
+  function test_allowed_tags() {
+    $tag = "<s>s</s>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $tag, "<s> tag");
+
+    $tag = "<u>u</u>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $tag, "<u> tag");
+
+    $tag = "<b>b</b>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $tag, "<b> tag");
+
+    $tag = "<i>i</i>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $tag, "<i> tag");
+
+    $tag = "<tt>tt</tt>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $tag, "<tt> tag");
+
+    $tag = "<m>m</m>";
+    $moment = "====&gt; <b>Moment m</b> &lt;====";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, $moment, "<m> pseudotag");
+
+    $tag = "<q>tt</q>";
+    $parsed_message = tribune_sleep($tag, 512);
+    $this->assertEqual($parsed_message, htmlentities($tag), "<q> disallowed tag");
+  }
+
+  function test_nested_tags() {
+    $original_message = "<i>i<b>b</b></i>";
+    $parsed_message = tribune_sleep($original_message, 512);
+    $this->assertEqual($parsed_message, $original_message, "Correctly nested tags");
+
+    $original_message = "<i>i<b>b</i></b>";
+    $parsed_message = tribune_sleep($original_message, 512);
+    $this->assertEqual($parsed_message, "<i>i". htmlentities("<b>b") ."</i>". htmlentities("</b>"), "Incorrectly nested tags");
+
+  }
+
+  function test_open_tags() {
+    $original_message = "<i>i";
+    $parsed_message = tribune_sleep($original_message, 512);
+    $this->assertEqual($parsed_message, htmlentities($original_message), "Unclosed tags");
+  }
+}
+

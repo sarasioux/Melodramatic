@@ -1,0 +1,43 @@
+// $Id: INSTALL.txt,v 1.5 2009/03/18 07:29:28 arto Exp $
+
+REQUIREMENTS
+------------
+This module requires Drupal 6.x and PHP 5.2.x (or newer).
+
+
+INSTALLATION
+------------
+
+  1. Copy all the module files into a subdirectory called
+     sites/all/modules/bitcache/ under your Drupal installation directory.
+
+  2. Go to [Administer >> Site building >> Modules] and enable the Bitcache
+     module. You will find it in the section labelled "Other".
+
+  3. Go to [Administer >> Site configuration >> Data storage] to review and
+     change the configuration options to your liking.
+
+  4. (See README.txt for information on submitting bug reports.)
+
+
+KNOWN ISSUES
+------------
+
+  * Global Redirect compatibility: don't enable the "Deslash" option if you
+    wish to use Bitcache's HTTP API bitstream index (at bitcache/).
+
+
+SEE ALSO
+--------
+
+  * File Framework builds upon Bitcache to provide a comprehensive document
+    and media management system for Drupal:
+
+    <http://drupal.org/project/fileframework>
+
+  * The Bitcache standalone command-line tools can be used to replicate
+    Bitcache repositories between Drupal instances as well as to a number of
+    other storage backends such as Amazon S3:
+
+    <http://github.com/bendiken/bitcache>
+    <http://rubyforge.org/projects/bitcache/>

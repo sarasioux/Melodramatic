@@ -1,0 +1,84 @@
+<?php
+// $Id: mail_api.install,v 1.9.2.2 2009/05/14 18:39:03 firmidea Exp $
+
+/**
+ * @file
+ * Install file for Mail API
+ *
+ */
+
+
+
+function mail_api_schema() {
+  $schema['mail_api_servers'] = array(
+    'fields' => array(
+      'id' => array('type' => 'serial', 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => ''),
+      'protocol' => array('type' => 'text', 'not null' => TRUE, 'description' => 'Protocol ID'),
+      'protocol_module' => array('type' => 'text', 'not null' => TRUE),
+      'hostname' => array('type' => 'text'),
+      'port' => array('type' => 'int', 'unsigned' => TRUE),
+      'encryption' => array('type' => 'text', 'not null' => TRUE),
+      'domain' => array('type' => 'text'),
+      'folder_prefix' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'hide_folder_prefix' => array('type' => 'int', 'size' => 'tiny', 'default' => 0),
+      'inbox_folder' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'trash_folder' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'sent_folder' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'drafts_folder' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'outbox_folder' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'options' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'login_suffix' => array('type' => 'varchar', 'length' => 128, 'default' => ''),
+      'suspended' => array('type' => 'int', 'not null' => TRUE, 'default' => '0'),
+      'default' => array('type' => 'int', 'not null' => TRUE, 'default' => '0'),
+
+    ),
+    'indexes' => array(
+      'id' => array('id'),
+    ),
+    'primary key' => array('id'),
+  );
+
+  /*
+  $schema['mail_api_tag_cache'] = array(
+    'fields' => array(
+      'tid' => array('type' => 'serial', 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE),
+      'name' => array('type' => 'text', 'not null' => TRUE),
+    ),
+    'indexes' => array(
+      'tid' => array('tid'),
+    ),
+    'primary key' => array('tid'),
+  );
+  */
+
+  /*
+  $schema['mail_api_folder_cache'] = array(
+    'fields' => array(
+      'fid' => array('type' => 'serial', 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'not null' => TRUE, 'unsigned' => TRUE),
+      'path' => array('type' => 'text'),
+      'quota' => array('type' => 'int', 'unsigned' => TRUE),
+      'quota_used' => array('type' => 'int', 'unsigned' => TRUE),
+      'num_messages' => array('type' => 'int', 'unsigned' => TRUE),
+      'num_recent' => array('type' => 'int', 'unsigned' => TRUE),
+    ),
+    'indexes' => array(
+      'fid' => array('fid'),
+      'uid' => array('uid'),
+    ),
+    'primary key' => array('fid'),
+  );
+  */
+
+  return $schema;
+}
+
+function mail_api_install() {
+  drupal_install_schema('mail_api');
+}
+
+function mail_api_uninstall() {
+  drupal_uninstall_schema('mail_api');
+}

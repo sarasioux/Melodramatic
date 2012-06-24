@@ -1,0 +1,103 @@
+<?php
+// $Id: mail_api.module,v 1.21.2.2 2009/05/14 18:39:03 firmidea Exp $
+
+/**
+ * @file
+ * Provides abstracted message access functions
+ *
+ */
+
+define('NAME_MAX_LENGTH', 64);
+
+// set this to true to write debug info to the wathdog
+define('MAIL_API_DEBUG', FALSE);
+
+// set this to true to write the error log to the watchdog log
+define('MAIL_API_ERRORLOG', FALSE);
+
+define('MAIL_API_ARRAY', 'array');
+define('MAIL_API_OBJECT', 'object');
+
+
+$mail_api_module = NULL;
+
+/**
+ * Implementation of hook_perm()
+ */
+function mail_api_perm() {
+  return array('administer mail_api');
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function mail_api_menu() {
+
+  $items['admin/settings/mail_api'] = array(
+    'title' => 'Mail API',
+    'description' => 'List and edit mail servers.',
+    'page callback' => 'mail_api_admin',
+    'access arguments' => array('administer mail_api'),
+    'file' => 'mail_api.admin.inc',
+  );
+
+  // Tabs:
+  $items['admin/settings/mail_api/new'] = array(
+    'title' => 'Servers',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+
+
+  $items['admin/settings/mail_api/add'] = array(
+    'title' => 'Add Server',
+    'page arguments' => array('add'),
+    'access arguments' => array('administer mail_api'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'mail_api.admin.inc',
+  );
+
+
+  $items['admin/settings/mail_api/edit'] = array(
+    'title' => 'Edit Server',
+    'page callback' => 'mail_api_edit_server',
+    'access arguments' => array('administer mail_api'),
+    'type' => MENU_CALLBACK,
+    'file' => 'mail_api.admin.inc',
+  );
+
+  return $items;
+}
+
+
+
+/**
+ * Implementation of hook_help()
+ *
+ * @param unknown_type $path
+ * @param unknown_type $arg
+ * @return unknown
+ */
+function mail_api_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#mail_api':
+      return t('Implements API for all mail-related functions. This module doesn\'t do anything by itself');
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function mail_api_theme() {
+  return array(
+    'mail_api_settings_overview' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+
+
+
+require_once "mail_api.hooks.inc";

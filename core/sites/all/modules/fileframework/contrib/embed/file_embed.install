@@ -1,0 +1,35 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File embed module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_embed_enable() {
+  drupal_set_message(t('File embed module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/embed'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_embed_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_embed_uninstall() {
+  variable_del('file_embed_button_option');
+  variable_del('file_embed_button_pages');
+  variable_del('file_embed_button_fields');
+  variable_del('file_embed_button_type');
+  variable_del('file_embed_popup_size');
+  variable_del('file_embed_popup_per_page');
+}
+

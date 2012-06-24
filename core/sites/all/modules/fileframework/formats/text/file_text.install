@@ -1,0 +1,33 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File text module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_text_enable() {
+  drupal_set_message(t('File text module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/format/text'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_text_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_text_uninstall() {
+  variable_del('file_text_preview_lines');
+  variable_del('file_text_preview_string');
+  variable_del('file_text_code');
+  variable_del('file_text_convert_pipelines');
+}
+

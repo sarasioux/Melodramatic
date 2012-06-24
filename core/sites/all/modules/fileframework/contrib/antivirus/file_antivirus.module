@@ -1,0 +1,156 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Allows files to be scanined with antivirus software.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_ANTIVIRUS_CLAMAV',        variable_get('file_antivirus_clamav', 0));
+define('FILE_ANTIVIRUS_CLAMAV_METHOD', variable_get('file_antivirus_clamav_method', 0));
+define('FILE_ANTIVIRUS_CLAMAV_ALLOW',  variable_get('file_antivirus_clamav_allow', 0));
+define('FILE_ANTIVIRUS_CLAMAV_HOST',   variable_get('file_antivirus_clamav_host', 'localhost'));
+define('FILE_ANTIVIRUS_CLAMAV_PORT',   variable_get('file_antivirus_clamav_port', 3310));
+define('FILE_ANTIVIRUS_CLAMAV_PATH',   variable_get('file_antivirus_clamav_path', ''));
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_antivirus_menu() {
+  return array(
+    'admin/settings/file/antivirus' => array(
+      'title' => 'Antivirus',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_antivirus_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_antivirus.admin.inc',
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API extensions
+
+/**
+ * Implementation of the hook_file_validate().
+ */
+function file_antivirus_file_validate($file) {
+  if (FILE_ANTIVIRUS_CLAMAV) {
+    if ($result = file_antivirus_scan_clamav($file)) {
+      return array($result);
+    }
+    else if (isset($file->scanned) && $file->scanned === FALSE) {
+      drupal_set_message(t("Antivirus software is not running on the system. Please contact site administrator."), 'error');
+    }
+    else {
+      drupal_set_message(t("File %file was scanned by the antivirus software. No threats were found.", array('%file' => $file->filename)), 'notice');
+    }
+  }
+  return array();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Scanner functions
+
+/**
+ * Clamav file scan.
+ */
+function file_antivirus_scan_clamav($file) {
+  global $user;
+
+  if (FILE_ANTIVIRUS_CLAMAV_METHOD) {
+    // Command line.
+    $clamav_path = FILE_ANTIVIRUS_CLAMAV_PATH ? FILE_ANTIVIRUS_CLAMAV_PATH : exec('which clamscan');
+    if (!file_exists($clamav_path) || !_file_antivirus_check_clamav(array('path' => $clamav_path))) {
+      $file->scanned = FALSE;
+      watchdog('file_antivirus', 'The \'clamscan\' utility is not installed at %path.', array('%path' => $clamav_path), WATCHDOG_ERROR);
+      if (!FILE_ANTIVIRUS_CLAMAV_ALLOW)
+        return t('Antivirus utility is not found on the system. Please contact site administrator.');
+      else
+        return NULL;
+    }
+    if (exec(escapeshellcmd($clamav_path) .' '. escapeshellarg($file->filepath), $output)) {
+      if (preg_match('/FOUND$/', $output[0])) {
+        $result = preg_replace('/^.* (\S+) FOUND$/', '$1', $output[0]);
+        watchdog('file_antivirus', 'The file %file uploaded by %user contained a virus %virus and was deleted.', array('%file' => $file->filename, '%user' => $user->name, '%virus' => $result), WATCHDOG_NOTICE);
+        return t('A virus %virus has been found in the uploaded file.', array('%virus' => $result));
+      }
+      else {
+        watchdog('file_antivirus', 'The file %file uploaded by %user and scanned by ClamAV is not infected.', array('%file' => $file->filename, '%user' => $user->name), WATCHDOG_NOTICE);
+      }
+    }
+  }
+  else {
+    // Daemon.
+    if (!_file_antivirus_check_clamav(array('host' => FILE_ANTIVIRUS_CLAMAV_HOST, 'port' => FILE_ANTIVIRUS_CLAMAV_PORT))) {
+      $file->scanned = FALSE;
+      watchdog('file_antivirus', 'The \'clamav-daemon\' is not running at %host host %port port.', array('%host' => FILE_ANTIVIRUS_CLAMAV_HOST, '%port' => FILE_ANTIVIRUS_CLAMAV_PORT), WATCHDOG_ERROR);
+      if (!FILE_ANTIVIRUS_CLAMAV_ALLOW)
+        return t('Antivirus daemon is not running on the system. Please contact site administrator.');
+      else
+        return NULL;
+    }
+    $handler = @fsockopen(FILE_ANTIVIRUS_CLAMAV_HOST, FILE_ANTIVIRUS_CLAMAV_PORT);
+    if (!$handler) {
+      watchdog('file_antivirus', 'The \'clamav-daemon\' is not running at %host host %port port.', array('%host' => FILE_ANTIVIRUS_CLAMAV_HOST, '%port' => FILE_ANTIVIRUS_CLAMAV_PORT), WATCHDOG_ERROR);
+      return NULL;
+    }
+    fwrite($handler, 'SCAN '. $file->filepath ."\n");
+    $content = fgets($handler);
+    fclose($handler);
+    if (preg_match('/ERROR/', $content)) {
+      watchdog('file_antivirus', 'The \'clamav-daemon\' SCAN command failed to scan a file %file with the following error %error.', array('%file' => $file->filename, '%error' => $content), WATCHDOG_ERROR);
+      return NULL;
+    }
+    if (preg_match('/FOUND$/', $content)) {
+      $result = preg_replace('/^.* (\S+) FOUND\n$/', '$1', $content);
+      watchdog('file_antivirus', 'The file %file uploaded by %user contained a virus %virus and was deleted.', array('%file' => $file->filename, '%user' => $user->name, '%virus' => $result), WATCHDOG_NOTICE);
+      return t('A virus %virus has been found in the uploaded file.', array('%virus' => $result));
+    }
+    else {
+      watchdog('file_antivirus', 'The file %file uploaded by %user and scanned by ClamAV is not infected.', array('%file' => $file->filename, '%user' => $user->name), WATCHDOG_NOTICE);
+    }
+  }
+  return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Clamav scanner check.
+ */
+function _file_antivirus_check_clamav($data) {
+  if (isset($data['path'])) {
+    // clamscan utility
+    return exec(escapeshellcmd($data['path']) .' -V');
+  }
+  if (isset($data['host']) && isset($data['port'])) {
+    // tcp connection
+    $handler = @fsockopen($data['host'], $data['port']);
+    if (!$handler) {
+      return NULL;
+    }
+    if (isset($data['version'])) {
+      fwrite($handler, "VERSION\n");
+      $content = fgets($handler);
+      fclose($handler);
+      return $content;
+    }
+    else {
+      fwrite($handler, "PING\n");
+      $content = fgets($handler);
+      fclose($handler);
+      if (preg_match('/PONG/', $content)) {
+        return $content;
+      }
+    }
+  }
+  return NULL;
+}
+

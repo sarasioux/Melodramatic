@@ -1,0 +1,107 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File attachments module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_attach_enable() {
+  drupal_set_message(t('File attach module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/attach'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_attach_install() {
+  drupal_install_schema('file_attach');
+  variable_set('file_attach_node_file', 0);
+  variable_set('file_attach_comment_file', 0);
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_attach_uninstall() {
+  drupal_uninstall_schema('file_attach');
+  variable_del('file_attach_reuse_nodes');
+  variable_del('file_attach_show_attachments');
+  variable_del('file_attach_show_previews');
+  variable_del('file_attach_vocabularies_all');
+  variable_del('file_attach_vocabularies');
+  variable_del('file_attach_og_inheritance');
+  variable_del('file_attach_og_vocabularies');
+  variable_del('file_attach_popup_size');
+  variable_del('file_attach_popup_per_page');
+  foreach (node_get_types() as $type => $data) {
+    variable_del('file_attach_node_'. $data->type);
+    variable_del('file_attach_comment_'. $data->type);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Schema API hooks
+
+/**
+ * Implementation of hook_schema().
+ */
+function file_attach_schema() {
+  return array(
+    'file_attachments' => array(
+      'description' => t('Stores file attachments relations.'),
+      'fields' => array(
+        'fnid' => array(
+          'description' => t("The file node's ID from {node}.nid."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'nid' => array(
+          'description' => t("The node's ID from {node}.nid the file is attached to."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'vid' => array(
+          'description' => t("The node's version ID from {node}.vid the file is attached to."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'cid' => array(
+          'description' => t("The node comment's ID from {comment}.cid the file is attached to o zero."),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'list' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+          'size' => 'tiny',
+          'description' => t('Whether the file should be visibly listed on the node: yes(1) or no(0).'),
+        ),
+        'weight' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'size' => 'tiny',
+          'description' => t('Weight of this file in relation to other files attached to this node.'),
+        ),
+      ),
+      'indexes' => array('file_attachments_fnid' => array('fnid')),
+    ),
+  );
+}
+

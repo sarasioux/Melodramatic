@@ -1,0 +1,47 @@
+// $Id$
+
+REQUIREMENTS
+------------
+Requires Drupal 6.x and the following modules:
+
+  Bitcache
+  <http://drupal.org/project/bitcache>
+
+  RDF API
+  <http://drupal.org/project/rdf>
+
+
+INSTALLATION
+------------
+
+  1. Copy all the module files into a subdirectory called modules/fileframework/
+     under your Drupal installation directory.
+
+  2. Go to Administer >> Site building >> Modules and enable the RDF API,
+     RDF DB, and Bitcache modules. Press the "Save configuration" button.
+
+  3. Still on the same page, enable the File module, and press the
+     "Save configuration" button. Note that this *must* be done only after
+     the aforementioned dependent modules have been previously enabled, as
+     you'll likely run into error messages otherwise.
+
+  4. Go to Administer >> Site configuration >> Files to review and
+     change the configuration options to your liking.
+
+  5. (See README.txt for information on submitting bug reports.)
+
+
+ADDITIONAL SOFTWARE
+-------------------
+Folowing software is optional, but highly recommended:
+
+  getID3
+  <http://getid3.sourceforge.net>
+
+  Flowplayer
+  <http://flowplayer.org>
+
+  XSPF Player
+  <http://musicplayer.sourceforge.net>
+
+This software should be extracted under the 'vendor' folder.

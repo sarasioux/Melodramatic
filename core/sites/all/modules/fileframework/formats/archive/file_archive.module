@@ -1,0 +1,168 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Supports compressed archive file formats.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_archive_theme() {
+  return array(
+    'file_archive_archive_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_archive.theme.inc'
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Fils API hooks
+
+/**
+ * Implementation of hook_mime_handlers().
+ */
+function file_archive_mime_handlers() {
+  return array(
+    'file_archive_archive' => array(
+      'name' => t('Archive'),
+      'dimensions' => '600x300',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_types().
+ */
+function file_archive_mime_types() {
+  return array(
+    'application/x-compress' => array(
+      'name' => t('Compressed archive'),
+      'extensions' => array('tgz'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-cpio' => array(
+      'name' => t('CPIO archive'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-gtar' => array(
+      'name' => t('Tarball archive'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-gzip' => array(
+      'name' => t('Gzip archive'),
+      'extensions' => array('gz', 'gzip'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-stuffit' => array(
+      'name' => t('StuffIt archive'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-tar' => array(
+      'name' => t('Tarball archive'),
+      'icon' => 'zip.gif',
+    ),
+    'application/zip' => array(
+      'name' => t('ZIP archive'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-rar-compressed' => array(
+      'name' => t('RAR archive'),
+      'extensions' => array('rar'),
+      'icon' => 'zip.gif',
+    ),
+    'application/bzip2' => array(
+      'name' => t('Bzip2 archive'),
+      'extensions' => array('bz2'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-bz2' => array(
+      'name' => t('Bzip2 archive'),
+      'extensions' => array('bz2'),
+      'icon' => 'zip.gif',
+    ),
+    'application/x-lzma' => array(
+      'name' => t('LZMA archive'),
+      'extensions' => array('lzma'),
+      'icon' => 'zip.gif',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_converters().
+ */
+function file_archive_mime_converters() {
+  return array(
+    'application/x-gzip' => array(
+      'text/plain' => array(
+        'pipeline' => "{gzip} -l \"[in_file]\" | {sed} -e \"s|[in_file]|`{echo} \"[filename]\" | {sed} -e 's/.gz$//'`|\" > \"[out_file]\"",
+        'handlers' => array('file_archive_archive'),
+      ),
+    ),
+    'application/x-tar' => array(
+      'text/plain' => array(
+        'pipeline' => '{tar} -tf "[in_file]" > "[out_file]"',
+        'handlers' => array('file_archive_archive'),
+      ),
+    ),
+    'application/zip' => array(
+      'text/plain' => array(
+        'pipeline' => "{unzip} -l \"[in_file]\" | {sed} -e 's|[in_file]|[filename]|' > \"[out_file]\"",
+        'handlers' => array('file_archive_archive'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_metadata_info().
+ */
+function filearchive_metadata_info() {
+  $info = array(
+    'wordnet:lines' => array('name' => t('Lines')),
+  );
+  return $info;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// MIME handlers
+
+/**
+ * Generates a text preview.
+ */
+function file_archive_archive_generate($file, $tier = NULL) {
+  if (function_exists('file_text_text_generate')) {
+    $file->handlers[$tier] = 'file_archive_archive';
+    if (!file_text_text_generate($file, $tier)) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Implements an archive plain text handler.
+ */
+function file_archive_archive_render($uri, $options = array()) {
+  $options = array_merge($options, _file_archive_render_options($uri, $options));
+  return theme('file_archive_archive_render', $options);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Renders options for the archive display.
+ */
+function _file_archive_render_options($uri, $options = array()) {
+  $text = check_plain(bitcache_get_contents(file_get_hash($uri)));
+
+  return array_merge($options, compact('text'));
+}
+

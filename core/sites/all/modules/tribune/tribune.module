@@ -1,0 +1,2384 @@
+<?php
+// vim:filetype=php expandtab tabstop=2 softtabstop=2 shiftwidth=2 autoindent smartindent
+// $Id: tribune.module,v 1.159.2.15 2009/04/12 20:50:02 seeschloss Exp $
+
+/**
+ * Some variables
+ */
+$_tribune_current_post_id  = -1;
+$_tribune_current_clock_id = -1;
+
+/**
+ * Display help and module information
+ * @param section which section of the site we're displaying help
+ * @return help text for section
+ */
+function tribune_help($section = '') {
+
+  $output = '';
+  switch ($section) {
+  case "admin/help#tribune":
+    $output = "<p>". t("Provides a 'tribune'") ."</p>";
+    break;
+  }
+
+  return $output;
+}
+
+function tribune_load($nid) {
+  $node = NULL;
+
+  if (!is_object($nid)) {
+    $node = node_load(array('type' => "tribune", 'nid' => $nid));
+  } else if ($nid->type == "tribune") {
+    $node = $nid;
+  }
+
+  $node->tribune_settings = db_fetch_array(db_query('SELECT * FROM {tribune_tribunes} WHERE nid = %d', $node->nid));
+
+  $node->tribune_settings['enabled_filters'] = unserialize($node->tribune_settings['enabled_filters']);
+  $node->tribune_settings['variables'] = unserialize($node->tribune_settings['variables']);
+
+  $node->tribune_settings['shortcuts'] = unserialize($node->tribune_settings['shortcuts']);
+
+  return $node;
+}
+
+function tribune_node_info() {
+  return array(
+    'tribune' => array(
+      'name' => t('Tribune'),
+      'module' => 'tribune',
+      'description' => t('An advanced discussion space'),
+      'title_label' => t('Tribune name'),
+      'body_label' => t('Tribune message'),
+      'has_body' => TRUE,
+    ),
+  );
+}
+
+function tribune_access($op, $node = NULL) {
+  global $user;
+  switch ($op) {
+    case 'create':
+      return user_access('create tribune node');
+    case 'update':
+      return user_access('edit own tribune') and ($user->uid == $node->uid);
+    case 'delete':
+      return user_access('delete own tribune') and ($user->uid == $node->uid);
+    case 'view':
+      return user_access('read tribunes');
+    case 'post':
+      return user_access('post in tribunes');
+    case 'moderate tribune':
+    case 'delete tribune post':
+    case 'undelete tribune post':
+    case 'delete moderated posts':
+    case 'delete all posts':
+      return ((($user->uid == $node->uid && $user->uid <> 0) or user_access('moderate all tribunes')) && $node->type == "tribune");
+    case 'configure own tribune filters':
+      return user_access('configure own tribune filters') and ($user->uid == $node->uid) and ($node->type = "tribune");
+    case 'view tribunes history':
+      return user_access('view tribunes history') and ($node->type == "tribune");
+    case 'view tribunes information':
+      return user_access('view tribunes information') and ($node->type == "tribune");
+    default:
+      return ($node->type == "tribune") and user_access($op);
+  }
+}
+
+function tribune_form(&$node) {
+  $type = node_get_types('type', $node);
+
+  $form = array();
+
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => check_plain($type->title_label),
+    '#required' => true,
+    '#default_value' => $node->title,
+    '#weight' => -5,
+  );
+
+  $form['body_filter']['body'] = array(
+    '#type' => 'textarea',
+    '#title' => check_plain($type->body_label),
+    '#default_value' => $node->body,
+    '#required' => FALSE
+  );
+  $form['body_filter']['filter'] = filter_form($node->format);
+
+  $form['tribune_settings'] = array(
+    '#title'          => t('Tribune parameters'),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => FALSE,
+    '#tree'           => TRUE,
+  );
+
+  $form['tribune_settings']['max_message_size'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Maximum length of a comment'),
+    '#default_value'  => isset($node->tribune_settings['max_message_size']) ? $node->tribune_settings['max_message_size'] : 512,
+    '#size'           => 4,
+    '#maxlength'      => 4,
+    '#description'    => t('The maximum length of a comment.'),
+    '#element_validate' => array('tribune_form_max_message_size_validate'),
+  );
+
+  $form['tribune_settings']['history_size'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Number of comments displayed'),
+    '#default_value'  => isset($node->tribune_settings['history_size']) ? $node->tribune_settings['history_size'] : 25,
+    '#size'           => 3,
+    '#maxlength'      => 4,
+    '#description'    => t('The number of comments to display.'),
+    '#element_validate' => array('tribune_form_history_size_validate'),
+  );
+
+  $form['tribune_settings']['xml_size'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Number of comments displayed in the XML backend'),
+    '#default_value'  => isset($node->tribune_settings['xml_size']) ? $node->tribune_settings['xml_size'] : 100,
+    '#size'           => 3,
+    '#maxlength'      => 4,
+    '#description'    => t('The number of comments to display in the XML backend.'),
+    '#element_validate' => array('tribune_form_xml_size_validate'),
+  );
+
+  $form['tribune_settings']['rss_size'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Number of comments displayed in the RSS feed'),
+    '#default_value'  => isset($node->tribune_settings['rss_size']) ? $node->tribune_settings['rss_size'] : 50,
+    '#size'           => 3,
+    '#maxlength'      => 4,
+    '#description'    => t('The number of comments to display in the RSS feed.'),
+    '#element_validate' => array('tribune_form_rss_size_validate'),
+  );
+
+  $form['tribune_settings']['reload_delay'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Reload delay'),
+    '#default_value'  => isset($node->tribune_settings['reload_delay']) ? $node->tribune_settings['reload_delay'] : 30,
+    '#size'           => 3,
+    '#maxlength'      => 3,
+    '#description'    => t('The delay between automatic reloading of the tribune, in seconds (0 to disable Ajax reloading).'),
+    '#element_validate' => array('tribune_form_reload_delay_validate'),
+  );
+
+  $form['tribune_settings']['idle_delay'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Idle delay'),
+    '#default_value'  => isset($node->tribune_settings['idle_delay']) ? $node->tribune_settings['idle_delay'] : 0,
+    '#size'           => 5,
+    '#maxlength'      => 5,
+    '#description'    => t('The delay before the tribune stop automatically reloading when an user is inactive, in seconds (0 to disable idle mode).'),
+    '#element_validate' => array('tribune_form_idle_delay_validate'),
+  );
+
+  $form['tribune_settings']['flood_protection_delay'] = array(
+    '#type'           => 'textfield',
+    '#title'          => t('Flood protection'),
+    '#default_value'  => isset($node->tribune_settings['flood_protection_delay']) ? $node->tribune_settings['flood_protection_delay'] : 0,
+    '#size'           => 3,
+    '#maxlength'      => 3,
+    '#description'    => t('Minimum time before someone can post again, in seconds (0 disables flood protection).'),
+    '#element_validate' => array('tribune_form_flood_protection_delay_validate'),
+  );
+
+  $form['tribune_settings']['posts_order'] = array(
+    '#type'           => 'radios',
+    '#title'          => t('Message order'),
+    '#default_value'  => isset($node->tribune_settings['posts_order']) ? $node->tribune_settings['posts_order'] : 1,
+    '#options'        => array('1' => t("Last messages at the bottom"), '0' => t("Last messages at the top")),
+    '#description'    => t('How the messages are displayed. Displaying the messages top-to-bottom makes it easier to follow real discussions, but displaying the latest one at the top is sometimes less confusing.'),
+  );
+
+  $form['tribune_settings']['show_pager'] = array(
+    '#type'           => 'checkbox',
+    '#title'          => t('Show pager'),
+    '#default_value'  => isset($node->tribune_settings['show_pager']) ? $node->tribune_settings['show_pager'] : FALSE,
+    '#description'    => t('Show a pager (all posts will be accessible, instead of just the last ones).'),
+  );
+
+  return $form;
+}
+
+function tribune_form_max_message_size_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][max_message_size", t("The maximum comment length must be an integer"));
+  }
+}
+
+function tribune_form_history_size_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][history_size", t("The number of comments displayed must be an integer"));
+  }
+}
+
+function tribune_form_xml_size_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][xml_size", t("The number of comments in the XML backend must be an integer"));
+  }
+}
+
+function tribune_form_rss_size_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][rss_size", t("The number of comments in the RSS backend must be an integer"));
+  }
+}
+
+function tribune_form_reload_delay_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][reload_delay", t("The reload delay must be a time in seconds"));
+  }
+}
+
+function tribune_form_idle_delay_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][idle_delay", t("The idle delay must be a time in seconds"));
+  }
+}
+
+function tribune_form_flood_protection_delay_validate($element, &$form_state) {
+  if (!is_numeric($element['#value'])) {
+    form_set_error("tribune_settings][flood_protection_delay", t("The flood protection delay must be a time in seconds"));
+  }
+}
+
+function tribune_insert($node) {
+  db_query('INSERT INTO {tribune_tribunes} SET
+    nid = %d,
+    banned_useragents = \'\',
+    banned_usernames = \'\',
+    banned_messages = \'\',
+    max_message_size = %d,
+    history_size = %d,
+    xml_size = %d,
+    rss_size = %d,
+    reload_delay = %d,
+    idle_delay = %d,
+    flood_protection_delay = %d,
+    posts_order = %d,
+    show_pager = %d,
+    enabled_filters = \'%s\',
+    variables = \'%s\',
+    shortcuts = \'%s\'
+    ',
+    $node->nid,
+    $node->tribune_settings['max_message_size'],
+    $node->tribune_settings['history_size'],
+    $node->tribune_settings['xml_size'],
+    $node->tribune_settings['rss_size'],
+    $node->tribune_settings['reload_delay'],
+    $node->tribune_settings['idle_delay'],
+    $node->tribune_settings['flood_protection_delay'],
+    $node->tribune_settings['posts_order'],
+    $node->tribune_settings['show_pager'],
+    serialize(array('totoz' => "totoz", "url" => "url")),
+    serialize(array()),
+    serialize(array())
+  );
+}
+
+function tribune_update($node) {
+  db_query('UPDATE {tribune_tribunes} SET
+    max_message_size = %d,
+    history_size = %d,
+    xml_size = %d,
+    rss_size = %d,
+    reload_delay = %d,
+    idle_delay = %d,
+    flood_protection_delay = %d,
+    posts_order = %d,
+    show_pager = %d,
+    enabled_filters = \'%s\',
+    variables = \'%s\',
+    shortcuts = \'%s\'
+    WHERE nid = %d
+    ',
+    $node->tribune_settings['max_message_size'],
+    $node->tribune_settings['history_size'],
+    $node->tribune_settings['xml_size'],
+    $node->tribune_settings['rss_size'],
+    $node->tribune_settings['reload_delay'],
+    $node->tribune_settings['idle_delay'],
+    $node->tribune_settings['flood_protection_delay'],
+    $node->tribune_settings['posts_order'],
+    $node->tribune_settings['show_pager'],
+    serialize($node->tribune_settings['enabled_filters']),
+    serialize($node->tribune_settings['variables']),
+    serialize($node->tribune_settings['shortcuts']),
+    $node->nid
+  );
+}
+
+function tribune_delete($node) {
+  db_query('DELETE FROM {tribune_tribunes} WHERE nid = %d', $node->nid);
+  db_query('DELETE FROM {tribune}, {tribune_post_references} USING {tribune} INNER JOIN {tribune_post_references} ON {tribune_post_references}.target_post_id = {tribune}.post_id WHERE {tribune}.tribune_id = %d', $node->nid);
+}
+
+function tribune_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, FALSE);
+
+  drupal_add_css(drupal_get_path('module', 'tribune') .'/css/tribune.page.css');
+
+  $history_size   = $node->tribune_settings['history_size'];
+  $reload_delay   = $node->tribune_settings['reload_delay'] * 1000; // in milliseconds
+  $idle_delay     = $node->tribune_settings['idle_delay'] * 1000; // in milliseconds
+  $message_order  = $node->tribune_settings['posts_order'] ? 'top_to_bottom' : 'bottom_to_top';
+  $shortcuts      = $node->tribune_settings['shortcuts'];
+  $last_load_time = time();
+
+  $tribune_id = "tribune-". $node->nid;
+
+  drupal_add_js(
+    array(
+      "tribune" => array(
+        "tribunes" => array(
+          $tribune_id => array(
+            "history_size"   => $history_size,
+            "reload_delay"   => $reload_delay,
+            "idle_delay"     => $idle_delay,
+            "last_load_time" => $last_load_time,
+            "message_order"  => $message_order,
+            "shortcuts"      => $shortcuts,
+            "block" => FALSE,
+            "path" => array(
+              "post" => url("node/".$node->nid."/post"),
+              "json_post" => url("node/".$node->nid."/post-json"),
+              "json_posts" => url("node/".$node->nid."/newposts-json"),
+              "filters" => url("node/".$node->nid."/filter"),
+            ),
+          ),
+        ),
+      ),
+    ), "setting"
+  );
+
+  drupal_add_js(drupal_get_path('module', 'tribune') .'/js/tribune.ajax.js');
+  drupal_add_js('misc/jquery.form.js');
+  $top_message = trim($node->body);
+
+  if ($page and $node->tribune_settings['show_pager']) {
+    $posts = array();
+
+    $r = pager_query("SELECT *
+      FROM {tribune}
+      WHERE tribune_id = %d
+      ORDER BY post_id DESC",
+      $history_size,
+      0,
+      NULL,
+      array($node->nid)
+    );
+
+    while ($row = db_fetch_array($r)) {
+      $posts[$row['post_id']] = tribune_post_from_row($row);
+    }
+    $posts = array_reverse($posts, true);
+    $contents = theme("tribune_page", $posts, $node, $tribune_id, $top_message, $node->tribune_settings['posts_order']).theme("pager", array(), $history_size);
+  } else {
+    $posts = tribune_get_last_posts($node, $history_size);
+    $contents = theme("tribune_page", $posts, $node, $tribune_id, $top_message, $node->tribune_settings['posts_order']);
+  }
+
+  $contents = theme("tribune_page", $posts, $node, $tribune_id, $top_message, $node->tribune_settings['posts_order']);
+  $node->content['body']['#value'] = $contents;
+
+  return $node;
+}
+
+function tribune_perm() {
+  return array(
+    "read tribunes",
+    "view tribunes history",
+    "view tribunes rss feed",
+    "view tribunes information",
+    "post in tribunes",
+    "create tribune node",
+    "edit own tribune",
+    "configure own tribune filters",
+    "delete own tribune",
+    "moderate all tribunes",
+  );
+}
+
+/**
+ * Adds or update an user in the list of users viewing the tribune.
+ * this list is stored in the "tribune_active_users" variable
+ * as an array containing the last time each user has visited
+ * the tribune, keyed by his username.
+ */
+function tribune_update_active_user($node, $user) {
+  $key = 0;
+  $data = array();
+  $tribune_active_users = tribune_variable_get('active_users', array(), $node);
+  if (!is_array($tribune_active_users)) {
+    $tribune_active_users = array();
+  }
+
+  if ($user->uid) {
+    $key = "a".strtolower($user->name).$user->name;
+    $data['name'] = $user->name;
+    $data['uid'] = $user->uid;
+  } else if (!$user->uid and isset($_SESSION['tribune_nickname'])) {
+    // this is to display users who have set their nickname
+    // using the "nick" filter... including filter-specific
+    // code in the main tribune code doesn't look very good
+    // but I can't see a better way to do it
+    $key = "z".strtolower($_SESSION['tribune_nickname']).$_SESSION['tribune_nickname'];
+    $data['name'] = $_SESSION['tribune_nickname'];
+    $data['uid'] = $user->uid;
+  }
+  $data['time'] = time();
+
+  if ($key) {
+    $tribune_active_users[$key] = $data;
+    tribune_variable_set('active_users', $tribune_active_users, $node);
+
+    _tribune_update_active_users($node);
+  }
+}
+
+/**
+ * Updates the list of active users by removing all the users who
+ * have not visited the tribune for more than five minutes
+ */
+function _tribune_update_active_users($node) {
+  $now = time();
+  $reload_delay = $node->tribune_settings['reload_delay'];
+  $tribune_active_users = tribune_variable_get('active_users', array(), $node);
+  foreach ($tribune_active_users as $key => $data) {
+    if ($data['time'] < $now - (5 * 60)) {
+      unset($tribune_active_users[$key]);
+    }
+  }
+  tribune_variable_set('active_users', $tribune_active_users, $node);
+}
+
+/**
+ * Get the list of users who are currently reading the tribune
+ * @return An array of ('name, 'uid', time') arrays
+ */
+function tribune_get_active_users($node) {
+  _tribune_update_active_users($node);
+  $users = tribune_variable_get('active_users', array(), $node);
+  ksort($users);
+  return $users;
+}
+
+/**
+ * Returns an array of filter files.
+ */
+function _tribune_filter_files() {
+  $filters_dir = drupal_get_path('module', 'tribune');
+  $files = file_scan_directory($filters_dir, '\.inc$');
+
+  $filters = array();
+  foreach ($files as $file) {
+    include_once($file->filename);
+    $filters[$file->name] = $file;
+  }
+  return $filters;
+}
+
+/**
+ * Returns the pointers to all active filters
+ */
+function _tribune_get_filters($node, $after_slip) {
+  $info = _tribune_filters_info();
+
+  $filters = array();
+
+  if (user_access("configure own tribune filters", user_load($node->uid)) and is_array($node->tribune_settings['enabled_filters'])) {
+    $enabled_filters = $node->tribune_settings['enabled_filters'];
+  } else {
+    $enabled_filters = variable_get('tribune_enabled_filters', array('totoz' => "totoz", "url" => "url"));
+  }
+  foreach (_tribune_filter_files() as $filter_file) {
+    $filter = $filter_file->name;
+
+    if (isset ($enabled_filters[$filter]) and $enabled_filters[$filter]) {
+      if ($after_slip) {
+        $func = 'tribune_'. $filter .'_filter_after';
+        if (function_exists($func)) {
+          $filters[$info[$filter]['weight']][$filter] = $func;
+          ksort($filters[$info[$filter]['weight']]);
+        }
+      }
+      else {
+        $func = 'tribune_'. $filter .'_filter';
+        if (function_exists($func)) {
+          $filters[$info[$filter]['weight']][$filter] = $func;
+          ksort($filters[$info[$filter]['weight']]);
+        }
+      }
+    }
+  }
+
+  ksort($filters);
+
+  $sorted_filters = array();
+
+  foreach ($filters as $weight => $list) {
+
+    foreach ($list as $name => $func) {
+      $sorted_filters[$name] = $func;
+    }
+  }
+
+  return $sorted_filters;
+}
+
+/**
+ * Returns the pointers to all active filters with a help function
+ */
+function _tribune_get_filters_help($node) {
+  $filters = array();
+
+  if (user_access("configure own tribune filters", user_load($node->uid)) and is_array($node->tribune_settings['enabled_filters'])) {
+    $enabled_filters = $node->tribune_settings['enabled_filters'];
+  } else {
+    $enabled_filters = variable_get('tribune_enabled_filters', array('totoz' => "totoz", "url" => "url"));
+  }
+  foreach (_tribune_filter_files() as $filter_file) {
+    $filter = $filter_file->name;
+
+    if (isset ($enabled_filters[$filter]) and $enabled_filters[$filter]) {
+      $func = 'tribune_'. $filter .'_help';
+      if (function_exists($func)) {
+        $filters[$filter] = $func;
+      }
+    }
+  }
+
+  return $filters;
+}
+
+/**
+ * Returns the description of every available filter
+ */
+function _tribune_filters_info() {
+  $filters = array();
+
+  foreach (_tribune_filter_files() as $filter_file) {
+    $filter = $filter_file->name;
+    $func_info = 'tribune_'. $filter .'_info';
+
+    if (function_exists($func_info)) {
+      $info = $func_info();
+      if (!is_array($info)) {
+        $info = array('description' => $info);
+      }
+      if (!isset($info['weight'])) {
+        $info['weight'] = 0;
+      }
+
+      $info['before_slip'] = function_exists('tribune_'. $filter .'_filter');
+      $info['after_slip']  = function_exists('tribune_'. $filter .'_filter_after');
+
+      $func_settings = 'tribune_'. $filter .'_settings';
+
+      if (function_exists($func_settings)) {
+        $info['settings'] = $func_settings;
+      }
+      else {
+        $info['settings'] = FALSE;
+      }
+
+      $filters[$info['weight']][$filter] = $info;
+
+      ksort($filters[$info['weight']]);
+    }
+  }
+
+  ksort($filters);
+
+  $sorted_filters = array();
+
+  foreach ($filters as $weight => $list) {
+    foreach ($list as $name => $info) {
+      $sorted_filters[$name] = $info;
+    }
+  }
+
+  return $sorted_filters;
+}
+
+/**
+ * Returns a clock representation
+ */
+function tribune_filters_print_clock($post) {
+  $post_date = tribune_date_to_localdate($post['time']);
+  if ($post_date == date('YmdHis') and $post['rank'] == 0) {
+    $post['rank'] = 1;
+  }
+  $clock = tribune_format_clock($post_date, $post['rank']);
+
+  return $clock;
+}
+
+/**
+ * Post a message to the tribune (jQuery/coincoins)
+ */
+function tribune_post($node) {
+  if (isset ($_POST['message']) and $_POST['message']) {
+    $result = tribune_add_post($node, $_POST['message']);
+
+    if ($result['error']) {
+      // There is an error
+      header("HTTP/1.0 403 Forbidden");
+      print "<div>". $result['error'] ."</div>";
+    }
+    else if ($result['post']) {
+      header("X-Post-Id: ". $result['post']['tribune_post_id']);
+    }
+  }
+
+  exit();
+}
+
+function tribune_build_block($node, $history_size, $block_settings) {
+  $block = array();
+
+  drupal_add_css(drupal_get_path('module', 'tribune') .'/css/tribune.block.css');
+
+  $reload_delay   = $block_settings['reload_delay'] * 1000; // in milliseconds
+  $idle_delay     = $node->tribune_settings['idle_delay'] * 1000; // in milliseconds
+  $message_order  = $node->tribune_settings['posts_order'] ? 'top_to_bottom' : 'bottom_to_top';
+  $shortcuts      = $node->tribune_settings['shortcuts'];
+  $last_load_time = time();
+
+  $tribune_id = 'tribune-block-'. $node->nid;
+
+  drupal_add_js(
+    array(
+      "tribune" => array(
+        "tribunes" => array(
+          $tribune_id => array(
+            "history_size"   => $history_size,
+            "reload_delay"   => $reload_delay,
+            "idle_delay"     => $idle_delay,
+            "last_load_time" => $last_load_time,
+            "message_order"  => $message_order,
+            "shortcuts"      => $shortcuts,
+            "block" => TRUE,
+            "path" => array(
+              "post" => url("node/". $node->nid ."/post"),
+              "json_post" => url("node/". $node->nid ."/post-json"),
+              "json_posts" => url("node/". $node->nid ."/newposts-json"),
+              "filters" => url("node/". $node->nid ."/filter"),
+            ),
+          ),
+        ),
+      ),
+    ), "setting");
+
+  drupal_add_js(drupal_get_path('module', 'tribune') .'/js/tribune.ajax.js');
+  drupal_add_js('misc/jquery.form.js');
+
+  $posts = tribune_get_last_posts($node, $history_size);
+
+  $block['subject'] = l($node->title, 'node/'. $node->nid);
+  $block['content'] = theme("tribune_block", $posts, $node, $tribune_id, $block_settings);
+
+  return $block;
+}
+
+/**
+ * Show the last interventions in a block
+ * @param op the operation from the URL
+ * @param delta offset
+ * @returns block HTML
+ */
+function tribune_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+  case 'list':
+    $num_blocks = 4; // yeah that's completely arbitrary
+
+    //$block[1]["info"] = t("Tribune users");
+
+    for ($i = 0 ; $i < $num_blocks ; $i++) {
+      $block[$i]["info"] = t("Tribune block #".($i+1));
+      }
+
+      return $block;
+      break;
+    case 'configure':
+      $tribune_blocks = variable_get('tribune_blocks', array());
+      if (!isset($tribune_blocks[$delta]['history_size'])) {
+        $tribune_blocks[$delta]['history_size'] = 15;
+      }
+      if (!isset($tribune_blocks[$delta]['reload_delay'])) {
+        $tribune_blocks[$delta]['reload_delay'] = 30;
+      }
+
+      $form = array();
+      $form['tribune_id'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Tribune'),
+        '#description' => t('Which tribune to show in this block'),
+        '#default_value' => $tribune_blocks[$delta]['config_display'],
+        '#autocomplete_path' => 'tribune/autocomplete/',
+      );
+
+      $form['history_size'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Size'),
+        '#description' => t('How many posts to show in this block'),
+        '#default_value' => $tribune_blocks[$delta]['history_size'],
+      );
+
+      $form['reload_delay'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Reload delay'),
+        '#description' => t('The delay between automatic reloading of new posts, in this block (0 to disable Ajax reloading)'),
+        '#default_value' => $tribune_blocks[$delta]['reload_delay'],
+      );
+
+      $form['read_only'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Read only'),
+        '#description' => t('Make this block read-only (prevent posting from it)'),
+        '#default_value' => $tribune_blocks[$delta]['read_only'],
+      );
+
+      return $form;
+      break;
+    case 'save':
+      $tribune_id = substr($edit['tribune_id'], 0, strpos($edit['tribune_id'], ' '));
+      $tribune_blocks = variable_get('tribune_blocks', array());
+      $tribune_blocks[$delta]['nid'] = $tribune_id;
+      $tribune_blocks[$delta]['config_display'] = $tribune_id ? $edit['tribune_id'] : '';
+      $tribune_blocks[$delta]['history_size'] = $edit['history_size'];
+      $tribune_blocks[$delta]['reload_delay'] = $edit['reload_delay'];
+      $tribune_blocks[$delta]['read_only'] = $edit['read_only'];
+      variable_set('tribune_blocks', $tribune_blocks);
+      break;
+    case 'view':
+      $tribune_blocks = variable_get('tribune_blocks', array());
+      if ($tribune_blocks[$delta]['nid']) {
+        $node = node_load($tribune_blocks[$delta]['nid']);
+        if (tribune_access("view", $node)) {
+          return tribune_build_block($node, $tribune_blocks[$delta]['history_size'], $tribune_blocks[$delta]);
+        }
+      }
+  }
+}
+
+function theme_tribune_active_users($users, $node) {
+  $registered_users = array();
+
+  foreach ($users as $key => $data) {
+    $registered_users[] = (object)$data;
+  }
+
+  return theme('user_list', $registered_users);
+}
+
+function tribune_autocomplete($name) {
+  $tribunes = array();
+
+  if (tribune_access('view')) {
+    $result = db_query("SELECT nid, title FROM {node} WHERE type = 'tribune' AND (title LIKE '%%%s%%' or nid = %d)", $name, $name);
+    while ($row = db_fetch_array($result)) {
+      $display_string = t('@tribune_nid (@tribune_title)', array('@tribune_nid' => $row['nid'], '@tribune_title' => $row['title']));
+      $tribunes[$display_string] = $display_string;
+      }
+  }
+
+  print drupal_to_js($tribunes);
+  exit();
+}
+
+function tribune_needs_migration() {
+  return db_result(db_query('SELECT COUNT(*) FROM {tribune} WHERE tribune_id = 0'));
+}
+
+function tribune_menu() {
+  $items = array();
+
+  $items['admin/settings/tribune'] = array(
+    'file'              => "tribune.admin.inc",
+    'title'             => 'Tribune',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('tribune_admin'),
+    'access arguments'  => array('administer site configuration'),
+  );
+
+  $items['admin/settings/tribune/settings'] = array(
+    'file'              => "tribune.admin.inc",
+    'title'             => 'Tribune settings',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('tribune_admin'),
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_DEFAULT_LOCAL_TASK,
+    'weight'            => 0,
+  );
+
+  $items['admin/settings/tribune/filters'] = array(
+    'file'              => "tribune.admin.filters.inc",
+    'title'             => 'Filters settings',
+    'page callback'     => 'tribune_admin_filters',
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_LOCAL_TASK,
+    'weight'            => 1,
+  );
+
+  $items['admin/settings/tribune/migration'] = array(
+    'file'              => "tribune.admin.inc",
+    'title'             => '1.x tribune migration',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('tribune_admin_migration'),
+    'access callback'   => 'tribune_needs_migration',
+    'access arguments'  => array(),
+    'type'              => MENU_LOCAL_TASK,
+    'weight'            => 2,
+  );
+
+  $items['admin/settings/tribune/filters/settings/%'] = array(
+    'file'              => "tribune.admin.filters.inc",
+    'title'             => 'Filter settings',
+    'page callback'     => 'tribune_filter_settings',
+    'page arguments'    => array(NULL, 5),
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_LOCAL_TASK,
+  );
+
+
+  $items['tribune/autocomplete/%'] = array(
+    'title'             => 'Tribune autocomplete',
+    'page callback'     => 'tribune_autocomplete',
+    'page arguments'    => array(2),
+    'access arguments'  => array('access content'),
+    'type'              => MENU_CALLBACK,
+  );
+
+
+  /**
+   * pages associated to each tribune node
+   */
+
+  // JSON stuff
+  $items['node/%tribune/post-json/%'] = array(
+    'file'              => "tribune.json.inc",
+    'page callback'     => 'tribune_print_json_post',
+    'page arguments'    => array(3, 1),
+    'access arguments'  => array('read tribunes'),
+    'type'              => MENU_CALLBACK,
+  );
+  $items['node/%tribune/newposts-json/%'] = array(
+    'file'              => "tribune.json.inc",
+    'title'             => 'Tribune',
+    'page callback'     => 'tribune_print_json_newposts',
+    'page arguments'    => array(3, 1),
+    'access arguments'  => array('read tribunes'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  // moderation pages
+  $items['node/%tribune/moderation/delete/%'] = array(
+    'file'              => "tribune.moderation.inc",
+    'page callback'     => 'tribune_delete_post',
+    'page arguments'    => array(4, 1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('delete tribune post', 1),
+    'type'              => MENU_CALLBACK,
+  );
+  $items['node/%tribune/moderation/undelete/%'] = array(
+    'file'              => "tribune.moderation.inc",
+    'page callback'     => 'tribune_undelete_post',
+    'page arguments'    => array(4, 1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('undelete tribune post', 1),
+    'type'              => MENU_CALLBACK,
+  );
+  $items['node/%tribune/moderation'] = array(
+    'file'              => "tribune.moderation.inc",
+    'title'             => 'Moderation',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('tribune_moderation_form', 1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('moderate tribune', 1),
+    'type'              => MENU_LOCAL_TASK,
+  );
+
+  // for AJAX and Coincoins
+  $items['node/%tribune/post'] = array(
+    'title'             => 'Post a message',
+    'page callback'     => 'tribune_post',
+    'page arguments'    => array(1),
+    'access arguments'  => array('post in tribunes'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  // history pages
+  $items['node/%tribune/history'] = array(
+    'file'              => 'tribune.history.inc',
+    'title'             => 'History',
+    'page callback'     => 'tribune_history_page',
+    'page arguments'    => array(1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('view tribunes history', 1),
+    'type'              => MENU_LOCAL_TASK,
+  );
+  $items['node/%tribune/history/%/%'] = array(
+    'file'              => 'tribune.history.inc',
+    'title'             => 'History',
+    'page callback'     => 'tribune_history_search',
+    'page arguments'    => array(1, 3, 4),
+    'access arguments'  => array('view tribunes history'),
+    'type'              => MENU_LOCAL_TASK,
+  );
+
+  // XML backends
+  $items['node/%tribune/tribune.xml'] = array(
+    'file'              => "tribune.backend.inc",
+    'title'             => 'Tribune backend',
+    'page callback'     => 'tribune_backend',
+    'page arguments'    => array(1, 'xml'),
+    'access arguments'  => array('read tribunes'),
+    'type'              => MENU_CALLBACK,
+  );
+  $items['node/%tribune/tribune.rss'] = array(
+    'file'              => "tribune.backend.inc",
+    'title'             => 'Tribune RSS feed',
+    'page callback'     => 'tribune_backend',
+    'page arguments'    => array(1, 'rss'),
+    'access arguments'  => array('view tribunes rss feed'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  // information/Coincoin configuration pages
+  $items['node/%tribune/info'] = array(
+    'file'              => "tribune.info.inc",
+    'title'             => 'Information',
+    'page callback'     => 'tribune_show_info',
+    'page arguments'    => array(1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('view tribunes information', 1),
+    'type'              => MENU_LOCAL_TASK,
+  );
+  $items['node/%tribune/info/b2b.xml'] = array(
+    'file'              => "tribune.info.inc",
+    'title'             => 'b2b config',
+    'page callback'     => 'tribune_b2b_xml',
+    'page arguments'    => array(1),
+    'access arguments'  => array('view tribunes information'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  // shortcuts
+  $items['node/%tribune/shortcuts'] = array(
+    'file'              => "tribune.admin.shortcuts.inc",
+    'title'             => 'JS shortcuts',
+    'page callback'     => 'tribune_admin_shortcuts',
+    'page arguments'    => array(1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_LOCAL_TASK,
+  );
+
+  $items['node/%tribune/shortcuts/delete/%'] = array(
+    'file'              => "tribune.admin.shortcuts.inc",
+    'page callback'     => 'tribune_admin_shortcuts_delete',
+    'page arguments'    => array(1, 4),
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  // filters configuration
+  $items['node/%tribune/filters'] = array(
+    'file'              => "tribune.admin.filters.inc",
+    'title'             => 'Filters',
+    'page callback'     => 'tribune_admin_filters',
+    'page arguments'    => array(1),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('configure own tribune filters', 1),
+    'type'              => MENU_LOCAL_TASK,
+  );
+  $items['node/%tribune/filters/settings/%'] = array(
+    'file'              => "tribune.admin.filters.inc",
+    'title'             => 'Filter settings',
+    'page callback'     => 'tribune_filter_settings',
+    'page arguments'    => array(1, 4),
+    'access callback'   => 'tribune_access',
+    'access arguments'  => array('configure own tribune filters', 1),
+    'type'              => MENU_LOCAL_TASK,
+  );
+
+  // filters pages
+  $items['node/%tribune/filter/%'] = array(
+    'title'             => 'Filter page',
+    'page callback'     => 'tribune_filters_pages',
+    'page arguments'    => array(1, 3),
+    'access arguments'  => array('read tribunes'),
+    'type'              => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function tribune_settings_form($form, $node = NULL) {
+  if ($node === NULL) {
+    global $tribune;
+    $node = $tribune;
+  }
+
+  $form = system_settings_form($form);
+
+  if ($node) {
+    $form['tribune_id'] = array(
+      '#type' => 'value',
+      '#value' => $node->nid,
+    );
+  }
+
+  $form['#submit'] = array('tribune_settings_form_submit');
+  return $form;
+}
+
+function tribune_settings_form_submit($form, &$form_state) {
+  $node = NULL;
+  if (isset($form_state['values']['tribune_id'])) {
+    $node = node_load($form_state['values']['tribune_id']);
+  }
+
+  $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
+
+  // Exclude unnecessary elements.
+  unset($form_state['values']['submit'], $form_state['values']['reset'], $form_state['values']['form_id'], $form_state['values']['op'], $form_state['values']['form_token'], $form_state['values']['form_build_id']);
+
+  foreach ($form_state['values'] as $key => $value) {
+    if ($op == t('Reset to defaults')) {
+      tribune_variable_del($key, $node);
+    }
+    else {
+      if (is_array($value) && isset($form_state['values']['array_filter'])) {
+        $value = array_keys(array_filter($value));
+      }
+      tribune_variable_set($key, $value, $node);
+    }
+  }
+  if ($op == t('Reset to defaults')) {
+    drupal_set_message(t('The configuration options have been reset to their default values.'));
+  }
+  else {
+    drupal_set_message(t('The configuration options have been saved.'));
+  }
+}
+
+function tribune_variable_get($name, $default_value, $node = NULL) {
+  global $tribune;
+
+  if ($node === NULL and $tribune) {
+    $node = $tribune;
+  } else if ($node == 'global') {
+    $node = NULL;
+  }
+
+  if ($node) {
+    $result = db_result(db_query('SELECT variables FROM {tribune_tribunes} WHERE nid = %d', $node->nid));
+    $array = unserialize($result);
+  } else {
+    $array = variable_get('tribune_global_variables', array());
+  }
+
+  if ($array and isset($array[$name])) {
+    return $array[$name];
+  } else {
+    if ($node) {
+      return tribune_variable_get($name, $default_value, 'global');
+    } else {
+      return $default_value;
+    }
+  }
+}
+
+function tribune_variable_set($name, $value, $node = NULL) {
+  global $tribune;
+
+  if ($node === NULL and $tribune) {
+    $node = $tribune;
+  } else if ($node == 'global') {
+    $node = NULL;
+  }
+
+  if ($node) {
+    $result = db_result(db_query('SELECT variables FROM {tribune_tribunes} WHERE nid = %d', $node->nid));
+    $array = unserialize($result);
+  } else {
+    $array = variable_get('tribune_global_variables', array());
+  }
+
+  if ($array) {
+    $array[$name] = $value;
+  } else {
+    $array = array($name => $value);
+  }
+
+  if ($node) {
+    db_query('UPDATE {tribune_tribunes} SET variables = \'%s\' WHERE nid = %d',
+      serialize($array), $node->nid);
+  } else {
+    variable_set('tribune_global_variables', $array);
+  }
+}
+
+function tribune_variable_del($name, $node = NULL) {
+  global $tribune;
+
+  if ($node === NULL and $tribune) {
+    $node = $tribune;
+  } else if ($node == 'global') {
+    $node = NULL;
+  }
+
+  if ($node) {
+    $result = db_result(db_query('SELECT variables FROM {tribune_tribunes} WHERE nid = %d', $node->nid));
+    $array = unserialize($result);
+  } else {
+    $array = variable_get('tribune_global_variables', array());
+  }
+
+  if ($array and isset($array[$name])) {
+    unset($array[$name]);
+
+    if ($node) {
+      db_query('UPDATE {tribune_tribunes} SET variables = \'%s\' WHERE nid = %d',
+        serialize($array), $node->nid);
+    } else {
+      variable_set('tribune_global_variables', $array);
+    }
+  }
+}
+
+function tribune_set_option($tribune, $option, $value) {
+  if (is_object($tribune)) {
+    $tribune = $tribune->nid;
+  }
+
+  db_query("UPDATE {tribune_tribunes}
+    SET `".$option."` = '%s'
+    WHERE nid = %d",
+    array(
+      $value,
+      $tribune,
+    )
+  );
+}
+
+function tribune_get_option($tribune, $option) {
+  if (is_object($tribune)) {
+    $tribune = $tribune->nid;
+  }
+
+  return db_result(db_query("SELECT `".$option."`
+    FROM {tribune_tribunes}
+    WHERE nid = %d",
+    array(
+      $tribune,
+    )
+  ));
+}
+
+function tribune_filters_pages($node, $argument) {
+  global $tribune;
+  $tribune = $node;
+
+  $filters = array();
+
+  if (user_access("configure own tribune filters", user_load($node->uid)) and is_array($node->tribune_settings['enabled_filters'])) {
+    $enabled_filters = $node->tribune_settings['enabled_filters'];
+  } else {
+    $enabled_filters = variable_get('tribune_enabled_filters', array('totoz' => "totoz", "url" => "url"));
+  }
+  foreach (_tribune_filter_files() as $filter_file) {
+    $filter = $filter_file->name;
+
+    if ($filter == $argument && isset ($enabled_filters[$filter]) and $enabled_filters[$filter]) {
+      $func = 'tribune_'. $filter .'_page';
+      if (function_exists($func)) {
+        return $func();
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+function tribune_theme($existing, $type, $theme, $path) {
+  return array(
+    'post_moderation' => array(
+      'arguments' => array('post' => NULL),
+    ),
+    'post_time' => array(
+      'arguments' => array('post' => NULL),
+    ),
+    'post_username' => array(
+      'arguments' => array('post' => NULL),
+    ),
+    'post_message' => array(
+      'arguments' => array('post' => NULL),
+    ),
+    'tribune_post' => array(
+      'arguments' => array('post' => NULL, 'node' => NULL),
+    ),
+    'tribune_post_xml' => array(
+      'file' => "tribune.backend.inc",
+      'arguments' => array('post' => NULL, 'node' => NULL),
+    ),
+    'tribune_post_rss' => array(
+      'file' => "tribune.backend.inc",
+      'arguments' => array('post' => NULL, 'node' => NULL),
+    ),
+    'tribune_block' => array(
+      'arguments' => array('posts' => array(), 'node' => NULL, 'tribune_id' => 'tribune-block'),
+    ),
+    'tribune_page' => array(
+      'arguments' => array('posts' => array(), 'node' => NULL, 'tribune_id' => 'tribune-page', 'top_message' => '', 'top_to_bottom' => TRUE),
+    ),
+    'tribune_xml' => array(
+      'file' => "tribune.backend.inc",
+      'arguments' => array('posts' => array(), 'node' => NULL),
+    ),
+    'tribune_rss' => array(
+      'file' => "tribune.backend.inc",
+      'arguments' => array('posts' => array(), 'node' => NULL),
+    ),
+    'tribune_admin_filters_form' => array(
+      'file' => "tribune.admin.filters.inc",
+      'arguments' => array('form' => NULL),
+    ),
+    'tribune_active_users' => array(
+      'arguments' => array('users' => array(), 'node' => NULL),
+    ),
+  );
+}
+
+/**
+ * Returns one post from its id
+ * @param id Id of the post
+ * @return Array indexed by post id, with the following keys for each post : id, clock, login, info, message
+ */
+function tribune_get_post($node, $id) {
+  global $user;
+  tribune_update_active_user($node, $user);
+
+  $posts = tribune_select_posts($node,
+    "post_id = %d",
+    array(
+      $id,
+    )
+  );
+
+  if (isset($posts[$id])) {
+    return $posts[$id];
+  } else {
+    return null;
+  }
+}
+
+function tribune_select_posts($node, $where, $arguments) {
+  $posts = array();
+
+  array_unshift($arguments, $node->nid);
+
+  $r = db_query("SELECT *
+    FROM {tribune}
+    WHERE tribune_id = %d
+    AND ". $where,
+    $arguments
+  );
+
+  while ($row = db_fetch_array($r)) {
+    $posts[$row['post_id']] = tribune_post_from_row($row);
+  }
+
+  return $posts;
+}
+
+/**
+ * Returns the posts with an id > $id in an array
+ * @param last_modified Posts modified after last_modified (exclusive)
+ * @return Array indexed by post id, with the following keys for each post : id, clock, login, info, message
+ */
+function tribune_get_new_posts($node, $last_modified) {
+  if ($node->nid) {
+    global $user;
+    tribune_update_active_user($node, $user);
+
+    $posts = tribune_select_posts($node,
+      "last_modified >= %d
+      AND last_modified <= %d
+      ORDER BY post_id ASC",
+      array(
+        $last_modified,
+        time() + 30,
+      )
+    );
+
+    return $posts;
+  } else {
+    return array();
+  }
+}
+
+function tribune_post_from_row($row) {
+  $post = $row;
+  $post['clock'] = tribune_date_to_localdate($row['post_time']);
+  $post['referenced_by'] = tribune_get_post_references($post['post_id']);
+  $post['is_self'] = tribune_is_post_self($post);
+  $post['is_answer'] = tribune_is_post_an_answer($post);
+
+  return $post;
+}
+
+function tribune_get_post_references($post_id) {
+  $references = array();
+
+  $r = db_query("SELECT source_post_id, ref_clock_id
+    FROM {tribune_post_references}
+    WHERE target_post_id = %d",
+    $post_id);
+
+  while ($row = db_fetch_array($r)) {
+    if (!isset($references[$row['source_post_id']])) {
+      $references[$row['source_post_id']] = array();
+    }
+
+    $references[$row['source_post_id']][] = $row['ref_clock_id'];
+  }
+
+  return $references;
+}
+
+function tribune_is_post_self($post) {
+  global $user;
+
+  if ($user->uid) {
+    return ($post['uid'] == $user->uid) or ($post['sid'] == session_id());
+  } else if ($post['sid']){
+    return ($post['sid'] == session_id());
+  }
+}
+
+function tribune_is_post_an_answer($post) {
+  global $user;
+
+  if (!$user->uid) {
+    return db_result(db_query("SELECT COUNT(*)
+      FROM {tribune_post_references}
+      INNER JOIN {tribune}
+      ON {tribune_post_references}.target_post_id = {tribune}.post_id
+      WHERE source_post_id = %d
+      AND {tribune}.sid = '%s'
+      ",
+      $post['post_id'], session_id()));
+  } else {
+    return db_result(db_query("SELECT COUNT(*)
+      FROM {tribune_post_references}
+      INNER JOIN {tribune}
+      ON {tribune_post_references}.target_post_id = {tribune}.post_id
+      WHERE source_post_id = %d
+      AND {tribune}.uid = %d
+      ",
+      $post['post_id'], $user->uid));
+  }
+}
+
+/**
+ * Returns the $nb last posts in an array
+ * @param nb Number of posts to return (tribune_history_size by default)
+ * @return Array indexed by post id, with the following keys for each post : id, clock, login, info, message
+ */
+function tribune_get_last_posts($node, $nb) {
+  if ($node->nid) {
+    global $user;
+    tribune_update_active_user($node, $user);
+
+    $posts = array();
+
+    if ($nb < 0) {
+      $nb = $node->tribune_settings['history_size'];
+    }
+
+    $posts = tribune_select_posts($node,
+      "last_modified <= %d
+      ORDER BY post_id DESC
+      LIMIT %d",
+      array(
+        time() + 30,
+        $nb,
+      )
+    );
+
+    $posts = array_reverse($posts);
+    return $posts;
+  } else {
+    // node preview (before creation)
+    // add a few posts to give a better idea of what
+    // the tribune will look like
+    $time = time();
+    $post1 = tribune_post_from_row(array(
+      'post_id' => 1,
+      'parsed_message' => 'plop',
+      'post_time' => date('YmdHis', $time - 33),
+        'post_rank' => 0,
+        'login' => t('Example'),
+      )
+    );
+    $post1['referenced_by'] = array(2 => array(1));
+
+    $post2 = tribune_post_from_row(array(
+      'post_id' => 2,
+      'parsed_message' => '<span class="tribune-clock" id="post-2-clock-1" ref="1">'. date('H:i:s', $time - 33) .'</span> '. t('hello'),
+        'post_time' => date('YmdHis', $time),
+        'post_rank' => 0,
+        'login' => t('Example'),
+      )
+    );
+
+    return array($post1, $post2);
+  }
+}
+
+function theme_tribune_block($posts, $node, $tribune_id, $block_settings) {
+  if ($node->tribune_settings['posts_order'] == 0) {
+    $posts = array_reverse($posts);
+  }
+
+  $contents = "<ul class='tribune-posts tribune-block' id='ul-". $tribune_id ."'>\n";
+
+  if (sizeof($posts) > 0) foreach ($posts as $post) {
+    if (!$post['moderated'] || tribune_access("moderate tribune", $node)) {
+      $contents .= theme("tribune_post", $post, $node) ."\n";
+    }
+  }
+
+  $contents .= "</ul>\n";
+
+  // just in case some modules need to add some js or css
+  foreach (_tribune_get_filters_help($node) as $filter_name => $function) {
+    $help = $function();
+  }
+
+  if (!$block_settings['read_only'] and tribune_access("post", $node)) {
+    if ($node->tribune_settings['posts_order'] == 0) {
+      return drupal_get_form('tribune_add_form_block', $node, $tribune_id, $block_settings) . $contents;
+    } else {
+      return $contents . drupal_get_form('tribune_add_form_block', $node, $tribune_id, $block_settings);
+    }
+  } else {
+    return $contents;
+  }
+}
+
+function theme_tribune_page($posts, $node, $tribune_id, $top_message, $top_to_bottom) {
+  if (!$top_to_bottom) {
+    $posts = array_reverse($posts, true);
+  }
+
+  $contents .= "<ul class='tribune-posts tribune-page' id='ul-". $tribune_id ."'>\n";
+
+  if (sizeof($posts) > 0) foreach ($posts as $post) {
+    if (!$post['moderated'] || tribune_access("moderate tribune", $node)) {
+      $contents .= theme("tribune_post", $post, $node) ."\n";
+    }
+  }
+
+  $contents .= "</ul>\n";
+
+  if ($top_to_bottom) {
+    $contents = $contents . tribune_add_form($node, $tribune_id);
+  } else {
+    $contents = tribune_add_form($node, $tribune_id) . $contents;
+  }
+
+  if (strlen($top_message) > 0) {
+    $contents = "<div class='tribune-top-message'>". $top_message ."</div>\n". $contents;
+  }
+  return $contents;
+}
+
+function tribune_post_title($references) {
+  $lines = array();
+
+  foreach ($references as $post_id => $clocks) {
+    foreach ($clocks as $clock) {
+      $lines[] = $post_id ."#". $clock;
+    }
+  }
+
+  return implode("|", $lines);
+}
+
+function theme_post_moderation($post) {
+  $contents = "";
+
+  if ($post['moderated']) {
+    $contents .= "<span class='tribune-moderate-post' title='". t("Undelete this post") ."'>";
+    $contents .= l('<img alt="'. t("Undelete") .'" src="'. base_path() . drupal_get_path('module', 'tribune') .'/images/tick.gif" />',
+      'node/'. $post['tribune_id'] .'/moderation/undelete/'. $post['post_id'],
+      array('html' => TRUE, 'attributes' => array('target' => '_blank'))
+    );
+    $contents .= "</span>\n";
+  }
+  else {
+    $contents .= "<span class='tribune-moderate-post' title='". t("Delete this post") ."'>";
+    $contents .= l('<img alt="'. t("Delete") .'" src="'. base_path() . drupal_get_path('module', 'tribune') .'/images/cross.gif" />',
+      'node/'. $post['tribune_id'] .'/moderation/delete/'. $post['post_id'],
+      array('html' => TRUE, 'attributes' => array('target' => '_blank'))
+    );
+    $contents .= "</span>\n";
+  }
+
+  return $contents;
+}
+
+function theme_post_time($post) {
+  $contents  = "<span class='tribune-first-clock' title='id=". $post['tribune_post_id'] ."'>";
+  $contents .= $post['clock'];
+  $contents .= "</span>\n";
+
+  return $contents;
+}
+
+function theme_post_username($post) {
+  if (strlen ($post['login']) > 0) {
+    $contents  = "<span class='tribune-login' title='". htmlspecialchars($post['info'], ENT_QUOTES) ."'>";
+    $contents .= $post['login'];
+    $contents .= "</span>\n";
+  }
+  else {
+    $contents  = "<span class='tribune-info' title='". htmlspecialchars($post['info'], ENT_QUOTES) ."'>";
+    $contents .= $post['info_small'];
+    $contents .= '</span> ';
+  }
+
+  return $contents;
+}
+
+function theme_post_message($post) {
+  $contents  = "<span class='tribune-message' dir='ltr'>";
+  $contents .= $post['message'];
+  $contents .= "</span>";
+
+  return $contents;
+}
+
+/**
+ * Returns a single post, formatted
+ * @param post Array with the following keys : id, clock, login, info, message, post_rank, parsed_message
+ */
+function theme_tribune_post($post, $node) {
+  $post['clock'] = tribune_format_clock($post['clock'], $post['post_rank']);
+  $post['info_small'] = tribune_reduce_info($post['info']);
+  $post['message'] = $post['parsed_message'];
+
+  $contents = "";
+
+  $class = 'tribune-post';
+
+  if ($post['is_self']) {
+    $class .= " tribune-self-post";
+  }
+  if ($post['is_answer']) {
+    $class .= " tribune-answer";
+  }
+  if ($post['moderated']) {
+    $class .= " tribune-moderated";
+  }
+
+  $title = tribune_post_title($post['referenced_by']);
+
+  $contents = "<li class='". $class ."' ref='". $title ."' id='post-". $post['post_id'] ."' login='". $post['login'] ."'>\n";
+
+  if (tribune_access("moderate tribune", $node)) {
+    $contents .= theme("post_moderation", $post);
+  }
+
+  $contents .= theme("post_time",     $post) .' ';
+  $contents .= theme("post_username", $post) .' ';
+  $contents .= theme("post_message",  $post);
+
+  $contents .= "</li>\n";
+
+  return $contents;
+}
+
+/**
+ * Parses a message to find its clocks
+ */
+function tribune_parse_message_clocks($string) {
+  global $_tribune_current_clock_id;
+
+  $_tribune_current_clock_id = 0;
+  $message = "";
+
+  // Clocks
+  $message = preg_replace_callback("/(^| )((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?(@[0-9A-Za-z]+)?)/",
+    "tribune_replace_clock_callback",
+    $string);
+
+  return $message;
+}
+
+function tribune_get_posts_from_clock($clock) {
+  if (preg_match("/((([01]?[0-9])|(2[0-3])):([0-5][0-9])(:([0-5][0-9]))?([:\^][0-9]|¹|²|³)?(@[0-9A-Za-z]+)?)/", $clock, $match)) {
+    $hour   = str_pad($match[2], 2, '0', STR_PAD_LEFT);
+    $minute = str_pad($match[5], 2, '0', STR_PAD_LEFT);
+    $second = str_pad($match[7], 2, '0', STR_PAD_LEFT);
+
+    $timezone = variable_get('date_default_timezone', 0);
+    $datetime = mktime($hour, $minute, $second) - $timezone;
+    $hour   = date('H', $datetime);
+    $minute = date('i', $datetime);
+    $second = date('s', $datetime);
+
+    if ($match[7] == "") {
+      $second = -1;
+    }
+
+    $rank = $match[8];
+
+    switch ($rank) {
+    case '¹':
+      $rank = 1;
+      break;
+    case '²':
+      $rank = 2;
+      break;
+    case '³':
+      $rank = 3;
+      break;
+    default:
+      $rank = substr($rank, 1);
+      break;
+    }
+
+    $days  = 7;
+    $date  = time();
+    $posts = array();
+    do {
+      // if the clock does not match any post today, this tries again
+      // to look for matching posts on yesterday, and then on the day
+      // before for $days days
+      $posts = tribune_find_clock_references($hour, $minute, $second, $rank, $date);
+      $date  = strtotime("-1 day", $date);
+    } while (count($posts) == 0 and $date > strtotime("-".$days." day"));
+    return $posts;
+  } else {
+    return array();
+  }
+}
+
+/**
+ * Replaces a clock in a post with a tag indicating which post is referred to
+ * Intended to be used with preg_replace_callback
+ */
+function tribune_replace_clock_callback($match) {
+  global $_tribune_current_clock_id, $_tribune_current_post_id;
+
+  $_tribune_current_clock_id += 1;
+
+  $clock  = $match[2];
+  $space  = $match[1];
+
+  $posts = implode("|", tribune_get_posts_from_clock($clock));
+
+  return $space ."<span class='tribune-clock' id='post-". $_tribune_current_post_id ."-clock-". $_tribune_current_clock_id ."' ref='". $posts ."'>". $clock ."</span>";
+}
+
+
+/**
+ * Finds the ids of the posts referenced by a clock (usually only one)
+ * Not very efficient since it makes a database query for each clock found
+ * in a post, but it is only called once at the insertion of a new post
+ * @param rank Rank of this post if there have been more than one post in the same second
+ * @return An array with the ids of the matching posts
+ */
+function tribune_find_clock_references($hour, $minute, $second, $rank, $date = NULL) {
+  global $_tribune_current_post_id, $_tribune_current_clock_id;
+
+  $posts = array();
+
+  if (!$date) {
+    $day = gmdate('Ymd');
+  } else {
+    $day = date('Ymd', $date);
+  }
+
+  $query  = "SELECT post_id FROM {tribune} ";
+  $params = array();
+
+  if ($rank > 1) {
+    // if there is a ², ³, :4, :5... specified, then look for a post
+    // at this exact second and this exact rank
+    $query   .= " WHERE post_time = '%s' AND post_rank = %d ";
+    $params[] = $day.str_pad($hour, 2, '0', STR_PAD_LEFT).str_pad($minute, 2, '0', STR_PAD_LEFT).str_pad($second, 2, '0', STR_PAD_LEFT);
+    $params[] = $rank;
+  } else if ($rank == 1) {
+    // if ¹ is specified look for a post either at the ¹ rank (which
+    // means there is also at least a ² post) or with no rank at all
+    // because some clients /may/ simplify their task by adding ¹ to
+    // any post that is not ², ³ or more
+    $query   .= " WHERE post_time = '%s' AND post_rank <= %d ";
+    $params[] = $day.str_pad($hour, 2, '0', STR_PAD_LEFT).str_pad($minute, 2, '0', STR_PAD_LEFT).str_pad($second, 2, '0', STR_PAD_LEFT);
+    $params[] = $rank;
+  } else if ($second < 0) {
+    // if no rank is specified, the seconds part of the clock may be
+    // omitted altogether, "12:34", when only one message was posted
+    // at this minute... easier to type by hand, and cleaner to read
+    // according to some people. Anyway since it is allowed, we will
+    // just match any post matching this hour and this minute (so we
+    // will match both 12:34:12 and 12:34:56 if someone uses a 12:34
+    // clock in his post)
+    $query   .= " WHERE SUBSTRING(post_time FROM 1 FOR 12) = '%s' ";
+    $params[] = $day.str_pad($hour, 2, '0', STR_PAD_LEFT).str_pad($minute, 2, '0', STR_PAD_LEFT);
+  } else {
+    // no special rank and the seconds part is specified, so we will
+    // just look for any post posted at this time
+    $query   .= " WHERE post_time = '%s' ";
+    $params[] = $day.str_pad($hour, 2, '0', STR_PAD_LEFT).str_pad($minute, 2, '0', STR_PAD_LEFT).str_pad($second, 2, '0', STR_PAD_LEFT);
+  }
+
+  $r = db_query($query,
+    $params
+  );
+
+  while ($row = db_fetch_array($r)) {
+    $id = $row['post_id'];
+    $posts[] = $id;
+
+    $result = db_query("UPDATE {tribune} SET last_modified = %d
+      WHERE post_id = %d",
+      time(),
+                        $id);
+
+    $result = db_query("INSERT INTO {tribune_post_references}
+      SET target_post_id = %d,
+      source_post_id = %d,
+      ref_clock_id   = %d",
+      $id,
+      $_tribune_current_post_id,
+      $_tribune_current_clock_id);
+  }
+
+  return $posts;
+}
+
+function tribune_make_clock($hour, $minute, $second, $rank) {
+  $suffix = "";
+
+  // Decide which character to append to the clock string
+  switch ($rank) {
+  case "0":
+    break;
+  case "1":
+    $suffix = "¹";
+    break;
+  case "2":
+    $suffix = "²";
+    break;
+  case "3":
+    $suffix = "³";
+    break;
+  default:
+    $suffix = ":". $rank;
+    break;
+  }
+
+  $hour   = str_pad($hour  , 2, '0', STR_PAD_LEFT);
+  $minute = str_pad($minute, 2, '0', STR_PAD_LEFT);
+  $second = str_pad($second, 2, '0', STR_PAD_LEFT);
+
+  return $hour .":". $minute .":". $second . $suffix;
+}
+
+
+/**
+ * Formats a clock timestamp
+ * @param clock Clock timestamp (YYYYMMDDHHMMSS)
+ * @param rank Clock rank: 0 if it's alone, 1 if it's the first in this second, etc
+ * @return Formatted clock (HH:MM:SS)
+ */
+function tribune_format_clock($clock, $rank) {
+  // Convert YYYYMMDDHHMMSS date to UNIX timestamp
+  list($year, $month, $day, $hour, $minute, $second) = sscanf($clock, "%4d%2d%2d%2d%2d%2d");
+  $time = mktime($hour, $minute, $second, $month, $day, $year);
+
+  $suffix = "";
+
+  // Decide which character to append to the clock string
+  switch ($rank) {
+  case "0":
+    break;
+  case "1":
+    $suffix = "¹";
+    break;
+  case "2":
+    $suffix = "²";
+    break;
+  case "3":
+    $suffix = "³";
+    break;
+  default:
+    $suffix = ":". $rank;
+    break;
+  }
+
+  return date("H:i:s", $time) . $suffix;
+}
+
+
+function tribune_post_form($form_id, $node, $tribune_id) {
+  $form['#attributes'] = array("class" => "tribune-post-form");
+  $form['#prefix'] = '<div id="form-'. $tribune_id .'">';
+  $form['#suffix'] = '</div>';
+
+  $form['prefix'] = array(
+    '#value'          => '<div class="container-inline">',
+  );
+
+  $form['message'] = array(
+    '#type'           => 'textfield',
+    '#maxlength'      => $node->tribune_settings['max_message_size'],
+    '#id'             => 'tribune-'. $tribune_id .'-palmipede',
+    '#attributes'     => array('class' => 'tribune-palmipede'),
+  );
+
+  global $user;
+  if (!$user->uid and variable_get("tribune_antispam", TRUE)) {
+    $form['email'] = array(
+      '#type'           => 'textfield',
+      '#title'          => t("Please leave this field empty (it is only here to confuse spambots, and you should not even see it)"),
+      '#default_value'  => "",
+      '#id'             => 'tribune-'. $tribune_id .'-message',
+      '#prefix'         => '<div class="tribune-email">',
+      '#suffix'         => '</div>',
+    );
+  }
+
+  $form['submit'] = array(
+    '#type'           => 'submit',
+    '#value'          => t('Post'),
+    '#suffix'         => ' <img alt="'. t("Reload") .'" id="'. $tribune_id .'-reload-img" class="tribune-reload-img" src="'. base_path() . drupal_get_path('module', 'tribune') .'/images/wait.gif" />',
+  );
+
+  $form['op'] = array(
+    '#type'           => 'hidden',
+    '#value'          => 'Post',
+  );
+
+  $form['tribune_id'] = array(
+    '#type' => 'value',
+    '#value' => $node->nid,
+  );
+
+  $form['suffix'] = array(
+    '#value'          => '</div>',
+  );
+
+  $form['#submit'] = array('tribune_post_submit');
+
+  return $form;
+}
+
+/**
+ * Generates the form for posting in the tribune
+ * @param block Whether the tribune is displayed in a block or not
+ */
+function tribune_add_form($node, $tribune_id) {
+  if (tribune_access("post", $node)) {
+
+    $description = "";
+    foreach (_tribune_get_filters_help($node) as $filter_name => $function) {
+      $help = $function();
+      $_SESSION['tribune_filters_help'][$filter_name] = array('string' => $help, 'changed' => FALSE);
+      $description .= '<div class="description tribune-description-'. $filter_name .'">';
+      $description .= t($help);
+      $description .= '</div>';
+    }
+
+    // Let's make this a bit more readable
+    $description .= '<div class="description">';
+    $description .= t('The maximum length for a message is @max_length characters', array('@max_length' => $node->tribune_settings['max_message_size']));
+    $description .= '</div>';
+
+    $description .= '<div class="description">';
+    $description .= t('You can format your message using some HTML tags. '
+      .'The allowed tags are &lt;i&gt;, &lt;b&gt;, '
+      .'&lt;u&gt;, &lt;s&gt; and &lt;tt&gt;');
+    $description .= '</div>';
+
+    $description .= '<div class="description">';
+    $description .= t('URLs will be converted to links, '
+      .'but make sure you start them with "http://"');
+    $description .= '</div>';
+
+    return drupal_get_form("tribune_post_form", $node, $tribune_id) . $description;
+  } else {
+    // we still need to execute each filter's help function.
+    foreach (_tribune_get_filters_help($node) as $filter_name => $function) {
+      $help = $function();
+    }
+    return "";
+  }
+}
+
+/**
+ * Generates the form for posting in the block tribune
+ * @param block Whether the tribune is displayed in a block or not
+ */
+function tribune_add_form_block($form_values, $node, $tribune_id, $block_settings = array()) {
+  $form = array();
+
+  if (!$block_settings['read_only'] and tribune_access("post", $node)) {
+    global $base_root;
+
+    $form['#attributes'] = array("class" => "tribune-post-form");
+    $form['#prefix'] = '<div id="form-'. $tribune_id .'">';
+    $form['#suffix'] = '</div>';
+
+    $form['prefix'] = array(
+      '#value'          => '<div class="container-inline">',
+    );
+
+    $form['message'] = array(
+      '#type'           => 'textfield',
+      '#maxlength'      => $node->tribune_settings['max_message_size'],
+      '#id'             => 'tribune-'. $tribune_id .'-palmipede',
+      '#attributes'     => array('class' => 'tribune-palmipede'),
+    );
+
+    global $user;
+    if (!$user->uid and variable_get("tribune_antispam", TRUE)) {
+      $form['email'] = array(
+        '#type'           => 'textfield',
+        '#title'          => t("Please leave this field empty (it is only here to confuse spambots)"),
+        '#default_value'  => "",
+        '#id'             => 'tribune-'. $tribune_id .'-message',
+        '#prefix'         => '<div class="tribune-email">',
+        '#suffix'         => '</div>',
+      );
+    }
+
+    $form['submit'] = array(
+      '#type'           => 'submit',
+      '#value'          => t('Post'),
+      '#suffix'         => ' <img alt="'. t("Reload") .'" id="'. $tribune_id .'-reload-img" class="tribune-reload-img" src="'. base_path() . drupal_get_path('module', 'tribune') .'/images/wait.gif" />',
+    );
+
+    $form['op'] = array(
+      '#type'           => 'hidden',
+      '#value'          => 'Post',
+    );
+
+    $form['suffix'] = array(
+      '#value'          => '</div>',
+    );
+
+    $form['tribune_id'] = array(
+      '#type' => 'value',
+      '#value' => $node->nid,
+    );
+
+    $form['#submit'] = array('tribune_post_submit');
+  }
+
+  return $form;
+}
+
+
+/**
+ * Form handling
+ */
+function tribune_post_submit($form_id, $form_values) {
+  global $user;
+
+  if ($form_values['values']['tribune_id'] and ($user->uid or !trim($form_values['values']['email']))) {
+    $node = node_load($form_values['values']['tribune_id']);
+    $result = tribune_add_post($node, $form_values['values']['message']);
+
+    if ($result['error']) {
+      // There is an error
+      drupal_set_message($result['error'], 'error');
+    }
+  }
+}
+
+function tribune_string_matches_expressions($string, $expressions) {
+  if (!is_array($expressions)) {
+    $expressions = explode("\n", $expressions);
+  }
+
+  foreach ($expressions as $expression) {
+    $pattern = trim($expression);
+
+    if ($pattern) {
+      $pattern = '/'. str_replace('/', '\/', $pattern) .'/i';
+
+      if (@preg_match($pattern, $string)) {
+        return TRUE;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Adds a new post in the database
+ * @param message Message posted
+ * @return FALSE is everything went well, or else an error message
+ */
+function tribune_add_post($node, $message) {
+  global $_tribune_current_post_id;
+
+  if (!tribune_access("post", $node)) {
+    return array('error' => t("You do not have the permission to post in this tribune, sorry."));
+  }
+
+  $user = user_load_self(array());
+
+  if (!tribune_string_matches_expressions($_SERVER['HTTP_USER_AGENT'], $node->tribune_settings['banned_useragents']) and
+    !tribune_string_matches_expressions($user[1]->name,                $node->tribune_settings['banned_usernames'] ) and
+    !tribune_string_matches_expressions($message,                      $node->tribune_settings['banned_messages']  ) and
+    sizeof($message) > 0) {
+
+      $last_post_time = $_SESSION["tribune_last_post_time"];
+
+      if ($last_post_time) {
+        $difference = gmdate("YmdHis") - $last_post_time;
+
+        if ($difference < $node->tribune_settings['flood_protection_delay']) {
+          return array('error' => t("You must wait !seconds seconds before posting a new comment, come back later.", array('!seconds' => $node->tribune_settings['flood_protection_delay'])));
+      }
+    }
+
+    $post = array();
+
+    // Timestamp format : 2007/11/25 at 22:05:25 => 20071125220525
+    $post['info']    = tribune_slip($_SERVER['HTTP_USER_AGENT'], $node->tribune_settings['max_message_size']);
+    $post['login']   = tribune_slip($user[1]->name, $node->tribune_settings['max_message_size']);
+    $post['message'] = trim($message);
+    $post['tribune_id'] = $node->nid;
+
+    $post = _tribune_insert_post($node, $post);
+
+    if ($post) {
+      $_SESSION["tribune_last_post_time"] = $post['time'];
+    }
+  }
+
+  return array('error' => FALSE, 'post_id' => $_tribune_current_post_id, 'post' => $post);
+}
+
+function _tribune_insert_post($node, $post, $from_filter = FALSE) {
+  global $_tribune_current_post_id, $_tribune_current_tribune_post_id, $tribune;
+
+  $tribune = $node;
+
+  $result = $post;
+
+  $post_time = gmdate("YmdHis");
+  $result['time'] = $post_time;
+
+  $n = db_result(db_query("SELECT COUNT(*)
+    FROM {tribune}
+    WHERE post_time = '%s'
+    AND tribune_id = %d",
+    $post_time,
+    $node->nid
+  )
+);
+
+  // If there is at least one other post, this post's rank will be $n+1
+  if ($n >= 1) {
+    $n += 1;
+  }
+  $result['rank'] = $n;
+
+  $new_filter_posts = array();
+  if (!$from_filter) foreach (_tribune_get_filters($node, FALSE) as $filter_name => $function) {
+    if (!isset($_SESSION['tribune_filters_help'][$filter_name])) {
+      $_SESSION['tribune_filters_help'][$filter_name] = array('string' => "", 'changed' => TRUE);
+    }
+    $old_help = $_SESSION['tribune_filters_help'][$filter_name]['string'];
+    $new_help = $old_help;
+    $new_filter_posts[$filter_name] = $function($result, $new_help);
+
+    if ($new_help != $old_help) {
+      $_SESSION['tribune_filters_help'][$filter_name] = array('string' => $new_help, 'changed' => TRUE);
+    }
+    else {
+      $_SESSION['tribune_filters_help'][$filter_name]['changed'] = FALSE;
+    }
+  }
+
+  if ($result) {
+    // Here we KNOW that this post WILL be shown, as no filter
+    // can delete it anymore
+    db_lock_table('tribune');
+
+    // If there is already one (and only one) post at the same
+    // time, set its rank to 1
+    $n = db_result(db_query("SELECT COUNT(*)
+      FROM {tribune}
+      WHERE post_time = '%s'
+      AND tribune_id = %d",
+      $post_time,
+      $node->nid
+    )
+  );
+    if ($n == 1) {
+      db_query("UPDATE {tribune} SET post_rank = post_rank + 1
+        WHERE post_time = '%s'
+        AND tribune_id = %d",
+        $post_time,
+        $node->nid
+      );
+    }
+    if ($n >= 1) {
+      $n++;
+      $result['rank'] = $n;
+    }
+
+    $result['tribune_post_id'] = db_result(db_query('SELECT MAX(tribune_post_id)+1 FROM {tribune} WHERE tribune_id = %d', $node->nid));
+
+    // Inserting an empty post right now allows us not to lock
+    // the table, but since there is a risk a user reloads his
+    // tribune before we have had the time to update this post
+    // we lie and set its last modification time to 60 seconds
+    // in the future... tricky heh? Unless the filters take so
+    // long they are not finished in 60 secs, nobody will ever
+    // notice this temporary post. Please notice the nice text
+    // justification, it's not that easy to achieve, you know.
+    db_query("INSERT INTO {tribune} (login,
+      info,
+      message,
+      parsed_message,
+      last_modified,
+      tribune_id,
+      tribune_post_id)
+      VALUES ('',
+        '',
+        '',
+        '',
+        %d,
+        %d,
+        %d
+      )",
+      time()+60,
+      $node->nid,
+      $result['tribune_post_id']
+    );
+    db_unlock_tables();
+
+    $_tribune_current_post_id = db_last_insert_id('tribune', 'post_id');
+    $result['post_id'] = $_tribune_current_post_id;
+
+    $parsed_message = tribune_parse_message_clocks(tribune_slip($result['message'], $node->tribune_settings['max_message_size']));
+    $result['parsed'] = $parsed_message;
+
+    foreach (_tribune_get_filters($node, TRUE) as $filter_name => $function) {
+      if (!isset($_SESSION['tribune_filters_help'][$filter_name])) {
+        $_SESSION['tribune_filters_help'][$filter_name] = array('string' => "", 'changed' => TRUE);
+      }
+      $old_help = $_SESSION['tribune_filters_help'][$filter_name]['string'];
+      $new_help = $old_help;
+
+      $function($result, $new_help);
+
+      if ($new_help != $old_help) {
+        $_SESSION['tribune_filters_help'][$filter_name] = array('string' => $new_help, 'changed' => TRUE);
+      }
+      else {
+        $_SESSION['tribune_filters_help'][$filter_name]['changed'] = FALSE;
+      }
+    }
+
+    global $user;
+
+    db_query("UPDATE {tribune}
+    SET post_time       = '%s',
+    info            = '%s',
+    message         = '%s',
+    login           = '%s',
+    post_rank       =  %d,
+    parsed_message  = '%s',
+    last_modified   =  %d,
+    uid             =  %d,
+    sid             = '%s'
+    WHERE post_id = %d",
+    $post_time,
+    $result['info'],
+    $result['message'],
+    $result['login'],
+    $n,
+    $result['parsed'],
+    time(),
+                     !$from_filter ? $user->uid : 0,
+                     !$from_filter ? session_id() : "",
+                     $_tribune_current_post_id
+                   );
+  }
+
+  if (is_array($new_filter_posts) and !empty($new_filter_posts)) {
+    foreach ($new_filter_posts as $filter_name => $filter_posts) {
+      if (is_array($filter_posts) and !empty($filter_posts)) {
+        foreach ($filter_posts as $filter_post) {
+          $filter_post['tribune_id'] = $result['tribune_id'];
+          _tribune_insert_post($node, $filter_post, $filter_name);
+        }
+      }
+    }
+  }
+
+  cache_clear_all();
+
+  return $result;
+}
+
+function tribune_slip($string, $length) {
+  require_once "tribune.sleep.inc";
+
+  return tribune_sleep($string, $length);
+}
+
+function tribune_xml_slip($string, $node) {
+  require_once "tribune.sleep.inc";
+
+  $string = tribune_sleep($string, $node->tribune_settings['max_message_size']);
+  $string = preg_replace('#((https?|ftp|gopher|file|mms|rtsp|rtmp)://.*?)((,|\.|\)|\])?(<| | |"|$))#', '<a href="\1">[url]</a>\3', $string);
+
+  return "<![CDATA[". $string ."]]>";
+}
+
+/**
+ * Reduce an user agent to a smaller yet still meaningful string
+ * Simple regular expressions
+ */
+function tribune_reduce_info($info, $length = 10) {
+  $replacements = array(
+    ".*Mozilla/5.0.*Linux.*Firefox/([0-9]\.[0-9]).*" => "FF$1<i>Lnx</i>",
+    ".*Mozilla/5.0.*OS X.*Firefox/([0-9]\.[0-9]).*" => "FF$1<i>OSX</i>",
+    ".*Mozilla/5.0.*NT 5.1.*Firefox/([0-9]\.[0-9]).*" => "FF$1<i>WinXP</i>",
+    ".*Mozilla/5.0.*Windows.*Firefox/([0-9]\.[0-9]).*" => "FF$1<i>Win</i>",
+    ".*Mozilla/5.0.*Linux.*rv:([0-9\.])+.*" => "Moz$1<i>Lnx</i>",
+    ".*Mozilla/5.0.*OS X.*rv:([0-9\.])+.*" => "Moz$1<i>OSX</i>",
+    ".*Mozilla/5.0.*NT 5.1.*rv:([0-9\.])+.*" => "Moz$1<i>WinXP</i>",
+    ".*Mozilla/5.0.*Windows.*rv:([0-9\.])+.*" => "Moz$1<i>Win</i>",
+    ".*Opera/([0-9\.]+).*Linux.*" => "Op$1<i>Linux</i>",
+    ".*Opera/([0-9\.]+).*OS X.*" => "Op$1<i>OSX</i>",
+    ".*Opera/([0-9\.]+).*NT 5.1.*" => "Op$1<i>WinXP</i>",
+    ".*Opera/([0-9\.]+).*Windows.*" => "Op$1<i>Win</i>",
+    ".*py[Cc]\w*[/ ]?([0-9]\.[0-9]+\w*).*" => "pycc$1",
+    ".*wm[Cc]\w*[/ ]?([0-9]\.[0-9]+\w*).*" => "wmcc$1",
+    ".*[Cc]\#oin[Cc]\#oin[/ ]?([0-9\.]+).*" => "C#C#$1",
+    ".*Mozilla/4.0.*MSIE ([0-9\.]+).*NT 5.1.*" => "IE$1<i>WinXP</i>",
+    ".*Mozilla/4.0.*MSIE ([0-9\.]+).*NT ([0-9\.]+).*" => "IE$1<i>NT$2</i>",
+    ".*Mozilla/4.0.*MSIE ([0-9\.]+).*" => "IE$1<i>Win</i>",
+    ".*Mozilla/5.0.*OS X.*Version/([0-9\.]+).*Safari.*" => "Saf$1<i>OSX</i>",
+    ".*Mozilla/5.0.*NT 5.1.*Version/([0-9\.]+).*Safari.*" => "Saf$1<i>WinXP</i>",
+    ".*Mozilla/5.0.*Windows.*Version/([0-9\.]+).*Safari.*" => "Saf$1<i>Win</i>",
+    ".*Mozilla/5.0.*PPC.*OS X.*Safari.*" => "Saf<i>OSX</i>PPC",
+    ".*Mozilla/5.0.*Intel.*OS X.*Safari.*" => "Saf<i>OSX</i>Intel",
+    ".*Mozilla/5.0.*Intel.*OS X.*Safari.*" => "Saf<i>OSX</i>Intel",
+    ".*Konqueror.*KHTML/([0-9\.]+).*" => "Konq$1<i>Lnx</i>",
+    ".*Mozilla/5.1.* Gecko/20060425 SUSE/1.5.0.3-7 Firefox/1.5.0.3.*" => "hv3<i>Lnx</i>",
+  );
+
+  $changed = FALSE;
+
+  foreach ($replacements as $pattern => $replacement) {
+    $pattern = str_replace('@', '\@', $pattern);
+    $new_info = preg_replace("@". $pattern ."@", $replacement, $info);
+
+    if ($new_info != $info) {
+      $changed = TRUE;
+      $info = $new_info;
+    }
+  }
+
+  if (!$changed) {
+    $info = html_entity_decode($info, ENT_QUOTES, "UTF-8");
+    $info = tribune_slip($info, $length);
+  }
+
+  return $info;
+}
+
+
+/**
+ * Convert the timezone of a YYYYMMDDHHMMSS date
+ */
+function tribune_date_to_localdate($date) {
+  $timezone = variable_get('date_default_timezone', 0);
+  $timestamp = tribune_date_to_timestamp($date) + $timezone;
+  return date('YmdHis', $timestamp);
+}
+
+
+/**
+ * Convert a YYYYMMDDHHMMSS date into a unix timestamp
+ */
+function tribune_date_to_timestamp($date) {
+  $year   = substr($date,  0, 4);
+  $month  = substr($date,  4, 2);
+  $day    = substr($date,  6, 2);
+  $hour   = substr($date,  8, 2);
+  $minute = substr($date, 10, 2);
+  $second = substr($date, 12, 2);
+
+  return mktime($hour, $minute, $second, $month, $day, $year);
+}
+
+function tribune_parse_last_messages($node, $nb = NULL) {
+  global $_tribune_current_post_id;
+
+  if (!is_int($nb)) {
+    $nb = $node->tribune_settings['history_size'];
+  }
+
+  $posts = tribune_get_last_posts($node, $nb);
+
+  foreach ($posts as $post) {
+    $_tribune_current_post_id = $post['post_id'];
+    $post['parsed'] = tribune_parse_message_clocks(tribune_slip($post['message'], $node->tribune_settings['max_message_size']));
+    $post['info']   = tribune_slip($post['info'], $node->tribune_settings['max_message_size']);
+    $post['login']  = tribune_slip($post['login'], $node->tribune_settings['max_message_size']);
+
+    $dummy_help = "";
+    foreach (_tribune_get_filters($node, TRUE) as $filter_name => $function) {
+      $function($post, $dummy_help);
+    }
+
+    tribune_update_post($post);
+  }
+}
+
+function tribune_update_post($post) {
+  $post['last_modified'] = time();
+
+  db_query("UPDATE {tribune}
+  SET  post_time = '%s',
+  info = '%s',
+  message = '%s',
+  login = '%s',
+  post_rank = '%d',
+  parsed_message = '%s',
+  last_modified = %d
+  WHERE post_id = %d",
+  $post['post_time'],
+  $post['info'],
+  $post['message'],
+  $post['login'],
+  $post['post_rank'],
+  $post['parsed'],
+  $post['last_modified'],
+  $post['post_id']);
+}
+

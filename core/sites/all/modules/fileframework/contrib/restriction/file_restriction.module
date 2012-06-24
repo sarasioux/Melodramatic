@@ -1,0 +1,191 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Allows files to be scanined with antivirus software.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_RESTRICTION_EXTENSIONS_ALLOWED', variable_get('file_restriction_extensions_allowed', 'jpg jpeg gif png txt html doc xls pdf ps ppt pps css bmp zip rar gzip pfx tar tgz odg svg csv xml avi mov mpeg mpg qt wmv mp3'));
+define('FILE_RESTRICTION_SIZE',              variable_get('file_restriction_size', 10));
+define('FILE_RESTRICTION_QUOTA',             variable_get('file_restriction_quota', 100));
+define('FILE_RESTRICTION_QUOTA_GENERATED',   variable_get('file_restriction_quota_generated', 0));
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_help().
+ */
+function file_restriction_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/file/restriction':
+      return '<p>'. t('The restrictions are applied to all users except administration account with ID=\'1\'. If a user belongs to several roles, then the less restrictive rules are applied.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_restriction_menu() {
+  return array(
+    'admin/settings/file/restriction' => array(
+      'title' => 'Restrictions',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_restriction_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_restriction.admin.inc',
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API extensions
+
+/**
+ * Implementation of the hook_file_validate().
+ */
+function file_restriction_file_validate($file) {
+  global $user;
+
+  $restrictions = _file_restriction_get_restrictions();
+
+  return $user->uid == 1 ? array() : array_merge(
+    !empty($restrictions['extensions_allowed']) ? file_validate_extensions($file, $restrictions['extensions_allowed']) : array(),
+    !empty($restrictions['size']) ? file_validate_size($file, $restrictions['size']) : array(),
+    !empty($restrictions['quota']) ? _file_restriction_validate_quota($file) : array()
+  );
+}
+
+/**
+ * Returns the description of applied restrictions.
+ *
+ * @return
+ *   An array of valid restrictions descriptions.
+ */
+function file_restriction_description() {
+  global $user;
+
+  if ($user->uid == 1) {
+    return array(t('The maximum upload size is %filesize.', array('%filesize' => format_size(file_upload_max_size()))));
+  }
+
+  $restrictions = _file_restriction_get_restrictions();
+  $used = file_get_files_size($user->uid, $restrictions['quota_generated']);
+
+  return array_merge(
+    //!empty($restrictions['extensions_allowed']) ? array(t('Only files with the following extensions may be uploaded: %extensions_allowed.', array('%extensions_allowed' => $restrictions['extensions_allowed']))) : array(),
+    array(t('The maximum upload size is %filesize.', array('%filesize' => format_size(min($restrictions['size'], file_upload_max_size()))))),
+    !empty($restrictions['quota']) ? ($restrictions['quota'] > $used ? array(t('You can upload %size untill you reach your quota limits.', array('%size' => format_size($restrictions['quota'] - $used)))) : array(t('You have reach your quota limits of %size. No new files are allowed.', array('%size' => format_size($restrictions['quota']))))) : array()
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File validators
+
+/**
+ * Validates if the user does not exceed the quota.
+ *
+ * @param $file
+ *   A file object.
+ *
+ * @return
+ *   An empty array or array with the error messages.
+ */
+function _file_restriction_validate_quota($file) {
+  global $user;
+
+  $restrictions = _file_restriction_get_restrictions();
+  $errors = array();
+
+  // Bypass validation for uid  = 1.
+  if ($user->uid != 1) {
+    if (file_get_files_size($user->uid, $restrictions['quota_generated']) + $file->filesize > $restrictions['quota']) {
+      $errors[] = t('The uploaded file exceeds your disk quota of %quota.', array('%quota' => format_size($restrictions['quota'])));
+    }
+  }
+  return $errors;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Returns an array of the restrictions for particular user.
+ *
+ */
+function _file_restriction_get_restrictions() {
+  static $restrictions;
+  global $user;
+
+  if (!$restrictions) {
+    $extensions_allowed = explode(' ', FILE_RESTRICTION_EXTENSIONS_ALLOWED);
+    $size = FILE_RESTRICTION_SIZE * 1024*1024;
+    $quota = FILE_RESTRICTION_QUOTA * 1024*1024;
+    $quota_generated = FILE_RESTRICTION_QUOTA_GENERATED;
+
+    $roles_extensions_allowed = variable_get('file_restriction_roles_extensions_allowed', array());
+    $roles_size = variable_get('file_restriction_roles_size', array());
+    $roles_quota = variable_get('file_restriction_roles_quota', array());
+    $roles_quota_generated = variable_get('file_restriction_roles_quota_generated', array());
+
+    foreach ($user->roles as $rid => $name) {
+      if (isset($roles_extensions_allowed[$rid]))
+        $extensions_allowed = array_merge($extensions_allowed, explode(' ', $roles_extensions_allowed[$rid]));
+      if (isset($roles_size[$rid]))
+        $size = max($size, $roles_size[$rid] * 1024*1024);
+      if (isset($roles_quota[$rid]))
+        $quota = max($quota, $roles_quota[$rid] * 1024*1024);
+      $quota_generated = min($quota_generated, isset($roles_quota_generated[$rid]) ? $roles_quota_generated[$rid] : 1);
+    }
+    $restrictions = array(
+      'extensions_allowed' => implode(' ', $extensions_allowed),
+      'size' => $size,
+      'quota' => $quota,
+      'quota_generated' => $quota_generated,
+    );
+  }
+
+  return $restrictions;
+}
+
+
+/**
+ * Prints a file restrictions js on the file upload form.
+ *
+ * @param $selector
+ *   A jquery selector of the file input element.
+ * @param $restrictions
+ *   An array of restrictions to override default ones.
+ * @param $inline
+ *   A flag showing if a javascript code should be returned.
+ */
+function file_restriction_js($selector, $restrictions = array(), $inline = FALSE) {
+  global $user;
+
+  $restrictions_default = _file_restriction_get_restrictions();
+  $extensions_allowed = isset($restrictions['extensions_allowed']) ? $restrictions['extensions_allowed'] : $restrictions_default['extensions_allowed'];
+  if ($user->uid != 1 && !empty($extensions_allowed)) {
+    static $initialized = FALSE;
+    if (!$initialized) {
+      $initialized = TRUE;
+
+      drupal_add_css(drupal_get_path('module', 'file_restriction') .'/file_restriction.css', 'module');
+      drupal_add_js(drupal_get_path('module', 'file_restriction') .'/file_restriction.js', 'module');
+      drupal_add_js(array(
+        'file_restriction' => array(
+          'extensions_allowed' => $restrictions_default['extensions_allowed'],
+          'description' => t('The selected file could not be uploaded. Only files with the following extensions are allowed:'))),
+        'setting'
+      );
+    }
+
+    $js = 'Drupal.file_restrictionExtensions("'. $selector .'", "'. $extensions_allowed .'");';
+    if ($inline)
+      return "<script type='text/javascript'>setTimeout('". $js ."', 100);</script>";
+    drupal_add_js('$(document).ready(function() { '. $js .' });', 'inline');
+  }
+}
+

@@ -1,0 +1,83 @@
+<?php
+// $Id: cache_browser.module,v 1.1.2.6 2009/02/23 12:18:24 markuspetrux Exp $
+
+/**
+ * @file
+ * Cache browser module.
+ */
+
+define('CACHE_BROWSER_PAGE_PATH', 'admin/build/cache_browser');
+define('CACHE_BROWSER_ITEMS_PER_PAGE', 50);
+define('CACHE_BROWSER_MAX_CID_LENGTH', 60);
+define('CACHE_BROWSER_MAX_NESTING_LEVEL', 10);
+
+/**
+ * Implementation of hook_help().
+ */
+function cache_browser_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#cache_browser':
+      return '<p>'. t('This module allows authorized users browse, dump and flush the content of Drupal cache tables. For developers, function <code>cbdump($mixed [,$varname])</code> is provided as an alternative to <code>var_dump()</code> for debugging purposes.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function cache_browser_perm() {
+  return array('administer cache tables');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function cache_browser_menu() {
+  $items = array();
+  $items[CACHE_BROWSER_PAGE_PATH] = array(
+    'title' => 'Cache browser',
+    'page callback' => 'cache_browser_page',
+    'access arguments' => array('administer cache tables'),
+    'file' => 'cache_browser.pages.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function cache_browser_theme() {
+  return array(
+    'cache_browser_page_header' => array(
+      'arguments' => array('page_header_info' => NULL)
+    ),
+    'cache_browser_page_list_tables' => array(
+      'arguments' => array('form' => NULL)
+    ),
+    'cache_browser_page_list_entries' => array(
+      'arguments' => array('form' => NULL)
+    ),
+  );
+}
+
+/**
+ * Dump data.
+ *
+ * This function can be used from everywhere else for debugging purposes.
+ *
+ * @param mixed $data
+ *   The variable you want to dump.
+ * @param string $name
+ *   The name of the variable (optional).
+ *
+ * @see cache_browser_dump_data()
+ */
+function cbdump($data, $name = NULL) {
+  static $loaded = FALSE;
+  if (!$loaded) {
+    drupal_add_css(drupal_get_path('module', 'cache_browser') .'/cache_browser.css', 'module', 'all', FALSE);
+    module_load_include('inc', 'cache_browser', 'cache_browser.pages');
+    $loaded = TRUE;
+  }
+  print cache_browser_dump_data($data, $name);
+}

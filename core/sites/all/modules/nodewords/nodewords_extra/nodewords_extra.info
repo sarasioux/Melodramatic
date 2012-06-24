@@ -1,0 +1,13 @@
+; $Id$
+name = "Nodewords extra meta tags"
+description = "Add the Dublin Core, 'location' and 'shorturl' meta tags."
+dependencies[] = nodewords
+package = Meta tags
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-12-31
+version = "6.x-1.13"
+core = "6.x"
+project = "nodewords"
+datestamp = "1325335847"
+

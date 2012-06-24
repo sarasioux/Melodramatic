@@ -1,0 +1,5 @@
+/* $Id: bitcache.css,v 1.2 2009/02/02 07:06:16 arto Exp $ */
+
+table.bitcache .size {
+  text-align: right;
+}

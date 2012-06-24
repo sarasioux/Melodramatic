@@ -1,0 +1,275 @@
+<?php
+// $Id: bitcache.install,v 1.9 2009/03/12 11:13:05 arto Exp $
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_enable().
+ */
+function bitcache_enable() {
+  drupal_set_message(t('Bitcache successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/bitcache'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function bitcache_install() {
+  module_load_include('module', 'bitcache');
+
+  drupal_install_schema('bitcache');
+  db_query("INSERT INTO {bitcache_repositories} VALUES ('%s', 'bitcache', 'sql', 1, 1, 0, -10, '%s')", 'bitcache', serialize(array('title' => t('Default'), 'description' => '')));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function bitcache_uninstall() {
+  db_query("DELETE FROM {bitcache_repositories} WHERE name = '%s'", 'bitcache');
+  drupal_uninstall_schema('bitcache');
+
+  db_query("DELETE FROM {variable} WHERE name LIKE '%s_%%'", 'bitcache');
+  cache_clear_all('variables', 'cache');
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Schema API hooks
+
+/**
+ * Implementation of hook_schema().
+ */
+function bitcache_schema() {
+  return array(
+    // Bitcache repositories
+    'bitcache_repositories' => array( // added in 6.x-1.0-beta2
+      'description' => t("Bitcache repositories"),
+      'fields' => array(
+        'name' => array(
+          'description' => t("Repository name."),
+          'type'        => 'varchar',
+          'length'      => 64,
+          'not null'    => TRUE,
+        ),
+        'module' => array(
+          'description' => t("Repository owner module."),
+          'type'        => 'varchar',
+          'length'      => 255,
+          'not null'    => TRUE,
+        ),
+        'adapter' => array(
+          'description' => t("Repository adapter ('file' or 'sql')."),
+          'type'        => 'varchar',
+          'length'      => 32,
+          'not null'    => TRUE,
+        ),
+        'enabled' => array(
+          'description' => t("Repository enabled? ('0' or '1')."),
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'mutable' => array(
+          'description' => t("Repository mutable? ('0' or '1')."),
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'indexed' => array(
+          'description' => t("Repository indexed? ('0' or '1')."),
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'weight' => array(
+          'description' => t("Repository weight."),
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 4,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'options' => array(
+          'description' => t("Repository options (serialized PHP)."),
+          'type'        => 'text',
+          'size'        => 'normal',
+          'not null'    => TRUE,
+        ),
+      ),
+      'primary key' => array('name'),
+    ),
+
+    // Bitcache data (default repository)
+    'bitcache_data' => array( // added in 6.x-1.0-beta2
+      'description' => t("Bitcache data"),
+      'fields' => array(
+        'id' => array(
+          'description' => t("Bitstream's digital fingerprint (SHA-1)."),
+          'type'        => 'char',
+          'length'      => 40,
+          'not null'    => TRUE,
+        ),
+        'data' => array(
+          'description' => t("Bitstream's contents."),
+          'type'        => 'blob',
+          'size'        => 'big',
+          'not null'    => TRUE,
+        ),
+      ),
+      'primary key' => array('id'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_schema_alter().
+ */
+function bitcache_schema_alter($schema) {
+  // This is not executed on installation/uninstallation, but only when the
+  // schema is loaded at runtime; it's needed in order for repositories
+  // created by third-party modules to have a schema without them having to
+  // duplicate the definition of the {bitcache_data} table, above.
+  if (function_exists('bitcache_get_repository_tables')) {
+    foreach (bitcache_get_repository_tables(TRUE) as $table) {
+      if ($table != BITCACHE_TABLE_DEFAULT) {
+        $schema[$table] = $schema[BITCACHE_TABLE_DEFAULT];
+      }
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Schema API updates
+
+/**
+ * Creates the {bitcache_data} table.
+ *
+ * @since 6.x-1.0-beta2
+ */
+function bitcache_update_6002() {
+  $updates = array();
+  db_create_table($updates, 'bitcache_data',
+    array(
+      'fields' => array(
+        'id' => array(
+          'type'        => 'char',
+          'length'      => 40,
+          'not null'    => TRUE,
+        ),
+        'data' => array(
+          'type'        => 'blob',
+          'size'        => 'big',
+          'not null'    => TRUE,
+        ),
+      ),
+      'primary key' => array('id'),
+    )
+  );
+  return $updates;
+}
+
+/**
+ * Creates the {bitcache_repositories} table.
+ *
+ * @since 6.x-1.0-beta2
+ */
+function bitcache_update_6003() {
+  $updates = array();
+  db_create_table($updates, 'bitcache_repositories',
+    array(
+      'fields' => array(
+        'name' => array(
+          'type'        => 'varchar',
+          'length'      => 64,
+          'not null'    => TRUE,
+        ),
+        'module' => array(
+          'type'        => 'varchar',
+          'length'      => 255,
+          'not null'    => TRUE,
+        ),
+        'adapter' => array(
+          'type'        => 'varchar',
+          'length'      => 32,
+          'not null'    => TRUE,
+        ),
+        'enabled' => array(
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'mutable' => array(
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'indexed' => array(
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 1,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'weight' => array(
+          'type'        => 'int',
+          'size'        => 'tiny',
+          'length'      => 4,
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'options' => array(
+          'type'        => 'text',
+          'size'        => 'normal',
+          'not null'    => TRUE,
+        ),
+      ),
+      'primary key' => array('name'),
+    )
+  );
+  return $updates;
+}
+
+/**
+ * Migrates repository definitions from the {variable} table to the
+ * {bitcache_repositories} table.
+ *
+ * @since 6.x-1.0-beta2
+ */
+function bitcache_update_6004() {
+  $updates = array();
+
+  module_load_include('module', 'bitcache');
+  $updates[] = bitcache_update_sql("INSERT INTO {bitcache_repositories} VALUES ('bitcache', 'bitcache', 'sql', 1, 1, 0, -10, '%s')", serialize(array('title' => t('Default'), 'description' => '')));
+  $updates[] = bitcache_update_sql("INSERT INTO {bitcache_repositories} VALUES ('default', '', 'file', 1, 1, 0, -1, '%s')", serialize(array('title' => t('Default (file system)'), 'description' => '', 'location' => BITCACHE_ROOT)));
+
+  $result = db_query("SELECT name, value FROM {variable} WHERE name LIKE 'bitcache_repository[%]' ORDER BY name");
+  while ($variable = db_fetch_object($result)) {
+    if (preg_match('/^bitcache_repository\[([^\]]+)\]$/', $variable->name, $matches)) {
+      $options = unserialize($variable->value);
+      $options = array('title' => @$options['title'], 'description' => @$options['description'], 'location' => @$options['location']); // any other options will be lost
+      $updates[] = $update = bitcache_update_sql("INSERT INTO {bitcache_repositories} VALUES ('" . db_escape_string($matches[1]) . "', '', 'file', 1, 1, 0, 0, '%s')", serialize($options));
+      if (!empty($update['success'])) {
+        $updates[] = bitcache_update_sql("DELETE FROM {variable} WHERE name = '" . db_escape_string($variable->name) . "'");
+      }
+    }
+  }
+
+  return $updates;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Database API helpers
+
+function bitcache_update_sql($sql) {
+  $arguments = array_slice(func_get_args(), 1);
+  return array('success' => (db_query($sql, $arguments) !== FALSE), 'query' => check_plain($sql));
+}

@@ -1,0 +1,187 @@
+/* $Id */
+
+div.file-system {
+  margin-top: 10px;
+  margin-right: 10px;
+  padding-right: 5px;
+  height: 100%;
+  overflow: auto;
+}
+
+div.file-dropdown {
+  display: none;
+  position: absolute;
+  border: 1px solid black;
+  background-color: #dddddd;
+  z-index: 2000;
+}
+
+div.file-dropdown-element {
+  border: 1px solid black;
+  padding-right: 5px;
+  padding-left: 5px;
+  cursor: pointer;
+  display: block;
+}
+
+/* FOLDERS */
+
+div.file-folder {
+  clear: both;
+  padding-left: 0px; /* 16px */
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+div.file-folder > div.file-cells > div.file-toggle {
+  background: url(images/collapsed.png) no-repeat left 2px !important;
+}
+
+div.file-folder.empty > div.file-cells > div.file-toggle {
+  background-image: none !important;
+}
+
+div.file-folder.empty.expanded > div.file-cells > div.file-toggle {
+  background-image: none !important;
+}
+
+div.file-folder.expanded > div.file-cells > div.file-toggle {
+  background: url(images/expanded.png) no-repeat left 2px !important;
+}
+
+div.file-folder div.file-cells div.file-toggle {
+  display: block;
+  float: left;
+  width: 16px;
+}
+
+div.file-folder div.file-cells div.file-icon {
+  background: url(icons/folder.png) no-repeat left top;
+}
+
+div.file-folder div.file-cells div.file-spinner {
+  float: left;
+  width: 24px;
+  background: url(images/kittscanner.gif) no-repeat center;
+}
+
+div.file-folder div.file-node, div.file-folder div.file-folder {
+  margin-left: 21px;
+}
+
+/* FILES */
+
+div.file-node {
+  clear: both;
+  //padding-left: 16px;
+  padding-left: 8px;
+  margin-top: 5px;
+}
+
+.selected {
+  background-color: #bbb;
+  color: #fff;
+}
+
+.selected div a:link {
+  color: #fff;
+}
+
+div.file-node div.file-cells div.file-icon {
+  //background: url(icons/file.png) no-repeat left top;
+  background: none;
+  /*width: 21px;*/
+  width: 5px;
+  /*margin-right: 5px;*/
+}
+
+/* FILE CELLS */
+
+div.file-cells {
+  clear: none;
+  height: 20px;
+  width: 100%;
+}
+
+div.file-cells div {
+  height: 18px;
+  vertical-align: middle;
+  text-align: right;
+  font-size: 11px;
+}
+
+div.file-cells div.file-icon {
+  float: left;
+  width: 21px;
+}
+
+div.file-cells div.file-title {
+  float: left;
+}
+
+div.file-cells div.file-size {
+  float: right;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+div.file-cells div.file-date {
+  float: right;
+  width: 120px;
+}
+
+/* PREVIEW */
+
+div#block-file_browser-newterm {
+  display: none;
+}
+
+div#block-file_browser-upload {
+  display: none;
+}
+
+div#block-file_browser-preview {
+  display: none;
+}
+
+div#file-preview-spinner {
+  width: 100%;
+  height: 32px;
+  background: url(images/spinner.gif) no-repeat center;
+  text-align: center;
+}
+
+div#file-preview-info {
+  text-align: center;
+}
+
+div#file-preview-info th {
+  background: none;
+  text-align: right;
+  vertical-align: top;
+  font-weight: bold;
+  border: none;
+  color: black;
+}
+
+div#file-preview-info td {
+  text-align: left;
+}
+
+div#file-upload-spinner {
+  width: 100%;
+  height: 32px;
+  background: url(images/spinner.gif) no-repeat center;
+  text-align: center;
+}
+
+div#file-references {
+  text-align: left;
+}
+
+div.file-block-scroll {
+  display: block;
+  max-height: 200px;
+  overflow: auto;
+}
+

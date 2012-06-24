@@ -1,0 +1,96 @@
+/* $Id: cache_browser.css,v 1.1.2.2 2009/02/23 12:18:24 markuspetrux Exp $ */
+
+/**
+ * Cache browser; header panes.
+ */
+.cache-browser-header-left-pane {
+  float: left;
+  font-size: 0.9em;
+}
+.cache-browser-header-right-pane {
+  float: right;
+  font-size: 0.9em;
+}
+
+/**
+ * Cache browser; table items.
+ */
+.cache-browser-cell-text {
+  text-align: left;
+}
+.cache-browser-cell-numeric {
+  padding-right: 1em;
+  text-align: right;
+}
+.cache-browser-cell-date {
+  text-align: center;
+}
+.cache-browser-cell-action {
+  padding: 0 .5em;
+  text-align: center;
+}
+.cache-browser-submit {
+  text-align: right;
+}
+.cache-browser-submit .form-submit {
+  margin-top: 0;
+}
+.cache-browser-expired {
+  color: #ff0000;
+}
+
+/**
+ * Cache browser; data dumps.
+ */
+h3.cb-dump-title {
+  margin-top: 2em;
+  margin-bottom: 0;
+  font-weight: bold;
+}
+pre.cb-dump {
+  margin-top: 0.5em;
+  padding: 4px;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #000;
+  font-size: 1.1em;
+}
+pre.cb-dump img {
+  cursor: pointer;
+  vertical-align: text-bottom;
+}
+pre.cb-dump span {
+  display: none;
+}
+pre.cb-dump em {
+  font-style: normal;
+}
+.cb-dump-headers {
+  color: #008000;
+}
+.cb-dump-string {
+  color: #008000;
+}
+.cb-dump-numeric {
+  color: #ff0000;
+}
+.cb-dump-constant {
+  color: #ff0000;
+}
+.cb-dump-hash {
+  color: #0000ff;
+}
+.cb-dump-varname {
+  color: #0000ff;
+}
+.cb-dump-title-left {
+  float: left;
+  font-weight: bold;
+}
+.cb-dump-title-right {
+  float: right;
+  margin-right: 1em;
+}
+.cb-dump-title-right img {
+  vertical-align: text-bottom;
+}

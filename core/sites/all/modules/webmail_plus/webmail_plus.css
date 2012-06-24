@@ -1,0 +1,90 @@
+.webmail_plus_read_message
+{
+font-weight: normal
+}
+
+.webmail_plus_unread_message
+{
+font-weight: bold
+}
+
+div.file-attachments {
+  clear: both;
+}
+
+div.file-attach-container {
+  clear: both;
+  padding: 2px;
+}
+
+div.file-attach-show {
+  padding: 5px;
+  border: 1px solid grey;
+}
+
+div.hideshow-buttons a {
+	padding: 0px 5px;
+}  
+
+div.attachments #edit-upload-file-wrapper {
+	float: left;
+}             
+
+div.attachments #upload {
+	float: left;
+	margin: 18px 0 0 10px;
+} 
+
+div.actions.container-inline {
+	margin: 0 0 20px 0;
+}
+
+div.hideshow-buttons {
+	margin: 15px 0px;
+} 
+
+div.message-header.hide-form {
+	padding: 15px; 
+	border: 1px solid #eee;
+}
+
+#edit-body-wrapper textarea {
+	height: 200px;
+}
+                    
+#block-webmail_plus-0 h2.title,
+#block-webmail_plus-1 h2.title,
+#block-webmail_plus-3 h2.title {
+	padding: 5px 15px 5px 35px;
+}
+
+/* Compose Block */ 
+#block-webmail_plus-3 h2.title {
+	background: #EDF3FE url('images/email.png') no-repeat 12px 50%;;
+} 
+
+/* Folders Block */
+#block-webmail_plus-1 h2.title {
+  background: #EDF3FE url('images/folder.png') no-repeat 12px 50%;;	
+}  
+
+/* Tags Block */
+#block-webmail_plus-0 h2.title {
+  background: #EDF3FE url('images/tag.png') no-repeat 12px 50%;
+}
+
+.webmail_plus_unread_folder {
+	font-weight: bold;
+}
+
+webmail_plus_read_folder {
+	font-weight: normal;
+}
+
+pre {
+	white-space: -moz-pre-wrap; /* Mozilla, supported since 1999 */
+	white-space: -pre-wrap; /* Opera 4 - 6 */
+	white-space: -o-pre-wrap; /* Opera 7 */
+	white-space: pre-wrap; /* CSS3 - Text module (Candidate Recommendation) http://www.w3.org/TR/css3-text/#white-space */
+	word-wrap: break-word; /* IE 5.5+ */
+}

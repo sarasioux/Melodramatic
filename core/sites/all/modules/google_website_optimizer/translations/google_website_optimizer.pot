@@ -1,0 +1,186 @@
+# $Id: google_website_optimizer.pot,v 1.1.2.2 2009/06/23 12:14:27 neochief Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  google_website_optimizer.admin.inc,v 1.2.2.3 2009/04/25 21:20:48 neochief
+#  google_website_optimizer.module,v 1.2.4.2 2009/04/25 21:20:48 neochief
+#  google_website_optimizer.info,v 1.2.4.2 2009/04/25 21:20:48 neochief
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-06-23 12:06+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: google_website_optimizer.admin.inc:17
+msgid "Test"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:17
+msgid "Operations"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:19
+msgid "edit"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:19
+msgid "delete"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:22
+msgid "Add new test"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:25
+msgid "No tests found. Click here to <a href=\"!create-test-url\">create a new test</a>."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:47
+msgid "Update test"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:50
+msgid "Create test"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:55
+msgid "Test name"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:59
+msgid "Enter a name for this test. This should correspond to the name of your test in Google Website Optimizer to make it easy to identify."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:65;72
+msgid "Testing Page"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:74
+msgid "Enter one page per line as Drupal paths (e.g. <em>node/1</em> or <em>blog/some-article</em>). The '*' character is a wildcard."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:80
+msgid "Control Script"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:82
+msgid "Enter the control script provided by Google Website Optimizer."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:88
+msgid "Tracking Script"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:90
+msgid "Enter the tracking script provided by Google Website Optimizer."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:96
+msgid "Variation pages (for A/B tests only)"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:103
+msgid "Variation Pages"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:105;126
+msgid "Enter one page per line as Drupal paths. The '*' character is a wildcard."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:110
+msgid "Variation Tracking Script"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:112
+msgid "Enter the variation tracking script provided by Google Website Optimizer."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:117
+msgid "Conversion Page"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:124
+msgid "Conversion Page(s)"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:132
+msgid "Conversion Script"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:134
+msgid "Enter the conversion script provided by Google Website Optimizer."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:152
+msgid "Test updated."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:156
+msgid "Test created."
+msgstr ""
+
+#: google_website_optimizer.admin.inc:172
+msgid "Are you sure you want to delete test @name?"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:172 google_website_optimizer.module:41
+msgid "Delete test"
+msgstr ""
+
+#: google_website_optimizer.admin.inc:180
+msgid "Test removed."
+msgstr ""
+
+#: google_website_optimizer.module:59
+msgid "Google Website Optimizer allows you to test different content and layout on your pages to increase your conversion rate. Learn more about <a href=\"http://www.google.com/websiteoptimizer\">Google Website Optimizer</a>."
+msgstr ""
+
+#: google_website_optimizer.module:60
+msgid "This module provides an easy way to output the javascript code on the appropriate pages."
+msgstr ""
+
+#: google_website_optimizer.module:61
+msgid "When you create a test in Google Website Optimizer, create a new test here and input the code provided into the appropriate places. The module will do the rest."
+msgstr ""
+
+#: google_website_optimizer.module:69
+msgid "administer google_website_optimizer"
+msgstr ""
+
+#: google_website_optimizer.module:14 google_website_optimizer.info:0
+msgid "Google Website Optimizer"
+msgstr ""
+
+#: google_website_optimizer.module:15
+msgid "Create and manage your Google Website Optimizer tests."
+msgstr ""
+
+#: google_website_optimizer.module:21
+msgid "List"
+msgstr ""
+
+#: google_website_optimizer.module:26
+msgid "Add Test"
+msgstr ""
+
+#: google_website_optimizer.module:34
+msgid "Edit test"
+msgstr ""
+
+#: google_website_optimizer.module:0
+msgid "google_website_optimizer"
+msgstr ""
+
+#: google_website_optimizer.info:0
+msgid "Easily insert the nessesary javascript code for your Google Website Optimizer tests."
+msgstr ""
+

@@ -1,0 +1,606 @@
+<?php
+
+/**
+ * @file
+ * Implement the touches/bangs features of Melo.
+ *
+ * This module extends the VoteAPI functionality provided in Melo
+ * to offer touch & bang functionality.
+ */
+
+drupal_add_js(drupal_get_path('module', 'touches') . "/jquery.touches.js", 'header');
+
+/**
+ * Disable touch display completely.
+ */
+define('TOUCH_DISPLAY_DISABLED', 0);
+
+/**
+ * Show touches on the node body.
+ */
+define('TOUCH_DISPLAY_NODE', 1);
+
+/**
+ * Show touches on the node teaser.
+ */
+define('TOUCH_DISPLAY_TEASER', 2);
+
+/**
+ * Show touches on both body & teaser.
+ */
+define('TOUCH_DISPLAY_BOTH', 3);
+
+/**
+ * Implementation of hook_menu().
+ */
+function touches_menu() {
+  $items = array();
+
+  // List touch types
+  $items['admin/build/touches'] = array(
+    'title' => 'Touches',
+    'page callback' => 'touches_page_list',
+    'access arguments' => array('administer touches'),
+    'description' => 'Administer touches.',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/build/touches/list'] = array(
+    'title'  => 'List',
+    'type'   => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  
+  // Add touch type
+  $items['admin/build/touches/add'] = array(
+    'title' => 'Add',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('touches_type_form'),
+    'access arguments' => array('administer touches'),
+    'description' => 'Add a new touch type',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  // Edit touch type
+  $items['admin/build/touches/edit/%'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('touches_type_form'),
+    'access arguments' => array('administer touches'),
+    'description' => 'Add a new touch type',
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  // Reset Touches
+  $items['admin/build/touches/reset'] = array(
+    'title' => 'Reset',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('touches_reset_confirm'),
+    'access arguments' => array('administer touches'),
+    'description' => 'Reset all user touches',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  
+  // Callbacks per touch-type
+  $types = touches_get_touch_types();
+  foreach($types as $type) {
+    $items[$type->name.'/%'] = array(
+      'title' => $type->label,
+      'page callback' => 'touches_touch',
+      'access arguments' => array('use touches'),
+      'description' => 'Give someone '.$type->label_plural,
+      'type' => MENU_CALLBACK
+    );
+    $items[$type->name.'/%/ajax'] = array(
+      'title' => $type->label,
+      'page callback' => 'touches_touch',
+      'access arguments' => array('use touches'),
+      'description' => 'Give someone '.$type->label_plural,
+      'type' => MENU_CALLBACK
+    );
+
+  }
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm.
+ */
+function touches_perm() {
+  return array('administer touches', 'use touches');
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function touches_link($type, $object, $teaser = FALSE) {
+  $links = array();
+  switch ($type) {
+    case 'node':
+      $node = &$object;
+      $touches = touches_get_touch_types();
+      global $user;
+      $available_touches = touches_get_limit($user->uid, 1);
+      foreach($touches as $touch) {
+        if(count($touch->content_types) == 0) {
+          $content_type = true;
+        } else {
+          $content_type = in_array($node->type, $touch->content_types);
+        }
+        // Skip touch links for myself
+        if(!$touch->touch_self && $node->uid == $user->uid) {
+          $link = array(
+            'title' => $touch->label . '&nbsp;(<span id="'.$touch->name.'-count-'.$node->nid.'">'.touches_get_touch_count($touch->name, $node->nid).'</span>)',
+            'html' => TRUE
+            );
+        // Skip if insufficient
+        } else if(!user_access('use touches') || ($touch->name == 'bang' && $available_touches < 10) || ($touch->name == 'touch' && $available_touches < 1)) {
+          $link = array(
+            'title' => $touch->label . '&nbsp;(<span id="'.$touch->name.'-count-'.$node->nid.'">'.touches_get_touch_count($touch->name, $node->nid).'</span>)',
+            'html' => TRUE
+            );
+        } else {
+          $link = array(
+            'title' => l($touch->label, $touch->name.'/'.$node->nid, array('attributes'=>array('class'=>'touchlink', 'id'=>'touchlink-'.$node->nid))) . '&nbsp;(<span id="'.$touch->name.'-count-'.$node->nid.'">'.touches_get_touch_count($touch->name, $node->nid).'</span>)',
+            'html' => TRUE
+            );
+        }
+        switch ($touch->display_type) {
+          case TOUCH_DISPLAY_NODE:
+            if (($teaser == 0) && $content_type) {
+              $links['touch_'.$touch->name] = $link;
+            }
+            break;
+          case TOUCH_DISPLAY_TEASER:
+            if (($teaser == 1) && $content_type) {
+              $links['touch_'.$touch->name] = $link;            
+            }
+            break;
+          case TOUCH_DISPLAY_BOTH:
+            if ($content_type) {
+              $links['touch_'.$touch->name] = $link;
+            }
+            break;
+        }
+      }
+      break;
+  }
+  return $links;
+}
+
+
+
+/**
+ * Helper Functions
+ */
+
+/**
+ * Get touch types
+ */
+function touches_get_touch_types($id=null) {
+  // id 0 is a global type
+  if($id === 0) {
+    return (object)array('limit_type'=>'global');
+  }
+
+  $types = array();
+  $result = db_query('select * from touch_types');
+  while($obj = db_fetch_object($result)) {
+    $obj->content_types = unserialize($obj->content_types);
+    if(!is_array($obj->content_types)) {
+      $obj->content_types = array();
+    }
+    $types[$obj->id] = $obj;
+  }
+  if(is_null($id)) {
+    return $types;
+  } else {
+    if(is_numeric($id)) {
+      return $types[$id];
+    } else {
+      foreach($types as $type) {
+        if($type->name == $id) {
+          return $type;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validate a touch
+ */
+function touches_validate_touch($account, $type, $id) {
+  switch($type->limit_type) {
+   // @TODO:  Add more validation types
+    case 'global':
+      $limit = touches_get_limit($account->uid, 0);
+      if($limit > 0) {
+        return true;
+      }
+    break; 
+  }
+  return false;
+
+}
+
+/**
+ * Get the touch limit for a user
+ */
+function touches_get_limit($uid, $tid, $create=TRUE) {
+  $type = touches_get_touch_types($tid);
+  if($type->limit_type == 'global') {
+    $tid = 0;
+  }
+  $limit = db_fetch_object(db_query('select * from touch_counts where uid = %d and tid = %d', $uid, $tid));
+  if(!is_object($limit)) {
+    $limit = touches_reset_user($uid, $tid);
+    return $limit->available_touches;
+  } else {
+    return $limit->available_touches;
+  }
+}
+
+/**
+ * Reduce the touch limit
+ */
+function touches_reduce_limit($uid, $tid, $count=1) {
+  $type = touches_get_touch_types($tid);
+  if($type->limit_type == 'global') {
+    $tid = 0;
+  }
+  db_query('update touch_counts set available_touches = available_touches - %d where uid = %d and tid = %d', $count, $uid, $tid);
+}
+
+/**
+ * Reset a user's touches
+ */
+function touches_reset_user($uid, $tid=null) {
+  if(!is_null($tid)) {
+    $type = touches_get_touch_types($tid);
+    
+    switch($type->limit_type) {
+      case 'global':
+         $account = user_load($uid);
+         $limit = melodev_karma_touches($account);
+         
+         db_query('delete from touch_counts where uid = %d and tid = %d', $uid, 0);
+         if($tid != 0) {
+           db_query('delete from touch_counts where uid = %d and tid = %d', $uid, $tid);
+         }
+         db_query('insert into touch_counts (uid, tid, available_touches) values(%d, %d, %d)', $uid, 0, $limit);
+         return db_fetch_object(db_query('select * from touch_counts where uid = %d and tid = %d', $uid, 0));
+      
+      break;
+      // @TODO:  Add more validation types
+    }
+  }
+}
+
+/**
+ * Get touch limit types
+ * @TODO: Add API integration here
+ */
+function _touches_limit_types() {
+  $types = array();
+  
+  // Limit by a finite number
+  $types['global'] = 'Limit touches to global touch settings across all touch types.';
+  
+  return $types;
+}
+
+/**
+ * Perform a touch
+ */
+function touches_touch_id($uid, $id, $type) {
+
+  $criteria = array();  // Required so past votes will be saved
+  $vote = array(
+    'content_id' => $id,
+    'value_type' => 'points',
+    'value' => 1,
+    'tag' => $type->name
+    );
+  $votes = array($vote);
+  votingapi_set_votes($votes, $criteria);
+  
+  module_invoke_all('touchapi', $uid, $id, $type);
+}
+
+
+/**
+ * Implementation of hook_touchapi.
+ */
+function touches_touchapi($uid, $id, $type) {
+  if($type->name == 'touch') {
+    touches_reduce_limit($uid, $type->id, 1);
+  }
+  if($type->name == 'bang') {
+    touches_reduce_limit($uid, $type->id, 10);
+  }
+}
+
+
+/**
+ * Get the touch count for a node id.
+ */
+function touches_get_touch_count($type_name, $id) {
+  $criteria = array(
+    'tag' => $type_name,
+    'content_id' => $id,
+    'function' => 'sum'
+  );
+  $results = votingapi_select_results($criteria);
+  if(isset($results[0]['value'])) {
+    return $results[0]['value'];
+  } else {
+    return 0;
+  }
+}
+
+/**
+ * Form Callback Functions
+ */
+ 
+ 
+/**
+ * Define a touch type.
+ */
+function touches_type_form() {
+  if(is_numeric(arg(4))) {
+    $type = touches_get_touch_types(arg(4));  
+  } else {
+    $type = (object)array();
+  }
+  
+  $form = array();
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Touch name'),
+    '#description' => t('The machine-name for this touch type. It may be up to 32 characters long and my only contain lowercase letters, underscores, and numbers. It will be used in URLs and in all API calls.'),
+    '#maxlength' => 32,
+    '#default_value' => $type->name,
+    '#required' => TRUE,
+  );
+
+  $form['label'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Touch label'),
+    '#description' => t('The label for this touch type. It may be up to 32 characters long. It will be used in links and stat displays.'),
+    '#maxlength' => 32,
+    '#default_value' => $type->label,
+    '#required' => TRUE,
+  );
+
+  $form['label_plural'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Touch label plural'),
+    '#description' => t('How to display this label when its plural. It may be up to 40 characters long. It will be used in links and stat displays.'),
+    '#maxlength' => 40,
+    '#default_value' => $type->label_plural,
+    '#required' => TRUE,
+  );
+  
+  $_types = node_get_types('names');
+  $form['content_types'] = array(
+    '#type' => 'select',
+    '#title' => t('Allowed content types for this touch type'),
+    '#default_value' => $type->content_types,
+    '#options' => $_types,
+    '#multiple' => TRUE,
+    '#description' => t('The content types which can be touched.  If none are selected, this touch type will become available for all content types.'),
+  );
+  
+  $form['display_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Display in nodes'),
+    '#default_value' => $type->display_type,
+    '#options' => array(TOUCH_DISPLAY_DISABLED=>'Disabled', TOUCH_DISPLAY_BOTH=>'Full node/Teaser', TOUCH_DISPLAY_NODE=>'Full node only', TOUCH_DISPLAY_TEASER=>'Teaser only'),
+    '#description' => t('Where you would like these touch links to show up.'),
+    '#required' => TRUE
+    );
+    
+  $form['limit_types'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => FALSE,
+    '#title' => 'Limit Touches',
+    '#description' => 'Touches may be limited in different ways.  Refer to API.txt for how to add your own touch limiting type.'
+    );
+    
+  $form['limit_types']['limit_type'] = array(
+    '#type' => 'radios',
+    '#title' => t('Limit Type'),
+    '#options' => _touches_limit_types(),
+    '#default_value' => $type->limit_type,
+    '#weight' => 2,
+    '#required' => TRUE
+  );
+  
+  $form['touch_self'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Allow users to touch themselves.',
+    '#default_value' => $type->touch_self,
+    );
+  
+  // Add ID if updating
+  if(is_numeric($type->id)) {
+    $form['id'] = array(
+      '#type' => 'value',
+      '#value' => $type->id
+      );
+  }
+  
+  $form['#redirect'] = 'admin/build/touches';
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+
+  return $form;
+  
+}
+
+
+/**
+ * Validate a touch type.
+ */
+function touches_type_form_validate($form, &$form_state) {
+  // If new, make sure name is unique
+  if(!is_numeric($form_state['values']['id'])) {
+    if(db_fetch_object(db_query('select * from touch_types where name = "%s"', $form_state['values']['name']))) {
+      form_set_error('name', t('That touch type name is already taken.'));
+    }
+  }
+  // @TODO: check for lowercase, alphanumeric, etc
+}
+
+
+/**
+ * Process a touch type form submission.
+ */
+function touches_type_form_submit($form, &$form_state) {
+  $name = $form_state['values']['name'];
+  $label = $form_state['values']['label'];
+  $label_plural = $form_state['values']['label_plural'];
+  $content_types = serialize($form_state['values']['content_types']);
+  $display_type = $form_state['values']['display_type'];
+  $limit_type = $form_state['values']['limit_type'];
+  $touch_self = $form_state['values']['touch_self'];
+  if(is_numeric($form_state['values']['id'])) {
+    db_query('update touch_types set name = "%s", label = "%s", label_plural = "%s", content_types = "%s", display_type = %d, limit_type = "%s", touch_self = %d where id = %d',
+              $name, $label, $label_plural, $content_types, $display_type, $limit_type, $touch_self, $form_state['values']['id']);
+  } else {
+    db_query('insert into touch_types (name, label, label_plural, content_types, display_type, limit_type, touch_self) values("%s", "%s", "%s", "%s", %d, "%s", %d)',
+              $name, $label, $label_plural, $content_types, $display_type, $limit_type, $touch_self);
+  }
+  drupal_set_message('Your touch has been updated.');
+}
+
+
+/**
+ * Confirm resetting of user touches.
+ */
+function touches_reset_confirm(&$form_state) {
+  return confirm_form($form,
+    t('Are you sure you want to reset all user touch availability?'),
+    !empty($_GET['destination']) ? $_GET['destination'] : 'admin/build/touches',
+    t('This action cannot be undone.  This action is usually run on cron.'),
+    t('Reset'), t('Cancel')
+  );
+}
+
+
+/**
+ * Process resetting user touches.
+ */
+function touches_reset_confirm_submit($form, &$form_state) {
+  db_query('truncate touch_counts');
+  drupal_set_message(t('User touch counts table has been truncated.'));
+  $form_state['redirect'] = 'admin/build/touches';
+}
+
+/**
+ * Page Callback Functions
+ */
+ 
+
+/**
+ * Page callback for offering a touch.
+ */
+function touches_touch() {
+  global $user;
+  $type = touches_get_touch_types(arg(0));
+  $id = arg(1);
+  
+  // Valid post
+  if(!is_numeric($id)) {
+    drupal_set_message('Invalid id.');
+    drupal_goto('<front>');
+  }
+  
+  // Valid touch type
+  if(!is_object($type)) {
+    drupal_set_message('Invalid touch type.');
+    drupal_goto('<front>');
+  }
+  
+  // Valid user
+  if(touches_validate_touch($user, $type, $id)) {
+
+    touches_touch_id($user->uid, $id, $type);
+
+    $limit = touches_get_limit($user->uid, $type->id);
+    
+    // Print Ajax success message
+    if(arg(2) == 'ajax') {
+      $vars['success'] = "TRUE";
+      touches_print_ajax($vars);
+    }
+    
+  } else {
+    // Print Ajax error message
+    if(arg(2) == 'ajax') {
+      $vars['success'] = "FALSE";
+      $vars['error_message'] = t('All out of '.$type->label_plural.'.');
+      touches_print_ajax($vars);
+    }
+  
+    $limit = touches_get_limit($user->uid, $type->id);
+    if($limit < 1) {
+      drupal_set_message('All out of '.$type->label_plural.'.');
+      drupal_goto('<front>');
+    } 
+  }
+  
+  return $output;
+}
+
+
+/**
+ * List available touch types.
+ */
+function touches_page_list() {
+  $output = '';
+  $touches = touches_get_touch_types();
+  
+  if(count($touches) < 1) {
+    $output .= 'No touch types have been set up yet.';
+  } else {
+    $rows = array();
+    foreach($touches as $touch) {
+      $rows[] = array($touch->name, $touch->label, implode(', ', $touch->content_types), l('Edit', 'admin/build/touches/edit/'.$touch->id));
+    }
+    $output .= theme('table', array('Name', 'Label', 'Content Types', 'Edit'), $rows);
+  }
+  
+  return $output;  
+}
+
+
+/**
+ * Print an AJAX response page.
+ */
+function touches_print_ajax($vars) {
+  $output = "";
+  foreach ($vars as $name => $value) {
+    switch ($name) {
+      case 'error_message':
+      case 'success_message' :
+        $output .= sprintf('<%s><![CDATA[%s]]></%s>', $name, $value, $name);
+        break;
+      default :
+        $output .= sprintf('<%s>%s</%s>', $name, $value, $name);
+        break;
+    }//end - switch
+  }//end - foreach
+  $output = '<response>
+' . $output ."</response>";
+
+  header("content-type: text/xml");
+  echo $output;
+  exit;
+}

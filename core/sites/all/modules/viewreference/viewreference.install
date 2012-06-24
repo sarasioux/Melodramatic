@@ -1,0 +1,118 @@
+<?php
+// $Id: viewreference.install,v 1.2.2.4.2.5 2011/01/30 03:52:55 danielb Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function viewreference_install() {
+  content_notify('install', 'viewreference');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function viewreference_uninstall() {
+  content_notify('uninstall', 'viewreference');
+}
+
+/**
+ * Implementation of hook_enable().
+ *
+ * Notify content module when this module is enabled.
+ */
+function viewreference_enable() {
+  content_notify('enable', 'viewreference');
+}
+
+/**
+ * Implementation of hook_disable().
+ *
+ * Notify content module when this module is disabled.
+ */
+function viewreference_disable() {
+  content_notify('disable', 'viewreference');
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Update CCK view_id fields to strings and drop viewreference table.
+ */
+function viewreference_update_6300() {
+  $ret = array();
+  $fields = content_fields();
+  foreach ($fields as $field) {
+    if ($field['type'] == "viewreference") {
+      $db_info = content_database_info($field);
+      // Update the stored values for nodes.
+      if (isset($db_info['columns']['view_id'])) {
+        $view_id_column = $db_info['columns']['view_id']['column'];
+        // Update the field definition
+        db_change_field(
+          $ret,
+          $db_info['table'],
+          $view_id_column,
+          $view_id_column,
+          array(
+            'type' => 'varchar',
+            'length' => '255',
+            'default' => NULL,
+            'not null' => FALSE,
+          )
+        );
+        // Change values in fields
+        $result = db_query(
+          "SELECT DISTINCT ". $view_id_column ." FROM {". $db_info['table'] ."}"
+        );
+        while($row = db_fetch_array($result)) {
+          $new_value = "";
+          if ($row[$view_id_column]) {
+              // Select the 2 values from the {view_reference} table
+              $replace = db_query(
+                "SELECT name, position FROM {viewreference} WHERE view_id = %d",
+                $row[$view_id_column]
+              );
+              $replace_values = db_fetch_array($replace);
+              $new_value = $replace_values['name'] .":". $replace_values['position'];
+          }
+          $ret[] = update_sql(
+            "UPDATE {". $db_info['table'] ."} ".
+            "SET ". $view_id_column ." = '". $new_value ."' ".
+            "WHERE ". $view_id_column ." = '". $row[$view_id_column] ."'"
+          );
+        }
+      }
+      // Update the settings for this field.
+      $result = db_query(
+        "SELECT global_settings ".
+        "FROM {content_node_field} ".
+        "WHERE field_name = '". $field['field_name'] ."'"
+      );
+      $row = db_fetch_array($result);
+      $settings = unserialize($row['global_settings']);
+      $filters = array_filter($settings['referenceable_views']);
+      $new_filters = array();
+      foreach ($filters as $key => $value) {
+        // Select the 2 values from the {view_reference} table
+        $replace = db_query(
+          "SELECT name, position FROM {viewreference} WHERE view_id = %d",
+          $value
+        );
+        $replace_values = db_fetch_array($replace);
+        $new_value = $replace_values['name'] .":". $replace_values['position'];
+        $new_filters[$new_value] = $new_value;
+      }
+      $settings['referenceable_views'] = $new_filters;
+      // update_sql() mangles serialized values, use db_query() instead.
+      db_query(
+        "UPDATE {content_node_field} ".
+        "SET global_settings = '%s' ".
+        "WHERE field_name = '". $field['field_name'] ."'",
+        array(serialize($settings))
+      );
+    }
+  }
+  // Remove the old table.
+  db_drop_table($ret, 'viewreference');
+  return $ret;
+}

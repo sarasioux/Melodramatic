@@ -1,0 +1,14 @@
+;$Id: token_profile.info,v 1.2 2010/04/27 17:18:01 fizk Exp $
+name = Profile Tokens
+description = Adds tokens for user profile fields
+core = 6.x
+php = 5.1
+dependencies[] = 'profile'
+dependencies[] = 'token'
+
+; Information added by drupal.org packaging script on 2010-07-29
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "token_profile"
+datestamp = "1280416209"
+

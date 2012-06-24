@@ -1,0 +1,101 @@
+<?php
+// $Id: google_website_optimizer.install,v 1.2.4.3 2009/06/23 12:14:27 neochief Exp $
+
+/**
+ * @file
+ * Easily insert the nessesary javascript code for your Google Website Optimizer tests.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function google_website_optimizer_schema() {
+  $schema['google_website_optimizer'] = array(
+    'fields' => array(
+      'test_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'test_page_path' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'conversion_page_path' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'control_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'tracking_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'conversion_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'variation_page_path' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'variation_tracking_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('test_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install()
+ */
+function google_website_optimizer_install() {
+  drupal_install_schema('google_website_optimizer');
+}
+
+function google_website_optimizer_update_6001() {
+  $ret = array();
+
+  db_rename_table($ret, 'google_website_optimizer_tests', 'google_website_optimizer');
+  db_drop_primary_key($ret, 'google_website_optimizer');
+  db_change_field($ret, 'google_website_optimizer', 'tid', 'test_id', array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE));
+  db_add_primary_key($ret, 'google_website_optimizer', array('test_id'));
+
+  cache_clear_all();
+
+  return $ret;
+}
+
+function google_website_optimizer_update_6002() {
+  $ret = array();
+
+  db_add_field($ret, 'google_website_optimizer', 'variation_page_path', array('type' => 'text', 'not null' => FALSE));
+  db_add_field($ret, 'google_website_optimizer', 'variation_tracking_script', array('type' => 'text', 'not null' => FALSE));
+  cache_clear_all();
+
+  return $ret;
+}
+
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function google_website_optimizer_uninstall() {
+  drupal_uninstall_schema('google_website_optimizer');
+}

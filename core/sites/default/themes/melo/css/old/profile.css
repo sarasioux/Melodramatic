@@ -1,0 +1,92 @@
+/* Profile CSS  */
+
+/*  Journal Entries  */
+.node-type-blog h2.title a {
+  color: black;
+}
+.node-type-blog h2.title a:hover {
+  text-decoration: underline;
+}
+.node-type-blog div.node-inner {
+  border-bottom: solid #bbb 1px;
+  margin-bottom: 15px;
+  padding-bottom: 20px;
+}
+.views-row-last .node-type-blog div.node-inner {
+  border-bottom: none;
+}
+.view-Blogs {
+  padding: 5px;
+  padding-top: 0;
+}
+#block-views-Folders-block_1 tr:hover {
+  background: #eee;
+}
+#block-views-Folders-block_1 td.views-field-title {
+  padding: 0;
+}
+#block-views-Folders-block_1 td.views-field-title a {
+  width: 120px;
+  padding: 5px;
+  display: block;
+}
+
+/*  Picture Block  */
+#sidebar-left #block-melodev-0 h1 {
+  color: white;
+  font-weight: normal;
+  font-family: "Helvetica Neue", "Helvetica";
+  font-size: 16pt;
+  margin: 0;
+  background: black;
+  text-align: left;
+  padding: 2px 5px 3px 10px;
+}
+#sidebar-left #block-melodev-0 {
+  border: none;
+  background: transparent;
+  text-align: center;
+}
+#sidebar-left #block-melodev-0 .block-inner div.content {
+  padding: 0;
+}
+
+/*  Photos Block  */
+#block-views-Photos-block_1 {
+  height: 240px;
+}
+#block-views-Photos-block_1 div.block-inner div.content {
+  padding: 5px;
+}
+#block-views-Photos-block_1 table.views-view-grid {
+  height: 160px;
+}
+#block-views-Photos-block_1 .views-view-grid td {
+  vertical-align: top;
+  padding: 3px;
+  margin: 0;
+} 
+
+/* Favorite Things Block  */
+#block-views-Favorites-block_1 div.content {
+  text-align: center;
+}
+
+/*  Interact Block  */
+#block-melodev-2 ul {
+  padding: 0;
+}
+#block-melodev-2 li {
+/*  margin-bottom: 20px; */
+  list-style: none;
+  padding-left: 0;
+}
+#block-melodev-2 a.flag-processed {
+
+}
+#block-melodev-2 span.flag-message {
+  display: block;
+  padding-bottom: 5px;
+  position: relative;
+  top: 0;
+}

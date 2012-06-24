@@ -1,0 +1,2147 @@
+<?php
+// $Id: webmail_plus.module,v 1.1.4.14 2009/05/14 18:30:30 firmidea Exp $
+$_webmail_plus_config = NULL;
+$_webmail_plus_connection = NULL;
+$_webmail_plus_user_preferences = NULL;
+
+define('WEBMAIL_PLUS_BASE', 'webmail_plus');
+define('WEBMAIL_PLUS_ALIAS', drupal_get_path_alias(WEBMAIL_PLUS_BASE));
+  	
+//drupal_set_message(WEBMAIL_PLUS_ALIAS);
+
+
+
+/**
+ * implementation of hook_init()
+ *
+ */
+function webmail_plus_init() {
+	
+  drupal_add_css(drupal_get_path('module', 'webmail_plus').'/webmail_plus.css');
+
+  // dont update messages in admin more
+  if(arg(0)=='admin') return;
+
+  global $user, $_webmail_plus_config, $_webmail_plus_user_preferences;
+
+  // check if the server that's configured actually exists
+  $webmail_plus_connection = variable_get('webmail_plus_connection', NULL);
+  if(!$webmail_plus_connection) return;
+  
+  // flatten the server list
+  $servers = mail_api_get_servers();
+  foreach($servers as $key=>$value) {
+    $servers_flat[$value['domain']]=$value['domain'];
+  }
+
+  // show an error message if the connection isn't found
+  if(!$servers_flat[$webmail_plus_connection]) {
+    drupal_set_message(t('The mail connection is misconfigured. Please notify the site administrator.'), 'error', FALSE);
+    return;
+  }
+  
+
+  
+  if (!is_object($_webmail_plus_config)) {
+  	$_webmail_plus_config = mail_api_server_configuration($webmail_plus_connection, NULL);
+    $_webmail_plus_config -> domain = $webmail_plus_connection;  
+    $_webmail_plus_config -> thread_messages = variable_get('webmail_plus_thread_messages', TRUE);
+    $_webmail_plus_config -> new_messages_block = variable_get('webmail_plus_new_messages_block', 0);
+    $_webmail_plus_config -> user_from = variable_get('webmail_plus_user_from', NULL);
+    $_webmail_plus_config -> authentication = variable_get('webmail_plus_authentication', NULL);
+    $_webmail_plus_config -> debug = variable_get('webmail_plus_debug', NULL);
+    $_webmail_plus_config -> password = _webmail_plus_get_user_password();
+    $_webmail_plus_config -> send_method = variable_get('webmail_plus_send_method','sendmail');
+    $_webmail_plus_config -> smtp_host = variable_get('webmail_plus_send_smtp_host','localhost');
+    $_webmail_plus_config -> smtp_port = variable_get('webmail_plus_send_smtp_port',25);
+    $_webmail_plus_config -> smtp_encryption = variable_get('webmail_plus_smtp_encryption','none');
+    $_webmail_plus_config -> smtp_username = variable_get('webmail_plus_smtp_username', NULL);
+    $_webmail_plus_config -> smtp_password = variable_get('webmail_plus_smtp_password', NULL);
+    $_webmail_plus_config -> allow_signature = variable_get('webmail_plus_allow_signature', NULL);
+    $_webmail_plus_config -> email_format = variable_get('webmail_plus_email_format', 'plaintext');
+    $_webmail_plus_config -> email_format_override = variable_get('webmail_plus_email_format_override', NULL);
+    $_webmail_plus_config -> hidden_folders = variable_get('webmail_plus_hidden_folders', NULL);
+    $_webmail_plus_config -> allowed_publish_nodes = variable_get('webmail_plus_allowed_publish_nodes', NULL);
+    $_webmail_plus_config -> notification_block_records = variable_get('webmail_plus_notification_block_records', 3);
+    $_webmail_plus_config -> required_folders = variable_get('webmail_plus_required_folders', 'INBOX, Trash, Junk, Sent');
+    $_webmail_plus_config -> folder_order = variable_get('webmail_plus_folder_order', 'INBOX, Sent, Drafts, Junk, Trash');
+    $_webmail_plus_config -> address_book = variable_get('webmail_plus_address_book', NULL);
+    $_webmail_plus_config -> use_cron = variable_get('webmail_plus_use_cron', NULL);
+    $_webmail_plus_config -> max_tags_in_dropdown = variable_get('webmail_plus_max_tags_in_dropdown', 0);
+    $_webmail_plus_config -> messages_per_page = variable_get('webmail_plus_messages_per_page', 25);
+    $_webmail_plus_config -> presenatation_override = variable_get('webmail_plus_presenatation_override', TRUE);
+    
+  }
+
+  
+
+
+  $_webmail_plus_user_preferences = webmail_plus_get_user_preferences(NULL, TRUE);
+  
+  
+  if(is_array($_SESSION['webmail_plus'])) {
+    $_SESSION['webmail_plus']=array_merge($_SESSION['webmail_plus'], $_webmail_plus_user_preferences);
+  }
+  else {
+     $_SESSION['webmail_plus']=$_webmail_plus_user_preferences;
+  }
+
+//wpd($_SESSION);
+  
+  
+  // handle preferences override
+  if($_webmail_plus_config -> presenatation_override) {
+    //echo "overriding presentation";
+    $overridable_fields=array('messages_per_page', 'notification_block_records', 'max_tags_in_dropdown', 'thread_messages');
+    foreach($overridable_fields as $id=>$field) {
+       
+       if($_webmail_plus_user_preferences[$field]) {
+         
+         $_webmail_plus_config->$field=$_webmail_plus_user_preferences[$field];
+       }
+    }   
+  }
+  
+  
+  
+  
+  if(arg(0)=='webmail_plus') {
+
+    _webmail_plus_check_connection();
+     
+    
+    // depending on authentication method show different errors
+//    if($_webmail_plus_config->authentication=='user_defined' && arg(1)!='password') {
+//    }
+//   
+       
+    // check for new messages but only if the configuration is complete
+    if ($_webmail_plus_config -> domain && $_webmail_plus_config -> password) {
+      if (arg(1)=='view_folder' || arg(1)=='view_threads') {
+        $folder = arg(2);
+        $_SESSION['webmail_plus']['active_folder']=$folder;
+      }
+    }
+
+
+  }
+  
+  
+  // update last access to inbox
+  if(arg(0)=='webmail_plus' && (arg(1)=='view_folder' || arg(1)=='view_threads') && arg(2)==$_webmail_plus_config->inbox_folder) {
+    //drupal_set_message('updating last visit to '.time());
+  	webmail_plus_set_user_preference('last_inbox_visit', time());
+  }
+  
+
+  
+  // only do this if cron is disabled
+  if(!$_SESSION['webmail_plus']['connection_disabled'] && $_webmail_plus_config -> protocol && $_webmail_plus_config -> domain && $_webmail_plus_config -> use_cron!=1) {
+     $rs = _webmail_plus_update_messages($folder);
+
+    // group messages into threads if required
+    if($_webmail_plus_config->thread_messages ) {
+      webmail_plus_update_threads($folder);
+    }
+  }   
+
+
+  // do a full mailbox sync
+  if($user->uid>0 && !$_SESSION['webmail_plus']['last_mailbox_check']) {
+    //drupal_set_message('running a full mailbox sync');
+    _webmail_plus_update_messages($folder, NULL, TRUE);  // run a full update
+    $_SESSION['webmail_plus']['last_mailbox_check']=time();
+  }
+  
+  
+}
+
+/**
+ * implementation of hook_cron()
+ * this will be used to fetch messages and expose things to solr
+ */
+function webmail_plus_cron() {
+  module_load_include('inc', 'webmail_plus', 'webmail_plus.cron');
+}
+
+require_once 'webmail_plus.cron.inc';
+
+/**
+ * Implementation of hook_menu()
+ */
+function webmail_plus_menu() {
+
+
+  $items['admin/settings/webmail_plus'] = array(
+   'title' => 'Webmail Plus',
+   'description' => 'Settings for Webmail Plus.',
+   'access arguments' => array('administer webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_admin_settings'),
+   'file' => 'webmail_plus.admin.inc',
+  );
+
+
+  $items['webmail_plus'] = array(
+   'title' => 'Webmail Plus',
+   'description' => 'Entry point into Webmail Plus',
+   'access arguments' => array('access webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_gateway'),
+   'file' => 'webmail_plus.gateway.inc',
+   'type' => MENU_CALLBACK,
+  );
+
+
+
+  $items['webmail_plus/view_folder'] = array(
+   'title' => 'Webmail Plus',
+   'description' => 'Settings for Webmail Plus.',
+   'access arguments' => array('access webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_view_folder_form'),
+   'file' => 'webmail_plus.view_folder.inc',
+   'type' => MENU_CALLBACK,
+  );
+
+
+  $items['webmail_plus/view_threads'] = array(
+   'title' => 'Webmail Plus',
+   'description' => 'View Messages by Threads.',
+   'access arguments' => array('access webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_view_threads_form'),
+   'file' => 'webmail_plus.view_threads.inc',
+   'type' => MENU_CALLBACK,
+  );
+
+  $items['webmail_plus/view_tag'] = array(
+    'title' => 'View Messages by Tags',
+    'page callback' => 'webmail_plus_view_tag',
+    'access arguments' => array('access webmail_plus'),
+    'file' => 'webmail_plus.view_tag.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['webmail_plus/manage_tags'] = array(
+    'title' => 'Manage Tags',
+    'page callback' => 'webmail_plus_manage_tags',
+    'access arguments' => array('access webmail_plus'),
+    'file' => 'webmail_plus.manage_tags.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['webmail_plus/compose'] = array(
+    'title' => 'Compose a New Message',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_compose_form'),
+    'access arguments' => array('access webmail_plus'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webmail_plus.compose.inc',
+  
+  );
+  
+  
+  $items['webmail_plus/message_view'] = array(
+    'title' => 'View Email Message',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_message_view_form'),
+    'access arguments' => array('access webmail_plus'), 
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.message_view.inc',  
+  );
+
+  
+  $items['webmail_plus/download_attachment'] = array(
+    'title' => 'Downlaod Attachment',
+    'page callback' => 'webmail_plus_download_attachment',
+    'access arguments' => array('access webmail_plus'),
+    'file' => 'webmail_plus.download_attachment.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  
+  $items['webmail_plus/message_advanced'] = array(
+    'title' => 'View Email Message',
+    'page callback' => 'webmail_plus_message_view',
+    'access arguments' => array('access webmail_plus'),
+    'file' => 'webmail_plus.message_advanced.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  
+  $items['webmail_plus/thread_view'] = array(
+    'title' => 'View Email Messages in Threads',
+    'page callback' => 'webmail_plus_thread_view',
+    'access arguments' => array('access webmail_plus'),
+    'file' => 'webmail_plus.thread_view.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+
+  $items['webmail_plus/tag_autocomplete'] = array(
+    'title' => 'Tag autocomplete',
+    'page callback' => 'webmail_plus_tag_autocomplete',
+    'access arguments' => array('access webmail_plus'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webmail_plus.tag_autocomplete.inc',
+  );
+
+  $items['webmail_plus/tag_list_autocomplete'] = array(
+    'title' => 'Tag list autocomplete',
+    'page callback' => 'webmail_plus_tag_list_autocomplete',
+    'access arguments' => array('access webmail_plus'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webmail_plus.tag_list_autocomplete.inc',
+  );
+
+  $items['webmail_plus/address_autocomplete'] = array(
+    'title' => 'All users of the site',
+    'page callback' => 'webmail_plus_address_autocomplete',
+    'access arguments' => array('access webmail_plus'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webmail_plus.address_autocomplete.inc',
+  );  
+
+  $items['user/%user/webmail_plus'] = array(
+    'title' => 'E-mail',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_presentation',1),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_presentation.inc',
+  );
+
+
+  $items['user/%user/webmail_plus/presentation'] = array(
+    'title' => 'Presentation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_presentation',1),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_presentation.inc',
+    'weight' => -10,
+  );
+
+  $items['user/%user/webmail_plus/signature'] = array(
+    'title' => 'Signature',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_signature',1),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_signature.inc',
+    'weight' => -10,
+  );
+
+  $items['user/%user/webmail_plus/filters'] = array(
+    'title' => 'Email Filters',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_filters'),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_filters.inc',
+    'weight' => -9,
+  );
+  
+  $items['user/%user/webmail_plus/filters/add'] = array(
+    'title' => 'Email Filters',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_manage_filter'),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_manage_filter.inc',
+    'weight' => -9,
+  );  
+
+  $items['user/%user/webmail_plus/filters/manage'] = array(
+    'title' => 'Email Filters',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_manage_filter'),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_manage_filter.inc',
+    'weight' => -9,
+  );
+  
+  
+  $items['user/%user/webmail_plus/password'] = array(
+    'title' => 'Email Password',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_preferences_password'),
+    'access callback' => 'user_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webmail_plus.user_preferences_password.inc',
+    'weight' => -9,
+  );
+
+  
+  $items['admin/webmail_plus/fix_weight'] = array(
+    'title' => 'Adjust module weights to ensure the module functions properly.',
+    'access arguments' => array('administer webmail_plus'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webmail_plus_fix_weight'),
+    'file' => 'webmail_plus.fix_weight.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  
+  return $items;
+}
+
+
+function webmail_plus_hook_info() {
+	//drupal_set_message('hook info called');
+ return array(
+    'webmail_plus' => array(
+      'webmail_plus' => array(
+        'insert' => array(
+          'runs when' => t('After receving a new message.'),
+        ),
+        'delete' => array(
+          'runs when' => t('After deleting a message.'),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_help()
+ */
+function webmail_plus_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#webmail_plus":
+      $output = '<p>'.  t("Provides webmail functionality for Drupal") .'</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_perm()
+ *
+ * @return unknown
+ */
+function webmail_plus_perm() {
+  return array('access webmail_plus', 'administer webmail_plus');
+}
+
+
+/**
+ * Implementation of hook_theme().
+ */
+function webmail_plus_theme() {
+  return array(
+    'webmail_plus_folder' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_messages_by_tag' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_view_folder_form' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_view_tag_form' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_view_threads_form' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_message_view_form' => array(
+      'arguments' => array('form' => array()),
+    ),
+  
+    'webmail_plus_thread_view' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_user_tag_cloud' => array(
+      'arguments' => array('form' => array()),
+    ),
+
+    'webmail_plus_basic_controls' => array(
+      'arguments' => array('form' => array()),
+    ),
+    
+    'webmail_plus_preferences_filters' => array(
+      'arguments' => array('form' => array()),
+    ),
+    
+    
+  );
+}
+
+
+
+
+/*
+ * 
+ */
+function webmail_plus_page_node_form_alter(&$form, &$form_state) {
+  //drupal_set_message('webmail_plus_page_node_form_alter');
+  $form['attachments']['#collapsed']=0;
+  $form_attach = _file_attach_form($object);
+  $form['attachments']['wrapper']['files'] = array_merge($form['attachments']['wrapper']['files'] , $form_attach['files']);
+  
+}
+
+
+function webmail_plus_user_profile_form_form_alter(&$form, &$form_state) {
+  $form['#submit'][] = 'webmail_plus_user_update_submit';
+}
+
+
+/**
+ * this gets trigged when a user is changing the password
+ *
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ * @param unknown_type $form_id
+ * @return unknown
+ */
+function webmail_plus_form_alter(&$form, $form_state, $form_id) {
+  global $user, $_webmail_plus_config;
+
+ 
+  //drupal_set_message($form_id);
+  
+  if($form_id=='user_login_block') {
+    $form['#submit'][] = 'webmail_plus_user_update_submit'; 
+  }
+  
+  // handle publishing of nodes, load this only if neccessary
+  if(arg(0)=='node' && arg(1)=='add' && arg(3)=='webmail_plus') {
+    
+    //wpd($form);
+    
+    
+    $form['#submit'][] = 'webmail_plus_publish_node_attachments';
+    // form id page_node_form
+  	require_once 'webmail_plus.publish_node.inc';
+  }
+
+}
+
+/**
+ * this handles publishing of attachments
+ *
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ */
+function webmail_plus_publish_node_attachments($form, &$form_state) {
+  global $user, $_webmail_config, $_webmail_plus_connection, $_webmail_plus_user_preferences;
+  
+
+  
+  foreach($form_state['values'] as $key=>$value) {
+    if(is_array($value)) continue; // skip arrays
+    
+    //echo $key."<br>\n";
+    if(preg_match("/webmail_plus_message_key/", $key)) {
+      $message_key = $value;
+      continue;
+    }
+    
+    if(preg_match("/webmail_plus_attachment_.*/", $key)) {
+      if($value==1) {
+        preg_match("/webmail_plus_attachment_([0-9]{1,5})/", $key, $matches);
+        $attachments_to_publish[$matches[1]]=1; 
+      }
+    }
+  }
+  
+  //wpd($attachments);
+  
+  // no reason to continue if no attachments were selected
+  if(sizeof($attachments_to_publish)<=0) return FALSE;
+  
+  // create the user directory 
+  $user_directory = file_directory_path().'/webmail_plus/'.$user->uid;
+  _webmail_plus_create_directory($user_directory);
+  
+  
+  // connect to mail api
+  $message_parts = webmail_plus_parse_key($message_key);
+  $mail_api_connection = _webmail_plus_connect($message_parts->folder);
+  
+  // find the node 
+  //$node_info = webmail_plus_find_node($form_state['values']['title'], $form_state['values']['type']);
+
+  
+  $message_attachments = mail_api_get_attachment_files($message_parts->message_uid);
+  
+  //wpd($message_attachments);
+
+  
+  // download all attachments
+  if(is_array($message_attachments)) {
+    foreach($message_attachments as $index=>$attachment_info) {
+      
+      if(!$attachments_to_publish[$index]) continue;
+
+      $part_body = mail_api_get_part($message_parts->message_uid, $attachment_info['part_number']);
+      $rs = file_put_contents($user_directory.'/'.$attachment_info['file'], $part_body);
+      $node = webmail_plus_create_file($attachment_info['file'], array(), $user_directory.'/'.$attachment_info['file']);
+    }
+  }
+  // now publish these files as file framework nodes
+}
+
+
+
+
+// add file framework publishing
+function webmail_plus_create_file($name, $options, $filepath) {
+  global $user;
+
+  // Ensure the user has privileges to create nodes of this type. This is
+  // the last chance for access controls to fail, unless some node module
+  // does weird things in hook_validate(), hook_submit() or hook_save().
+  if (!user_access('create file content'))
+    return STATUS_403; // Forbidden
+
+  // manually create an upload object, saving conversions for the cron step
+  $upload = (object)array(
+    'filename'  => $name,
+    'filepath'  => $filepath,
+    'filemime'  => $options['content_type'],
+    'filesize'  => filesize($filepath),
+    'noconvert' => TRUE,
+  );
+
+  // according to FileFramework API, make it 'nosave'
+  $node = (object)array(
+    'nosave' => TRUE,
+  );
+
+  // save into Bitcache and RDF
+  if (file_node_save($node, $upload)) {
+    // Organic group vocabularies (og_vocab.module) integration: implicit
+    // audience selection if the currently-selected taxonomy category is
+    // related to an organic group.
+    /*
+    $og_groups = array();
+    if (module_exists('og_vocab')) {
+      if ($term = taxonomy_get_term($tid)) {
+        if ($og_group = db_result(db_query('SELECT nid FROM {og_vocab} WHERE vid = %d', $term->vid))) {
+          $og_groups[$og_group] = (string)$og_group;
+        }
+      }
+    }
+    */
+  	
+    // actually create the file node
+    /*
+    $node = file_node_create(array(
+      'file'      => $node->file,
+      'taxonomy'  => array($tid),
+      'og_groups' => $og_groups,
+    ));
+    */
+
+    $node = file_node_create(array(
+      'file'      => $node->file
+    ));
+    
+    
+
+    return (bool)$node;
+  }
+
+  return FALSE; // Something must've gone wrong
+}
+
+/**
+ * fetches the records
+ *
+ * @param unknown_type $title
+ * @return unknown
+ */
+function webmail_plus_find_node($title,$type) {
+  global $user;
+  
+  return db_fetch_object(db_query("SELECT * FROM {node} WHERE type='%s' AND uid=%d AND title='%s' ORDER BY nid DESC LIMIT 1", $type, $user->uid, $title));
+}
+
+/**
+ * inserts data into file_attachments table to link the file to the node
+ *
+ * @param unknown_type $fnid
+ * @param unknown_type $nid
+ * @param unknown_type $vid
+ * @param unknown_type $cid
+ * @param unknown_type $list
+ */
+function webmail_link_file_to_node($fnid,$nid,$vid,$cid=0,$list=1,$weight=1) {
+  $rs = db_query("INSERT INTO {file_attachments}(fnid,nid,vid,cid,list,weight) VALUES(%d, %d, %d, %d, %d, %d)", $fnid, $nid, $vid, $cid, $list, $weight);
+  return $rs;
+}
+
+/**
+ * this function gets called by webmail_plus_form_alter to update the user password
+ *
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ */
+
+// FIXME update_submit
+function webmail_plus_user_update_submit($form, &$form_state) {
+  global $user, $_webmail_plus_config;
+  
+  //drupal_set_message('webmail_plus_user_update_submit was called');
+  
+  //wpd($form_state['values']);
+
+  if($_webmail_plus_config->authentication!='user_defined') {
+  
+    if($_webmail_plus_config->debug) watchdog('webmail_plus', 'User %username changed the password to %password', array('%username' => $user->name, '%password' => $form_state['values']['pass']), WATCHDOG_NOTICE);
+    
+    webmail_plus_set_user_password($form_state['values']['pass']);
+    $_webmail_plus_config -> password = $form_state['values']['pass'];
+    unset($_SESSION['webmail_plus']['connection_disabled']);
+  }
+  else {
+	 if($_webmail_plus_config->debug) watchdog('webmail_plus', 'User %username changed the password. Webmail password not changed since it is user defined.', array('%username' => $user->name), WATCHDOG_NOTICE);
+  }
+
+}
+
+
+/**
+ * Implementation of hook_block()
+ */
+
+function webmail_plus_block($op = 'list', $delta = 0, $edit = array()) {
+  global $user;
+
+  $new_messages = webmail_plus_folder_stats('INBOX', 'seen', 0);
+
+  if((string)$new_messages=="" || $new_messages<=0) $new_messages=0;
+
+  //drupal_set_message('block op is '.$op);
+
+  // FIXME shouldnt connect to anything in admin mode
+  if ($op == 'configure') {
+    return;
+  }
+
+  if ($op == 'list' ) {
+
+    // tags block
+    $blocks[0]['info'] = t('Email Tags');
+    $blocks[0]['cache'] = BLOCK_NO_CACHE;
+
+    // folders block
+    $blocks[1]['info'] = t('Email Folders');
+    $blocks[1]['cache'] = BLOCK_NO_CACHE;
+
+    // new message notifications
+    $blocks[2]['info'] = t('New messages');
+    $blocks[2]['cache'] = BLOCK_NO_CACHE;
+
+    // basic controls
+    $blocks[3]['info'] = t('Email Controls');
+    $blocks[3]['cache'] = BLOCK_NO_CACHE;
+
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $block = array();
+
+    //drupal_set_message('showing block '.$delta);
+
+    switch ($delta) {
+      case 0:
+        // For usability's sake, avoid showing two login forms on one page.
+        if ($user->uid ) {
+          //drupal_set_message('showing email tags block');
+
+          $block['subject'] = t('Tags');
+          $block['content'] = drupal_get_form('webmail_plus_user_tag_cloud');
+        }
+        return $block;
+
+      case 1:
+        if ($user->uid ) {
+          //drupal_set_message('showing email tags block');
+
+          $block['subject'] = t('Folders');
+          $block['content'] = drupal_get_form('webmail_plus_user_folders');
+        }
+        return $block;
+
+
+      case 2:
+        if ($user->uid ) {
+        	
+				  // decide which style to use
+				  $user_preferences =  webmail_plus_get_user_preferences($user->uid);
+				  $newest_message = db_result(db_query("SELECT MAX(`date`) FROM {webmail_plus_user_headers} WHERE seen=0 AND folder='INBOX' AND uid=%d", $user->uid));
+				
+				  if($newest_message > $user_preferences->last_inbox_visit) {
+				    //$class="new_messages";
+            $block['subject'] = "<span class='webmail_plus_new_messages'>".t('Email (!new_messages)', array('!new_messages' => $new_messages ))."</span>";
+				  }
+				  else {
+				  	$block['subject'] = "<span class='webmail_plus_no_new_messages'>".t('Email (!new_messages)', array('!new_messages' => $new_messages ))."</span>";
+				  	
+				  }
+        	
+  
+          //$block['subject'] = "<span class='webmail_plus_new_messages'>".t('Email (!new_messages)', array('!new_messages' => $new_messages ))."</span>";
+          //$block['content'] = drupal_get_form('webmail_plus_new_messages');
+          $block['content'] = webmail_plus_new_messages();
+          
+        }
+        return $block;
+
+      case 3:
+        if ($user->uid ) {
+          //drupal_set_message('showing email controls');
+
+          $block['subject'] = t('Email');
+          $block['content'] = drupal_get_form('webmail_plus_basic_controls');
+        }
+        return $block;
+
+    }
+
+  }
+}
+
+/**
+ * creates a block with all user tags listed
+ *
+ * @return unknown
+ */
+function webmail_plus_user_tag_cloud() {
+
+
+  // display an error if a connection isnt available
+  if($_SESSION['webmail_plus']['connection_disabled']) {
+    $form['tag_cound'] = array(
+  	  '#value' => t('This function is not available')
+    );
+    
+    return $form;
+  }
+
+  global $user;
+  require_once 'webmail_plus.tag_functions.inc';
+  $tags = webmail_plus_get_user_tags();
+
+
+  /*
+   $form['tag_search'] = array(
+   '#type' => 'fieldset',
+   '#title' => t('Tag Search'),
+   );
+   */
+  if(sizeof($tags)>0) {
+    $form['search_box'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Tag'),
+      '#size' => 8,
+      '#maxlength' => 25,
+      '#autocomplete_path' => 'webmail_plus/tag_autocomplete',
+      '#default_value' => '',
+      '#weight' => -1,
+      '#prefix' => '<div class="container-inline">',
+    );
+
+    $form['search_button'] = array(
+      '#type' => 'submit',
+      '#value' => t('Ok'),
+      '#suffix' => '</div><br>'
+    );
+  }
+
+
+    // show all tags
+    if (sizeof($tags)>0) {
+      foreach ($tags as $id => $tag) {
+        $tag=trim($tag);
+        if ($tag=="") continue;
+
+        $form['user_tags']['tags'][$id] = array(
+        '#value' => l($tag, 'webmail_plus/view_tag/'. $tag),
+        '#suffix' => '<br>',
+        );
+      }
+    }
+    else {
+      $form['user_tags']['tags'] = array(
+      '#value' => t('No tags yet.')
+      );
+    }
+
+
+
+    return $form;
+
+}
+
+function theme_webmail_plus_user_tag_cloud($form) {
+  $content = drupal_render($form);
+  return $content;
+}
+
+
+
+/**
+ * does a simple redirect to the search by tag
+ *
+ * @param unknown_type $form
+ * @param unknown_type $form_state
+ * @return unknown
+ */
+function webmail_plus_user_tag_cloud_submit($form, &$form_state) {
+  //print_r($form_state);
+
+  $form_state['redirect']='webmail_plus/view_tag/'. $form_state['values']['search_box'];
+  return $form_state;
+}
+
+
+
+// FIXME folder block
+/**
+ * show a list of email folders
+ *
+ * @return unknown
+ */
+function webmail_plus_user_folders() {
+  global $user, $_webmail_plus_config;
+  
+  require_once "webmail_plus.functions.inc";
+
+  if($_SESSION['webmail_plus']['connection_disabled']) {
+    $form['email_folders']['error'] = array(
+      '#value' => t('No folders found'),
+    );
+    return $form;
+  }
+
+
+
+  /*
+  $mail_api_connection = mail_api_connect($_webmail_plus_config->domain, $user->name, $_webmail_plus_config->password, "", $_webmail_plus_config->options);
+
+
+  $mailboxes_raw = mail_api_mailboxes();
+  $mailboxes = __webmail_plus_resolve_folder_list($mailboxes_raw);
+  */
+  $mailboxes = _webmail_plus_get_user_folders();
+
+  $mailboxes = _webmail_plus_order_folders($mailboxes);
+  
+  $form['email_folders'] = array(
+    '#type' => 'item',
+    '#prefix' => '<ul>',
+    '#suffix' => '</ul>'
+  );
+
+  if(is_array($mailboxes)) {
+    foreach ($mailboxes as $index => $object) {
+   
+      
+      if($_webmail_plus_config->thread_messages) {
+        $form['email_folders'][] = array(
+          '#value' => l($object, 'webmail_plus/view_threads/'. $index),
+          '#prefix' => '<li>',
+          '#suffix' => '</li>',
+        );
+      }
+      else {
+        $unread_count = _webmail_plus_get_header_count($object, 'seen', 0);
+        if($unread_count>0) {
+          $class='webmail_plus_unread_folder';
+        }
+        else {
+          $class='webmail_plus_read_folder';
+        }
+        
+        if($unread_count>0) {
+          $value = l($object.' ('.$unread_count.')', 'webmail_plus/view_folder/'. $index);
+          
+        }
+        else {
+          $value = l($object, 'webmail_plus/view_folder/'. $index);
+        }
+        
+        $form['email_folders'][] = array(
+          '#value' => $value,
+          '#prefix' => "<li><span class='".$class."'>",
+          '#suffix' => '</span></li>',
+        );
+      }
+    }
+  }
+
+  return $form;
+}
+
+function theme_webmail_plus_user_folders($form) {
+  $content = drupal_render($form);
+  return $content;
+}
+
+/**
+ * shows the current message count
+ *
+ * @return unknown
+ */
+function webmail_plus_new_messages() {
+  
+  global $user, $_webmail_plus_config;
+
+  require_once "webmail_plus.functions.inc";
+
+  //drupal_set_message($newest_message);
+  
+  
+  $new_messages = db_query("SELECT `from`, `subject`, `date`, `message_uid`, `attachments`, CONCAT(%d, '!', 'INBOX', '@', `message_uid`) AS message_key FROM {webmail_plus_user_headers} WHERE seen=0 AND folder='INBOX' AND uid=%d ORDER BY `date` DESC LIMIT %d", $user->uid, $user->uid, $_webmail_plus_config->notification_block_records);
+
+  //$html_body .= "<li><a class='webmail_plus_notification_subject' href='".base_path()."webmail_plus/gateway'><span>".t('Open Inbox')."</span></a></li>";
+  $html_body .= '<li>'.l(t('Open Inbox'), 'webmail_plus/gateway', array('attributes' => array('class' => 'webmail_plus_notification_subject'))).'</li>';
+  
+  //$html_body .= "<li><a class='webmail_plus_notification_subject' href='".base_path()."webmail_plus/compose'><span>".t('New Message')."</span></a></li>";
+  $html_body .= '<li>'.l(t('New Message'), 'webmail_plus/compose', array('attributes' => array('class' => 'webmail_plus_notification_subject'))).'</li>';
+  
+  
+  while($record = db_fetch_object($new_messages)) {
+  	$message_count++;
+  	if($record->attachments>0) {
+     //$html_body.= "<li><a class='webmail_plus_notification_subject attachments' href='".base_path()."webmail_plus/message_view/".$user->uid."!INBOX@".$record->message_uid."'><span>"._webmail_plus_render_subject($record->subject)."</span></a>";
+     $html_body.= '<li>'.l(_webmail_plus_render_subject($record->subject), 'webmail_plus/message_view/'.$record->message_key, array('attributes' => array('class' => 'webmail_plus_notification_subject attachments'))).'</li>';
+     
+  	}
+  	else {
+  	 //$html_body.= "<li><a class='webmail_plus_notification_subject' href='".base_path()."webmail_plus/message_view/".$user->uid."!INBOX@".$record->message_uid."'><span>"._webmail_plus_render_subject($record->subject)."</span></a>";
+  	 $html_body.="<li>".l(_webmail_plus_render_subject($record->subject), 'webmail_plus/message_view/'.$record->message_key, array('attributes' => array('class' => 'webmail_plus_notification_subject')))."</li>";
+  	}
+  	//$html_body.= "<span class='webmail_plus_notification_extra'>From "._webmail_plus_extract_name($record->from)." about ".webmail_plus_seconds_to_human(time()-$record->date)." ago</span></li>";
+
+    $html_body.= "<span class='webmail_plus_notification_extra'>".t('From %sender about %ago ago.', array('%sender'=>_webmail_plus_extract_name($record->from), '%ago'=>webmail_plus_seconds_to_human(time()-$record->date))).'</span>';
+  }
+
+  //$html_body .= "<li><a class='webmail_plus_notification_subject' href='".base_path()."webmail_plus/gateway/INBOX'>".t('Go to Inbox')."</li>";
+  
+  
+  //echo "message count: $message_count<br>\n";
+  
+  if($message_count<=0) { 
+  	$html_body .= "<li><span>".t('No new messages')."</span></li>";
+  }
+  
+  
+  $html_start = "<ul>";
+  $html_end = "</ul>";
+  $full_html = $html_start.$html_body.$html_end;
+  return $full_html;
+  
+}
+
+
+
+
+function webmail_plus_basic_controls() {
+
+  //drupal_set_message('showing basic controls');
+
+  // return an error if a connection isn't available
+  if($_SESSION['webmail_plus']['connection_disabled']) {
+    $form['email_controls']['compose'] = array(
+      '#value' => t('This function is not available')
+    );
+    return $form;
+  }
+  
+  $form['email_controls'] = array(
+    '#type' => 'item',
+    '#prefix' => '<ul>',
+    '#suffix' => '</ul>'
+  );  
+
+  $form['email_controls']['compose'] = array(
+    '#value' => l(t('New Message'), 'webmail_plus/compose'),
+     '#prefix' => '<li>',
+     '#suffix' => '</li>',
+  );
+
+  return $form;
+}
+
+
+function theme_webmail_plus_basic_controls($form) {
+  $content = drupal_render($form);
+  //echo $content;
+  return $content;
+}
+
+
+
+
+
+/**
+ * returns personal preferences for the user
+ *
+ * @param unknown_type $uid
+ * @return unknown
+ */
+function webmail_plus_get_user_preferences($uid="", $array=FALSE) {
+  global $user;
+
+  if($user->uid==0) return false;
+  if ($uid=="") $uid=$user->uid;
+  $preferences = db_query('SELECT `variable`,`value` FROM {webmail_plus_user_preferences} WHERE uid=%d', $uid);
+
+  while($preference = db_fetch_object($preferences)) {
+    $rs[$preference->variable]=$preference->value;
+  }
+
+  if($array) return $rs;
+  
+  return webmail_array_to_object($rs);
+}
+
+/**
+ * takes an key-value pair array and turns it into an object
+ *
+ * @param unknown_type $array
+ * @return unknown
+ */
+function webmail_array_to_object($array) {
+
+  $rs = new stdClass();
+  if(sizeof($array)<=0) return $rs;
+
+  foreach($array as $key=>$value) {
+    $rs -> $key = $value;
+  }
+
+  return $rs;
+}
+
+
+/**
+ * sets a user preference variable
+ *
+ * @param unknown_type $variable
+ * @param unknown_type $value
+ * @return unknown
+ */
+function webmail_plus_set_user_preference($variable, $value) {
+  global $user;
+
+  $variable=trim($variable);
+  $value=trim($value);
+
+  if($variable=="" || $value=="") return true;
+
+
+
+  // figure out if the variable was already set
+  //$count = db_result(db_query("SELECT COUNT(*) AS matches FROM {webmail_plus_user_preferences} WHERE uid=%d AND variable='%s'", $user->uid, $variable));
+
+  $count = db_result(db_query("SELECT COUNT(*) AS matches FROM {webmail_plus_user_preferences} WHERE uid=%d AND variable='%s' LIMIT 1", $user->uid, $variable));
+
+  //drupal_set_message('count is '.$count);
+  //drupal_set_message('updating '.$variable.' to '.$value.' for '.$user->name);
+
+  if($count==0) {
+    db_query("INSERT INTO {webmail_plus_user_preferences}(uid, `variable`, `value`) VALUES(%d, '%s', '%s')", $user->uid, $variable, $value);
+  }
+  else {
+    db_query("UPDATE {webmail_plus_user_preferences} SET value='%s' WHERE variable='%s' AND uid=%d", $value, $variable, $user->uid);
+  }
+
+
+  //return true;
+}
+
+/**
+ * removes a user preference variable
+ *
+ * @param unknown_type $variable
+ * @return unknown
+ */
+function webmail_plus_remode_user_preference($variable) {
+  global $user;
+  $variable = trim(strtolower($variable));
+  if($variable=="") return true;
+  db_query("DELETE FROM {webmail_plus_user_preferences} WHERE uid=%d AND variable='%s'", $user->uid, $variable);
+  return true;
+}
+
+
+
+/**
+ * establishes a connection to mail api
+ */
+function _webmail_plus_connect($folder="", $user=NULL) {
+  global $_webmail_plus_config, $_webmail_plus_connection;
+  if(!$user) global $user;
+  
+  
+  
+  // do not even bother for anonymous users
+  if ($user->uid<=0) {
+    if($_webmail_plus_config->debug) watchdog('webmail_plus', 'Asked to connect to the mail store but refusing due to anonymous user.', array());
+  	return FALSE;
+  }
+  
+  //if($_SESSION['webmail_plus']['connection_disabled']) return FALSE;
+
+  if($_webmail_plus_config->current_folder!="" && $_webmail_plus_config->current_folder == $folder) {
+    if($_webmail_plus_config->debug) watchdog('webmail_plus', 'Asked to connect to the mail store but skipping since already connected.', array());
+    return TRUE;
+  }
+
+
+
+
+
+  $user_password = _webmail_plus_get_user_password($user);
+  
+  
+  $_webmail_plus_connection = mail_api_connect($_webmail_plus_config->domain, $user->name, $user_password, $folder);
+
+  
+  /*
+  if($_webmail_plus_connection) {
+    $status="success";
+  }
+  else {
+    $status="failure";
+  }
+  
+  drupal_set_message("attempted to connect with $user->name/$user_password and got $status");
+  */
+
+  //  echo "connecting to imap...<br>\n";
+//  echo "domain: $_webmail_plus_config->domain<br>\n";
+//  echo "user: $user->name<br>\n";
+//  echo "password: $user_password<br>\n";
+  
+
+
+  // set the disabled connection flag to prevent duplicate connections
+  if(!$_webmail_plus_connection) {
+    if($_webmail_plus_config->debug) watchdog('webmail_plus', 'Could not connect to the mail store.', array());
+  
+    $_SESSION['webmail_plus']['connection_disabled']=TRUE;
+    return FALSE;
+  }
+  else {
+    unset($_SESSION['webmail_plus']['connection_disabled']);
+  }
+
+  //drupal_set_message('mail_api is connected');
+
+  $_webmail_plus_config->current_folder=$folder;
+
+  //drupal_set_message($_webmail_plus_config->current_folder);
+
+  if($_webmail_plus_config->debug) watchdog('webmail_plus', 'Connected to mail store folder %folder.', array('%folder'=>$folder));
+
+
+  return TRUE;
+}
+/*
+ * connects to the mail_api connection and fetches messages
+ */
+function _webmail_plus_update_messages($folder="", $user=NULL, $full=FALSE) {
+  if(!$user) global $user;
+
+
+  global $_webmail_plus_config, $_webmail_plus_connection;
+  
+  
+
+  
+  // do not try connecting if the connection is blocked
+  if($_SESSION['webmail_plus']['connection_disabled']) return FALSE;
+
+  
+  if ($folder=="") $folder="INBOX";
+
+  //drupal_set_message('updating messages for '.$folder);
+
+  
+  $messages = db_fetch_object(db_query("SELECT COUNT(*) AS count FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s'", $user->uid, $folder));
+  $message_count = $messages->count;
+  
+  
+  
+  $mail_api_connection = _webmail_plus_connect($folder, $user);
+  
+  // check if there are any recent messages, if they aren't don't do anything
+  
+  // denis
+  $status = mail_api_status(NULL, SA_ALL);
+  //wpd($status);
+  
+  //echo _webmail_plus_message_count($user, $folder);
+  
+
+  
+  
+  // if message count matches and it's not a full update, we're done here
+  if(!$full && $status->messages==_webmail_plus_message_count(NULL, $folder)) return;
+  
+  
+  //drupal_set_message('here');
+ 
+  
+  //if(!$mail_api_connection) return;
+  
+  $overview = mail_api_overview();
+
+
+
+  
+  if (is_array($overview)) {
+    
+    require_once "webmail_plus.filter_functions.inc";
+    $user_filters = _webmail_plus_get_filters();
+
+    
+    $folder_uids=array();
+    foreach ($overview as $index => $header) {
+
+      $folder_uids[]=$header->uid;
+      
+      if(_webmail_plus_message_exists($user, $folder, $header->uid)) continue;
+     
+      //print_r($header);
+      $header_raw = mail_api_header($header->uid);
+      //$header_array = webmail_plus_parse_header($header_raw, TRUE);
+      $header_serialized = serialize($header_raw);
+
+      $attachment_overview = mail_api_get_attachment_files($header -> uid);
+      //wpd($attachment_overview);
+	  if(is_array($attachment_overview)) {
+      	$attachment_count = sizeof(mail_api_get_attachment_files($header -> uid));
+	  }
+	  else {
+	  	$attachment_count = 0;
+	  }
+      
+	  // create a message teaser
+	  // fetch the body of the message
+	  // replace all CR and grab the first 128 characters
+	  $body = mail_api_get_plaintext($header -> uid);
+      $teaser = substr(preg_replace("/\n/", " ", $body), 0, 128);
+    
+      db_query("INSERT INTO {webmail_plus_user_headers}
+        	(`uid`, `folder`,`message_key`, `subject`, `from`, `to`, `cc`, `date`, `message_id`, `size`, `message_uid`, `msgno`, `recent`, `flagged`, `answered`, `deleted`, `seen`, `draft`, `header`, `teaser`, `attachments`)
+
+        	VALUES(%d, '%s', '%s', '%s', '%s', '%s', '%s', %d, '%s', %d, '%s', '%s', %d, %d, %d, %d, %d, %d, '%s', '%s', %d)",
+      $user -> uid,
+      $folder,
+      $user -> uid.'!'.$folder.'@'.$header->uid,
+      $header -> subject,
+      $header -> from,
+      $header -> to,
+      $header -> cc,
+      strtotime($header -> date),
+      $header -> message_id,
+      $header -> size,
+      $header -> uid,
+      $header -> msgno,
+      $header -> recent,
+      $header -> flagged,
+      $header -> answered,
+      $header -> deleted,
+      $header -> seen,
+      $header -> draft,
+      $header_serialized, 
+      $teaser,
+      $attachment_count
+
+      );
+
+
+      // create an object to pass to the hook
+      $new_message_object = new stdClass;
+      $new_message_object -> uid = $user -> uid;
+      $new_message_object -> folder = $folder;
+      $new_message_object -> message_uid = $header -> uid;
+      $new_message_object -> message_key = $user -> uid.'!'.$folder.'@'.$header->uid;
+      $new_message_object -> subject = $header -> subject;
+      $new_message_object -> from = $header -> from;
+      $new_message_object -> to = $header -> to;
+      $new_message_object -> date = $header -> date;
+      $new_message_object -> teaser = $teaser;
+      $new_message_object -> attachments = $attachment_count;
+      
+      
+      //webmail_plus_new_message($new_message_object);
+      
+      // fire a hook
+      module_invoke_all('webmail_plus_new_message', $new_message_object);
+      
+      // adding the body later since we don't want to expose it in the call but we need it for the filter
+      $new_message_object -> body = $body;
+            
+      //webmail_plus_insert($new_messge_object);
+      /*
+       $theads[webmail_plus_trim_subject($header -> subject)]['subject']=webmail_plus_trim_subject($header -> subject);
+       $theads[webmail_plus_trim_subject($header -> subject)]['authors'][$header -> from]=$header -> from;
+       $theads[webmail_plus_trim_subject($header -> subject)]['authors'][$header -> to]=$header -> to;
+       $theads[webmail_plus_trim_subject($header -> subject)]['authors'][$header -> cc]=$header -> cc;
+       */
+
+      // apply message filters to the message
+      if($user_filters && $folder==mail_api_inbox_path($_webmail_plus_config->domain)) {
+        foreach($user_filters as $filter_id=>$filter) {
+          
+          if(_webmail_plus_filter_applied($user, $header->message_id)) continue;
+          
+          if(_webmail_plus_matches_filter($new_message_object, $filter))  {
+            _webmail_plus_apply_filter($new_message_object, $filter);
+            _webmail_plus_log_filter($user, $header->message_id, $filter->id);
+            //echo "<p>the message matched a filter<br>\n";
+          }
+        }
+      }
+    }
+    
+    // remove messages that weren't found in the oveview
+    
+    $uid_list= implode(",",$folder_uids);
+    if($uid_list) {
+      db_query("DELETE FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s' AND message_uid NOT IN(%s)", $user->uid, $folder, $uid_list);
+      
+      // invoke delete_message hook
+      foreach($folder_uids as $id=>$uid) {
+
+        $delete_message = new stdClass;
+        $delete_message -> uid = $user->uid;
+        $delete_message -> message_key=$uid;
+        
+        module_invoke_all('webmail_plus_delete_message', $delete_message);
+        
+      }
+      
+    }
+    else {
+      db_query("DELETE FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s'",$user->uid, $folder);
+    }
+  }
+
+
+  //print_r($theads);
+}
+
+/**
+ * removes all Re (as in-reply) from the subject
+ */
+function webmail_plus_trim_subject($subject) {
+  if(strpos($subject, ":")<=0) {
+    return $subject;
+  }
+
+  list($re, $subj) = split(":", $subject, 1);
+  return $subj;
+}
+
+function webmail_plus_dump($data) {
+  echo "<pre>\n";
+  print_r($data);
+  echo "</pre>\n";
+}
+
+/**
+ * takes a header array and extracts all references
+ *
+ * @param unknown_type $header
+ * @return unknown
+ */
+function webmail_plus_extract_references($header) {
+  if(!is_array($header)) {
+    $header = webmail_plus_parse_header($header, TRUE);
+  }
+
+  if(sizeof($header)<=0) return FALSE;
+
+  // FIXME this assumes that every message has a message-id
+  $message_id = $header['message-id'];
+  //echo "message_id: $message_id\n";
+  $all_message_ids[$message_id] = $message_id;
+
+  if($header['references']) {
+
+    $references = explode(" ", $header['references']);
+    foreach($references as $reference_id=>$reference) {
+      $reference = trim($reference);
+      //echo "refecence: $reference\n";
+      if($reference=="") continue;
+      $all_message_ids[$reference] = $reference;
+    }
+
+  }
+
+
+  if($header['in-reply-to']) {
+    $inreplytos = explode(" ", $header['in-reply-to']);
+    foreach($inreplytos as $inreplyto_id=>$inreplyto) {
+      $inreplyto = trim($inreplyto);
+      if($inreplyto=="") continue;
+      $all_message_ids[$inreplyto] = $inreplyto;
+    }
+  }
+
+  return $all_message_ids;
+
+}
+
+/*
+ * takes a message header as a string and returns an array
+ */
+function webmail_plus_parse_header($header, $lowercase=FALSE) {
+
+  $lines = explode("\n", $header);
+
+
+
+  foreach($lines as $id=>$line) {
+
+    // skip empty lines
+    if(trim($line)=="") continue;
+
+
+    if(preg_match("/\t/", $line)) {
+      //echo "tab found\n";
+      $rs[$key] .= "\n".trim($line);
+      continue;
+    }
+
+
+
+    list($key,$value) = split(":", $line, 2);
+    $key=trim($key);
+
+    if($lowercase) $key=strtolower($key);
+
+    // do not add anything if the key is blank
+    if($key=="") continue;
+
+    $rs[$key]=htmlentities(trim($value));
+  }
+
+  return $rs;
+}
+
+function webmail_plus_update_threads($folder="") {
+
+  //drupal_set_message('grouping messages into threads');
+
+  global $user, $_webmail_plus_config, $_webmail_plus_connection;
+  require_once "webmail_plus.functions.inc";
+
+  // truncate the tables
+
+  //drupal_set_message("uid: $user->uid folder $folder");
+  $result = db_query("SELECT * FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s'", $user->uid, $folder);
+
+
+  while($record = db_fetch_object($result)) {
+    //wpd($record);
+    
+    $header = (unserialize($record->header));
+
+    $references = webmail_plus_extract_references($header);
+
+    // create a map array
+    unset($this_thread);
+    foreach($references as $reference=>$junk) {
+
+      // see if this email already belongs to a thread
+      if($reference_to_thread_map[$reference]) {
+        $this_thread = $reference_to_thread_map[$reference];
+        break;
+      }
+
+    }
+
+    // if the message wasn't referenced, create a thread for it
+    if(!$this_thread) {
+      $this_thread = sizeof($reference_to_thread_map)+1;
+      //echo "$index wasn't found so we created $this_thread\n";
+    }
+
+    //echo "this thread: $this_thread\n";
+
+    foreach($references as $reference=>$junk) {
+
+      // this reference is already mapped
+      if($reference_to_thread_map[$reference]) continue;
+
+      $reference_to_thread_map[$reference]=$this_thread;
+
+
+      // this is used for reference
+      $thread_to_reference_map[$this_thread][]=$reference;
+
+
+      // add a header in form of an object
+      $thread_email[$this_thread][]=$record;
+
+    }
+
+
+  }
+
+
+
+  db_query("DELETE FROM {webmail_plus_user_threads} WHERE uid=%d AND folder='%s'", $user->uid, $folder);
+  db_query("DELETE FROM {webmail_plus_user_threads_map} WHERE uid=%d AND folder='%s'", $user->uid, $folder);
+
+
+  if(sizeof($thread_email)<=0) return;
+
+  // now insert this all into the tables
+  foreach($thread_email as $thread_id=>$thread_emails) {
+
+    //echo "thread $thread_id<br>";
+
+    $min_message_time = 2147483647; // max 32 bit unix time, good till 2038
+    $max_message_time = 0; // well d'oh
+    $from_names = array();
+
+    $thread_seen=1;
+
+    foreach($thread_emails as $email_id=>$email_header) {
+
+      //print_r($email_header);
+      // if at least 1 message in the tread is unread, the whole thread is unread
+      if($email_header->seen==0) $thread_seen=0;
+
+      //print_r($email_header);
+
+
+      //drupal_set_message('thread seen is '.$thread_seen);
+
+      //drupal_set_message('inserting '.$thread_id.'/'.$user->uid.'/'.$folder.'/'.$email_header->uid);
+      // map the message to a thread
+      db_query("INSERT INTO {webmail_plus_user_threads_map}(tid,uid,folder,message_uid) VALUES(%d, %d, '%s', %d)", $thread_id, $user->uid, $folder, $email_header->message_uid);
+
+
+      // collect all names
+      $from_name=trim(_webmail_plus_extract_name($email_header->from));
+      //echo "got $from_name<br>";
+
+      $from_names[$from_name]=$from_name;
+
+      // track the earliest message in the thread
+      //$email_time = strtotime($email_header->date);
+      $email_time = $email_header->date;
+
+      if($email_time<$min_message_time) {
+        $min_message_time = $email_time;
+        $min_message_uid = $email_header->uid;
+        $min_message_from = $email_header->from;
+        $min_message_subject = $email_header->subject;
+      }
+
+      // track the oldest message, since we need to sort by it
+      if($email_time>$max_message_time) {
+        $max_message_time = $email_time;
+      }
+
+    }
+
+    //drupal_set_message($max_message_time);
+
+
+    // FIXME these arent set yet, need to figure this out
+    $thread_recent = 0;
+    $thread_flagged = 0;
+    $thread_answered = 0;
+    $thread_deleted = 0;
+    //$thread_seen = 0;
+    $thread_draft = 0;
+
+
+    //print_r($from_names);
+
+    $from_list = implode(", ", $from_names);
+
+    // insert a message into a thread
+    db_query("INSERT INTO {webmail_plus_user_threads}(`tid`, `uid`, `folder`, `from`, `subject`, `date`, `attachments`, `message_count`, `recent`, `flagged`, `answered`, `deleted`, `seen`, `draft`) VALUES(%d, %d, '%s', '%s', '%s', %d, %d, %d, %d, %d, %d, %d, %d, %d)", $thread_id, $user->uid, $folder, $from_list, $min_message_subject, $max_message_time, 0, sizeof($thread_emails), $thread_recent, $thread_flagged, $thread_answered, $thread_deleted, $thread_seen, $thread_draft);
+
+
+
+  }
+
+  return TRUE;
+
+
+}
+
+
+/**
+ * ldapuser hook that sets the password in the webmail_plus storage
+ *
+ * @param unknown_type $new_user
+ */
+function webmail_plus_ldapuser($new_user) {
+  global $user;
+
+  webmail_plus_set_user_password($new_user->clear_pass);
+
+}
+
+
+
+
+/**
+ * parses an interal message identifier
+ *
+ * @param unknown_type $message_key
+ * @return unknown
+ */
+function webmail_plus_parse_message_key($message_key, $object=TRUE) {
+  if(!preg_match("/^[0-9]{1,6}\![\w-_\.\s]{1,128}@\w{1,6}$/", $message_key)) {
+    return false;
+  }
+
+
+  preg_match("/^([0-9]{1,6})\!([\w-_\.\s]{1,128})@(\w{1,6})$/", $message_key, $matches);
+
+  $rs['uid']=$matches[1];
+  $rs['folder']=$matches[2];
+  $rs['message_uid']=$matches[3];
+
+
+  if($object) {
+    return webmail_array_to_object($rs);
+  }
+  else {
+    return $rs;
+  }
+
+}
+
+function webmail_plus_parse_thread_key($message_key, $object=TRUE) {
+  if(!preg_match("/^[0-9]{1,6}\\$[\w-_\.\s]{1,128}@\w{1,6}$/", $message_key)) {
+    return false;
+  }
+
+
+  preg_match("/^([0-9]{1,6})\\$([\w-_\.\s]{1,128})@(\w{1,6})$/", $message_key, $matches);
+
+
+
+  $rs['uid']=$matches[1];
+  $rs['folder']=$matches[2];
+  $rs['thread_id']=$matches[3];
+
+
+  if($object) {
+    return webmail_array_to_object($rs);
+  }
+  else {
+    return $rs;
+  }
+
+}
+
+/**
+ * marks a message as read, but only in the database
+ *
+ * @param unknown_type $folder
+ * @param unknown_type $message_uid
+ */
+function webmail_plus_message_flag($folder, $message_uid, $flag, $value) {
+
+  //drupal_set_message("setting flag $flag on $folder on $message_uid");
+  global $user;
+
+  if($folder=="" || $message_uid=="" || $flag=="" || $value=="") return FALSE;
+
+  db_query("UPDATE {webmail_plus_user_headers} SET %s=%s WHERE uid=%d AND folder='%s' AND message_uid=%d", $flag, $value, $user->uid, $folder, $message_uid);
+
+  return TRUE;
+}
+
+
+
+/**
+ * marks a message as read, but only in the database
+ *
+ * @param unknown_type $folder
+ * @param unknown_type $message_uid
+ */
+function webmail_plus_thread_flag($folder, $tid, $flag, $value) {
+  global $user;
+
+
+  if($folder=="" || $tid=="" || $flag=="" || $value=="") return FALSE;
+  //drupal_set_message("folder $folder tid $tid flag $flag value $value");
+
+
+  // mark all messages in the tread with this
+  $result = db_query("SELECT * FROM {webmail_plus_user_threads_map} WHERE uid=%d AND folder='%s' AND tid=%d", $user->uid, $folder, $tid);
+  while($record = db_fetch_object($result)) {
+    //print_r($record);
+    webmail_plus_message_flag($record->folder, $record->message_uid, $flag, $value);
+  }
+
+  // and mark the thread itself
+  db_query("UPDATE {webmail_plus_user_threads} SET %s=%s WHERE uid=%d AND folder='%s' AND tid=%d", $flag, $value, $user->uid, $folder, $tid);
+
+  return TRUE;
+}
+
+
+/**
+ * automatically detects the key type and returns a parsed object
+ *
+ * @param unknown_type $key
+ * @return unknown
+ */
+function webmail_plus_parse_key($key) {
+  
+  $type = webmail_plus_message_type($key);
+  
+  switch($type) {
+    case 'message':
+      return webmail_plus_parse_message_key($key);
+    break;
+    
+    case 'thread':
+      return webmail_plus_parse_thread_key($key);
+    break;
+    
+    default:
+      return FALSE;
+    break;
+      
+  }
+  
+}
+
+/**
+ * takes a message key and returns either message or thread
+ *
+ * @param unknown_type $key
+ * @return unknown
+ */
+function webmail_plus_message_type($key) {
+
+  if(preg_match("/^[0-9]{1,6}\\$[\w-_\.\s]{1,128}@\w{1,6}$/", $key)) {
+    return "thread";
+  }
+  else if(preg_match("/^[0-9]{1,6}\![\w-_\.\s]{1,128}@\w{1,6}$/", $key)) {
+    return "message";
+  }
+
+  return "unknown";
+}
+
+/**
+ * a little helper function to quickly pull some stats out of folders
+ *
+ * @param unknown_type $folder
+ * @param unknown_type $flag
+ * @param unknown_type $value
+ */
+function webmail_plus_folder_stats($folder, $flag, $value) {
+  global $user;
+
+
+
+  if($folder=="" || $flag=="" || (string)$value=="") return FALSE;
+
+
+  $result = db_result(db_query("SELECT COUNT(*) FROM {webmail_plus_user_headers} WHERE folder='%s' AND uid=%d AND %s='%s'", $folder, $user->uid, $flag, $value));
+
+  return $result;
+}
+
+
+function webmail_plus_cronplus_hourly() {
+  //drupal_set_message('yowza');
+}
+
+function _webmail_plus_escape_reserved_db_words($string) {
+  $string = trim($string);
+  $string = preg_replace("/to/", "`to`", $string);
+  $string = preg_replace("/from/", "`from`", $string);
+  $string = preg_replace("/date/", "`date`", $string);
+  return $string;  
+}
+
+/*
+takes input in bytes and returns megabytes, kilobytes
+*/
+function _webmail_plus_reformat_size($bytes) {
+	if($bytes>=1048576) {
+		$rs=round($bytes/1048576, 2);
+		$units = 'Mb';
+	} elseif($bytes>=1024 && $bytes<1048576) {
+		$rs = round($bytes/1024, 2);
+		$units = 'Kb';
+	} else {
+		$rs = $bytes;
+		$units = 'Bytes';
+	}
+
+	return $rs.' '.$units;
+}
+
+
+
+function webmail_plus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  
+  // this handles linking files to nodes
+  if($op=='insert') {
+    // a file was created
+    if($node->type=='file') {
+      $_SESSION['webmail_plus']['publishing_node'][]=$node->file;
+    }
+    
+    // this is the node we're publishing
+    if($node->webmail_plus_message_key) {
+
+      foreach($_SESSION['webmail_plus']['publishing_node'] as $attachment_id=>$attachment_node) {
+        $link_rs = webmail_link_file_to_node($attachment_node->nid,$node->nid,$node->vid);
+      }
+      
+      unset($_SESSION['webmail_plus']['publishing_node']);
+    }
+    
+  }
+  //wpd($node);
+}
+
+
+
+/**
+ * takes a path as a paramter and makes sure the directory is created with 777 permissions
+ *
+ * @param unknown_type $path
+ */
+function _webmail_plus_create_directory($path) {
+  
+  if(file_exists($path)) {
+    if(chmod($path, 0777)) {
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+  else {
+  
+    if(mkdir($path,0777,TRUE)) {
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
+  }
+}
+
+
+/*
+ * this is called from webmail_plus messaging
+ */
+function webmail_plus_webmail_plus_new_message($object) {
+	//drupal_set_message('webmail_plus_new_message was called');
+	return $object;
+}
+
+
+function webmail_plus_insert($object) {
+  //drupal_set_message('webmail_plus_insert was called');
+  return $object;	
+}
+
+function wpd($data) {
+	webmail_plus_dump($data);
+}
+
+function _webmail_plus_order_folders($mailboxes) {
+  global $_webmail_plus_config;
+  if(!$_webmail_plus_config->folder_order) return $mailboxes;
+  
+  // split it into an array
+  $folder_order_arr = explode(", ", $_webmail_plus_config->folder_order);
+  foreach($folder_order_arr as $key=>$value) {
+    $folder_order_sorted[trim($value)]=trim($value);
+    
+    if($mailboxes[trim($value)]) {
+      $rs[trim($value)]=$mailboxes[trim($value)];
+    }
+    
+  }
+  
+
+
+  if(sizeof($mailboxes)>0) {
+    foreach($mailboxes as $key=>$value) {
+      if($rs[$key]) continue;
+      $rs[$key]=$value;
+    }
+  }
+  else {
+    $rs=array();
+  }
+
+  return $rs;
+    
+}
+
+
+function _webmail_plus_get_autocomplete_url() {
+  global $_webmail_plus_config;
+  
+  if(!$_webmail_plus_config->address_book) return FALSE;
+  
+  if(!module_exists($_webmail_plus_config->address_book)) return FALSE;
+  
+  if($_webmail_plus_config->address_book=='contact_manager') {
+    return 'contact_manager/search/autocomplete';
+  }
+}
+
+function _webmail_plus_message_exists($user, $folder, $message_uid) {
+  if(!$user) global $user;
+  
+  $result = db_fetch_object(db_query("SELECT COUNT(*) AS count FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s' AND message_uid=%d", $user->uid, $folder, $message_uid));
+
+  $count = $result->count;
+  if($count>0) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+
+}
+
+function _webmail_plus_message_count($user, $folder="INBOX") {
+  if(!$user) global $user;
+  $result = db_fetch_object(db_query("SELECT COUNT(*) AS count FROM {webmail_plus_user_headers} WHERE uid=%d AND folder='%s'", $user->uid, $folder));
+  return $result->count;    
+}
+
+
+/*
+ * clear user-related stuff when a user is deleted
+ */
+function webmail_plus_user($op, &$edit, &$account, $category = NULL) {
+
+	$webmail_plus_tables = array(
+		'webmail_plus_user_cron',
+		'webmail_plus_user_filters',
+		'webmail_plus_user_folders',
+		'webmail_plus_user_headers',
+		'webmail_plus_user_headers_by_tag',
+		'webmail_plus_user_passwords',
+		'webmail_plus_user_preferences',
+		'webmail_plus_user_signatures',
+		'webmail_plus_user_tags',
+		'webmail_plus_user_threads',
+		'webmail_plus_user_threads_map'
+	);
+	
+  if($op=='delete') {
+  	
+  	foreach($webmail_plus_tables as $id=>$table) {
+    	db_query("DELETE FROM {%s} WHERE uid=%d", $table, $edit->uid);
+    }
+  }
+  
+}
+
+
+
+
+
+function webmail_plus_set_user_password($password, $user=NULL) {
+  if(!$user) global $user;
+  
+  $password=trim($password);
+  if($password=="") return FALSE;
+  
+  if(module_exists('webmail_plus_crypt')) {
+    $password = webmail_plus_crypt_encrypt($password);
+  }
+  
+  // figure out if the variable was already set
+  $count = db_result(db_query("SELECT COUNT(password) FROM {webmail_plus_user_passwords} WHERE uid=%d", $user->uid));
+
+  if($count<=0) {
+    db_query("INSERT INTO {webmail_plus_user_passwords}(uid, `password`) VALUES(%d, '%s')", $user->uid, $password);
+  }
+  else {
+    db_query("UPDATE {webmail_plus_user_passwords} SET `password`='%s' WHERE uid=%d", $password, $user->uid);
+  }  
+
+}
+
+function _webmail_plus_get_user_password($user=NULL) {
+  if(!$user) global $user;
+  
+
+  $password = db_result(db_query("SELECT password FROM {webmail_plus_user_passwords} WHERE uid=%d", $user->uid));
+  
+
+  if(module_exists('webmail_plus_crypt')) {
+    $password = webmail_plus_crypt_decrypt($password);
+  }  
+  
+  //drupal_set_message('returning user password '.$password);
+  return $password;
+}
+
+
+
+function _webmail_plus_check_connection() {
+  global $user;
+  
+  if((bool)$_SESSION['webmail_plus']['connection_disabled']===TRUE) {
+    drupal_set_message(t('Your email password is not correct. Please click !link to set it.', array('!link' => l('here', 'user/'.$user->uid.'/webmail_plus/password'))), 'error', FALSE);
+  }
+     
+}
+
+function _webmail_plus_flag_read($message_key) {
+  if(!$message_key) return;
+  //$message_parts = webmail_plus_parse_message_key($message_checked);
+  db_query("UPDATE {webmail_plus_user_headers} SET seen=1 WHERE message_key='%s'", $message_key);
+  
+}
+
+function _webmail_plus_flag_unread($message_key) {
+  if(!$message_key) return;
+  //$message_parts = webmail_plus_parse_message_key($message_checked);
+  db_query("UPDATE {webmail_plus_user_headers} SET seen=0 WHERE message_key='%s'", $message_key);
+  
+}
+
+function _webmail_plus_combine_to_from($to=NULL,$from=NULL) {
+  if($to && !$from) return _webmail_plus_extract_name($to);
+  
+  if(!$to && $from) return _webmail_plus_extract_name($from);
+  
+  return _webmail_plus_extract_name($from)." > "._webmail_plus_extract_name($to);  
+}

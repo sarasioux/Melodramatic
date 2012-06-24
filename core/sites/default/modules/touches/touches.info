@@ -1,0 +1,7 @@
+name = Touches
+description = "Allow users to vote up/down content multiple times"
+package = Touches
+dependencies[] = votingapi
+package = Voting
+core = 6.x
+

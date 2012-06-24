@@ -1,0 +1,139 @@
+<?php
+
+/**
+ * @file
+ * Installation functions.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function viewfield_install() {
+  drupal_load('module', 'content');
+  content_notify('install', 'viewfield');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function viewfield_uninstall() {
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'viewfield');
+}
+
+/**
+ * Implementation of hook_enable().
+ *
+ * Notify content module when this module is enabled.
+ */
+function viewfield_enable() {
+  drupal_load('module', 'content');
+  content_notify('enable', 'viewfield');
+}
+
+/**
+ * Implementation of hook_disable().
+ *
+ * Notify content module when this module is disabled.
+ */
+function viewfield_disable() {
+  drupal_load('module', 'content');
+  content_notify('disable', 'viewfield');
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function viewfield_update_6000() {
+  if ($abort = content_check_update('viewfield')) {
+    return $abort;
+  }
+  $ret = array();
+  $result = db_query("SELECT * FROM {content_node_field} WHERE type = 'viewfield'");
+  while ($field = db_fetch_array($result)) {
+    $field_result = db_query("SELECT * FROM {content_node_field_instance} WHERE field_name = '%s'", $field['field_name']);
+    while ($instance = db_fetch_array($field_result)) {
+      $instance['widget_settings'] = unserialize($instance['widget_settings']);
+      $widget_settings = serialize(array('force_default' => $instance['widget_settings']['force_default']));
+      $instance['display_settings'] = unserialize($instance['display_settings']);
+      foreach ($instance['display_settings'] as $display_context => $display_setting) {
+        $instance['display_settings'][$display_context]['format'] = $display_setting['format'] == 'hidden' ? $display_setting['format'] : 'default';
+      }
+      $display_settings = serialize($instance['display_settings']);
+      $update = db_query("UPDATE {content_node_field_instance} SET widget_settings = '%s', display_settings = '%s' WHERE field_name = '%s' AND type_name = '%s'", $widget_settings, $display_settings, $instance['field_name'], $instance['type_name']);
+      $ret[] = array('success' => $result !== FALSE, 'query' => "UPDATE {content_node_field_instance} SET widget_settings = '$widget_settings', display_settings = '$display_settings' WHERE field_name = '$instance[field_name]' AND type_name = '$instance[type_name]'");
+    }
+    $display = $display_setting['format'] == 'block' ? 'block_1' : 'default';
+    $field['global_settings'] = unserialize($field['global_settings']);
+    $field['global_settings']['token_enabled'] = TRUE;
+    $super_default_widget = $field['global_settings']['super_default_widget'][0][$field['field_name']];
+    $field['global_settings']['super_default_widget'] = array(
+      'vname' => empty($super_default_widget['vnames']) ? NULL : $super_default_widget['vnames'] .'|'. $display,
+      'vargs' => $super_default_widget['vargs'],
+    );
+    $global_settings = serialize($field['global_settings']);
+    $update = db_query("UPDATE {content_node_field} SET global_settings = '%s' WHERE field_name = '%s'", $global_settings, $field['field_name']);
+    $ret[] = array('success' => $update !== FALSE, 'query' => "UPDATE {content_node_field} SET global_settings = '$global_settings' WHERE field_name = '$field[field_name]'");
+  }
+  return $ret;
+}
+
+/**
+ * Update vname fields to varchar(128).
+ *
+ * Removed due to error:
+ * @see viewfield_update_6003()
+ * @see http://drupal.org/node/1141200
+ */
+function viewfield_update_6001() {
+  $ret = array();
+  return $ret;
+}
+
+/**
+ * Placeholder for update in 6.x-2.x.
+ */
+function viewfield_update_6002() {
+  $ret = array();
+  return $ret;
+}
+
+/**
+ * Update vname fields to varchar(128).
+ *
+ * @see viewfield_field_settings()
+ */
+function viewfield_update_6003() {
+  if ($abort = content_check_update('viewfield')) {
+    return $abort;
+  }
+  $ret = array();
+  $new_length = 128;
+  $result = db_query("SELECT * FROM {" . content_field_tablename() . "} WHERE type = 'viewfield'");
+  while ($field = db_fetch_array($result)) {
+    $field['db_columns'] = unserialize($field['db_columns']);
+    if ($field['db_columns']['vname']['length'] < $new_length) {
+      $field['db_columns']['vname']['length'] = $new_length;
+      $db_columns = serialize($field['db_columns']);
+      $update = db_query("UPDATE {" . content_field_tablename() . "} SET db_columns = '%s' WHERE field_name = '%s'", $db_columns, $field['field_name']);
+      $ret[] = array('success' => $update !== FALSE, 'query' => "UPDATE {" . content_field_tablename() . "} SET db_columns = '$db_columns' WHERE field_name = '$field[field_name]'");
+    }
+  }
+  foreach (content_fields() as $field) {
+    if ($field['type'] == 'viewfield') {
+      $field_database_info = content_database_info($field);
+      $table_name = $field_database_info['table'];
+      $vname_info = $field_database_info['columns']['vname'];
+      // Apply to all fields, not just those with length < 128 because of bug in
+      // 6001. If that update had been applied already, we want to make sure
+      // this one gets applied.
+      db_change_field($ret, $table_name, $vname_info['column'], $vname_info['column'], array(
+        'type' => 'varchar',
+        'length' => $new_length,
+        'not null' => FALSE,
+        'default' => NULL,
+      ));
+    }
+  }
+  return $ret;
+}

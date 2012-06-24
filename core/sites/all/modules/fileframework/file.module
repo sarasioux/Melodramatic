@@ -1,0 +1,818 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Provides files as a standalone content type and includes an extended file
+ * API and a comprehensive file operations framework.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_RDF_REPOSITORY',      'file');
+define('FILE_BITCACHE_REPOSITORY', 'file');
+
+define('FILE_SHOW_PREVIEWS',                 variable_get('file_show_previews', 1));
+define('FILE_HANDLER_AUTOLOAD',              variable_get('file_handler_autoload', 1));
+define('FILE_SHOW_GENERATED',                variable_get('file_show_generated', 1));
+define('FILE_SHOW_FILE',                     variable_get('file_show_file', 1));
+define('FILE_VIEW_LINK',                     variable_get('file_view_link', 1));
+define('FILE_INFO_LINK',                     variable_get('file_info_link', 1));
+define('FILE_PROPERTIES_LINK',               variable_get('file_properties_link', 1));
+define('FILE_PROPERTIES_TAB',                variable_get('file_properties_tab', 1));
+define('FILE_POPUP_SIZE',                    variable_get('file_popup_size', '800x600'));
+define('FILE_CRON',                          variable_get('file_cron', 1));
+define('FILE_CRON_LIMIT_SIZE',               (int)variable_get('file_cron_limit_size', 512));
+define('FILE_CRON_LIMIT_TOTAL',              (int)variable_get('file_cron_limit_total', 0));
+define('FILE_MIME_AUTODETECTION',            variable_get('file_mime_autodetection', 0));
+define('FILE_MIME_AUTODETECTION_CONDITIONS', variable_get('file_mime_autodetection_conditions', 'application/octet-stream'));
+define('FILE_OG_BROWSER_TAB',                variable_get('file_og_browser_tab', 1));
+define('FILE_OG_GALLERY_TAB',                variable_get('file_og_gallery_tab', 1));
+
+define('FILE_TMP_KEEP',  86400); // 24x60x60s
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_help().
+ */
+function file_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#file':
+      return '<p>'. t('File framework is a collection of modules which allows uploading and displaying different media type files.') .'</p>';
+    case 'admin/settings/file/handler':
+      return '<p>'. t('Select which file handlers are enabled. Enabled file handlers will process and display files with corresponding MIME types. If a file can be displayed by more then one handler, then handlers\' order will be preserved while displaying the file. "MIME types" shows which MIME types are processed by the hanler directly. However, the file can be first converted to other MIME type first, and then displayed by that type handler. One MIME type can have several handlers.') .'</p>';
+    case 'admin/settings/file/mime':
+      return '<p>'. t('These settings govern how a MIME type is assigned for a file. Uploaded file carries on the MIME type sent by the browser uploading the file. Some browsers do not send the MIME type or set it to be an \'application/octet-stream\'. If the MIME type for a uploaded file is not known or if it is \'application/octet-stream\', the system uses the table below to find the correct MIME type based on the file extension. If several MIME types claim the same file extension, a first mapping in the table wins. The table rows can be overwritten in the "Custom MIME types" section. The "Additional MIME detection" section allows to perform additional MIME type detection on the server side judging from the contents of the file rather than the file extension or information sent by the browser.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_theme() {
+  return array(
+    'file_admin_handler_settings' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_render' => array(
+      'arguments' => array('file' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_show' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_previews' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_generated' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_metadata' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_info' => array(
+      'arguments' => array('node' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_block_properties' => array(
+      'arguments' => array('metadata' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_block_formats' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+    'file_metadata_size' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function file_init() {
+  module_load_include('inc', 'file');
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function file_perm() {
+  return array('create file content', 'edit own file content', 'edit any file content', 'delete own file content', 'delete any file content');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_menu() {
+  return array(
+    'admin/settings/file' => array(
+      'title' => 'Files',
+      'description' => 'Configure file upload and display settings.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file.admin.inc',
+    ),
+    'admin/settings/file/configure' => array(
+      'title' => 'Settings',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+    ),
+    'admin/settings/file/handler' => array(
+      'title' => 'Handlers',
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_admin_handler_settings'),
+      'access arguments' => array('administer site configuration'),
+      'weight' => 1,
+      'file' => 'file.admin.inc',
+    ),
+    'admin/settings/file/mime' => array(
+      'title' => 'MIME registry',
+      'type' => MENU_LOCAL_TASK,
+      'description' => 'Manage MIME type mappings.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_admin_mime'),
+      'access arguments' => array('administer site configuration'),
+      'weight' => 2,
+      'file' => 'file.admin.inc',
+    ),
+    'admin/settings/file/format' => array(
+      'title' => 'Formats',
+      'page callback' => 'file_admin_menu_block_page',
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file.admin.inc',
+    ),
+    'node/%file/metadata' => array(
+      'title' => 'Properties',
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 1,
+      'page callback' => 'file_page_metadata',
+      'page arguments' => array(1),
+      'access callback' => 'file_page_metadata_access',
+      'access arguments' => array(1),
+      'file' => 'file.pages.inc',
+    ),
+    'node/%node/embed' => array(
+      'title' => 'Embed file preview',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_embed',
+      'page arguments' => array(1, 3),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'file' => 'file.pages.inc',
+    ),
+    'file/%node/download' => array(
+      'title' => 'File download',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_serve',
+      'page arguments' => array(1, 3, 'attachment'),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'file' => 'file.pages.inc',
+    ),
+    'file/%node/view' => array(
+      'title' => 'File view',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_serve',
+      'page arguments' => array(1, 3, 'inline'),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'file' => 'file.pages.inc',
+    ),
+    'node/%node/file_preview' => array(
+      'title' => 'File preview',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_wrapper_html',
+      'page arguments' => array(1, 3, array()),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'file' => 'file.inc',
+    ),
+    'file_preview' => array(
+      'title' => 'AHAH preview',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_wrapper_ahah',
+      'page arguments' => array(1, 2, 3),
+      'access callback' => TRUE,
+    ),
+    'file_metadata' => array(
+      'title' => 'AJAX file metadata',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'file_metadata',
+      'page arguments' => array(1, 2),
+      'access callback' => TRUE,
+      'file' => 'file.pages.inc',
+    ),
+    'node/%node/info' => array(
+      'title' => 'AJAX file info',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'theme',
+      'page arguments' => array('file_info', 1),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+    ),
+    'node/%node/browser' => array(
+      'title' => 'Browser',
+      'page callback' => 'file_og_browser',
+      'page arguments' => array(1, 3),
+      'access callback' => 'file_og_browser_access',
+      'access arguments' => array(1),
+      'type' => variable_get('file_og_browser_tab', 1) ? MENU_LOCAL_TASK : MENU_CALLBACK,
+      'weight' => 9,
+      'file' => 'file.pages.inc',
+    ),
+    'node/%node/gallery' => array(
+      'title' => 'Gallery',
+      'page callback' => 'file_og_gallery',
+      'page arguments' => array(1, 3, 4, 5),
+      'access callback' => 'file_og_gallery_access',
+      'access arguments' => array(1),
+      'type' => variable_get('file_og_gallery_tab', 1) ? MENU_LOCAL_TASK : MENU_CALLBACK,
+      'weight' => 9,
+      'file' => 'file.pages.inc',
+    ),
+  );
+}
+/**
+ * Implementation of hook_bitcache_adapters().
+ */
+function file_bitcache_adapters() {
+  return array(
+    'file2' => array(
+      'title'       => t('File system'),
+      'description' => t('Stores data in a file system directory.'),
+      'enabled'     => TRUE,
+      'file'        => drupal_get_path('module', 'file') . '/adapters/file2_adapter.inc',
+      'class'       => 'Bitcache_FileRepository',
+    )
+  );
+}
+/**
+ * Check if a properties tab should be printed..
+ */
+function file_page_metadata_access($node) {
+  return FILE_PROPERTIES_TAB ? node_access('view', $node) : FALSE;
+}
+
+/**
+ * Check groups browser access.
+ */
+function file_og_browser_access($node) {
+  return module_exists('file_browser') && module_exists('og_vocab') ? user_access('browse files') && og_is_group_member($node, FALSE) : FALSE;
+}
+
+/**
+ * Check groups gallery access.
+ */
+function file_og_gallery_access($node) {
+  return module_exists('file_gallery') && module_exists('og_vocab') ? user_access('view files') && og_is_group_member($node, FALSE) : FALSE;
+}
+
+/**
+ * Implementation of hook_load().
+ */
+function file_load($nid) {
+  if (is_numeric($nid)) {
+    $node = node_load($nid);
+    if (is_object($node) && $node->type == 'file') {
+      return $node;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function file_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $block = array(
+        array(
+          'info' => t('File properties'),
+          'status' => 1,
+          'region' => 'right',
+          'weight' => -2,
+        ),
+        array(
+          'info' => t('File formats'),
+          'status' => 1,
+          'region' => 'right',
+          'weight' => -1,
+        ),
+      );
+      return $block;
+    case 'view':
+      switch ($delta) {
+        case 0:
+          $block['subject'] = t('File properties');
+          $block['content'] = _file_block_properties();
+          break;
+        case 1:
+          $block['subject'] = t('File formats');
+          $block['content'] = _file_block_formats();
+          break;
+      }
+      return $block;
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function file_link($type, $node = NULL, $teaser = FALSE) {
+  $links = array();
+  if ($type == 'node' && $node->type == 'file' && !empty($node->file)) {
+    /*
+    if (FILE_VIEW_LINK) {
+      $links['file_view'] = array(
+        'title' => t('View'),
+        'href' => 'file/'. $node->nid .'/view/'. $node->vid,
+        'attributes' => array('title' => t('View this file inline in browser.')),
+      );
+    }
+    */
+    $links['file_download'] = array(
+      'title' => t('Download'),
+      'href' => 'file/'. $node->nid .'/download/'. $node->vid,
+      'attributes' => array('title' => t('Download this file to your computer.')),
+    );
+    $links['file_size'] = array(
+      'title' => format_size($node->file->size),
+    );
+    $links['file_type'] = array(
+      //'title' => file_mime_icon_for($node->file->type) .' '. file_mime_description_for($node->file->type),
+      'title' => file_mime_description_for($node->file->type),
+      'html' => TRUE,
+    );
+    $links['file_views'] = array(
+      'title' => format_plural(db_result(db_query('SELECT SUM(f.views) FROM {file_nodes} f WHERE f.nid = %d', $node->nid)), '1 view', '@count views'),
+      'html'  => TRUE,
+    );
+    $links['file_downloads'] = array(
+      'title' => format_plural(db_result(db_query('SELECT SUM(f.downloads) FROM {file_nodes} f WHERE f.nid = %d', $node->nid)), '1 download', '@count downloads'),
+      'html'  => TRUE,
+    );
+  }
+  return $links;
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function file_cron() {
+  // Only run if automatic maintenance has been enabled by the administrator
+  if (FILE_CRON) {
+    $time = time();
+
+    // If PHP is not in 'safe mode', increase the maximum execution time:
+    // Setting time limit to zero stops feedapi cron processing.
+    //if (!ini_get('safe_mode')) {
+    //  set_time_limit(0); // Unlimited
+    //}
+
+    $total = $files = $converted = $errors = 0;
+    $byte_limit = FILE_CRON_LIMIT_SIZE * 1024 * 1024;
+    $converts = $errors = $byte_counter = 0;
+
+    // Inspect recemtly updated files which were changed since
+    // an hour before last cron run.
+    $recent = 60*60;
+    $result = db_query("SELECT f.nid, f.uri, f.size, f.type AS filemime, n.title AS filename FROM {file_nodes} f INNER JOIN {node} n ON f.nid = n.nid WHERE n.changed > %d ORDER BY n.changed", (int)variable_get('cron_last', 0) - $recent);
+    while ($file = db_fetch_object($result)) {
+      $total++;
+      file_generate_previews($file, TRUE);
+      $converts += isset($file->converts) ? $file->converts : 0;
+      $errors += isset($file->errors) ? $file->errors : 0;
+      $byte_counter = isset($file->errors) ? $byte_counter + $file->size : $byte_counter;
+    }
+    unset($file);
+
+    // Inspect the rest files.
+    $result = db_query("SELECT f.nid, f.uri, f.size, f.type AS filemime, n.title AS filename FROM {file_nodes} f INNER JOIN {node} n ON f.nid = n.nid WHERE f.size <= %d AND f.nid > %d ORDER BY f.nid", $byte_limit, FILE_CRON_LIMIT_TOTAL > 0 ? variable_get('file_cron_last_nid', 0) : 0);
+    while ($byte_counter <= $byte_limit && (FILE_CRON_LIMIT_TOTAL == 0 || $total < FILE_CRON_LIMIT_TOTAL) && ($file = db_fetch_object($result))) {
+      $total++;
+      file_generate_previews($file, TRUE);
+      $converts += isset($file->converts) ? $file->converts : 0;
+      $byte_counter = isset($file->converts) ? $byte_counter + $file->size : $byte_counter;
+      $errors += isset($file->errors) ? $file->errors : 0;
+    }
+    if (isset($file) && FILE_CRON_LIMIT_TOTAL > 0)
+      variable_set('file_cron_last_nid', isset($file->nid) && ($total == FILE_CRON_LIMIT_TOTAL) ? $file->nid : 0);
+
+    // Log a concise summary message to let the administrator know what
+    // occurred. Note that if any problems were encountered, file_repair()
+    // will have already logged them on its part.
+    if ($total > 0) {
+      watchdog('file', 'On a cron run @total file(s) were inspected, @converts conversion(s) were performed with a @size total size and @errors error(s). It took @seconds second(s).', array('@total' => $total, '@converts' => $converts, '@errors' => $errors, '@size' => format_size($byte_counter), '@seconds' => time() - $time), $errors > 0 ? WATCHDOG_WARNING : WATCHDOG_NOTICE);
+    }
+  }
+
+  // Delete temporal files when user navigated away before saving.
+  $time = time();
+  $result = db_query('SELECT *  FROM {file_tmp} WHERE created <= %d', $time - FILE_TMP_KEEP);
+  while ($file = db_fetch_object($result)) {
+    if (!db_result(db_query('SELECT uri FROM {file_tmp} WHERE created > %d', $time - FILE_TMP_KEEP))) {
+      file_node_delete_node($file);
+      db_query("DELETE FROM {file_tmp} WHERE uri = '%s' AND created = %d", $file->uri, $file->created);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function file_form_alter(&$form, $form_state, $form_id) {
+  switch ($form_id) {
+    case "system_file_system_settings":
+      // File module uses bitchache, so this setting is not used.
+      unset($form['file_downloads']);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_search().
+ */
+function file_search($op = 'search', $keys = NULL) {
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Node API hooks
+
+/**
+ * Implementation of hook_node_info().
+ */
+function file_node_info() {
+  return array(
+    'file' => array(
+      'name'        => t('File'),
+      'module'      => 'file_node',
+      'description' => t('Files allow uploads of documents and other content.'),
+      'help'        => t(''),
+      'title_label' => t('Title'),
+      'body_label'  => t('Description'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_access().
+ */
+function file_node_access($op, $node, $account) {
+  switch ($op) {
+    case 'create':
+      return user_access('create file content', $account) && $account->uid ? TRUE : NULL;
+    case 'update':
+      return user_access('edit any file content', $account) || (user_access('edit own file content', $account) && ($node->uid == $account->uid)) ? TRUE : NULL;
+    case 'delete':
+      return user_access('delete any file content', $account) || (user_access('delete own file content', $account) && ($node->uid == $account->uid)) ? TRUE : NULL;
+  }
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function file_node_form(&$node, $form_state) {
+
+  // TODO: This node_form() craziness here is needed because when
+  // drupal_retrieve_form('file_node_form') is performed, it will
+  // incorrectly ignore callback information defined in hook_forms() and
+  // call this function directly. We need to either rename our Node API
+  // prefix in hook_node_info(), or else submit a core patch.
+  if (is_array($node)) {
+    return node_form($node, $form_state);
+  }
+
+  $form = array();
+  $type = node_get_types('type', $node);
+
+  $form['file'] = array('#type' => 'file', '#title' => t('File'), '#size' => 50, '#description' => module_exists('file_restriction') ? implode(' ', file_restriction_description()) : t('The maximum upload size is %filesize.', array('%filesize' => format_size(file_upload_max_size()))), '#weight' => -10);
+
+  // The uploaded file is saved to the system and session is set on the file preview rendering.
+  $file = isset($_SESSION['file_preview_file']) ? $_SESSION['file_preview_file'] : NULL;
+  if (isset($file) || !empty($node->file->uri)) {
+    $form['file']['#prefix'] = t('A file %file has already been uploaded. If you upload another file the current file data will be replaced.', array('%file' => check_plain(isset($file) ? $file->name : $node->title)));
+  }
+
+  if ($type->has_title) {
+    $form['title'] = array('#type' => 'textfield', '#title' => check_plain($type->title_label), '#required' => TRUE, '#default_value' => $node->title, '#weight' => -5);
+    $form['title']['#required'] = TRUE; // will default to file name
+  }
+
+  if ($type->has_body) {
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+    $form['body_field']['body']['#rows'] = 5; // make text area smaller
+  }
+
+  //$form['metadata'] = array('#type' => 'fieldset', '#title' => t('File metadata'), '#collapsible' => TRUE, '#collapsed' => TRUE);
+  // TODO: metadata display & editing
+
+  $form['#attributes'] = array('enctype' => 'multipart/form-data');
+
+  drupal_add_js(drupal_get_path('module', 'file') .'/file_form.js');
+
+  if (module_exists('file_restriction'))
+    file_restriction_js('#edit-file');
+
+  return $form;
+}
+
+/**
+ * Implementation of hook_load().
+ */
+function file_node_load($node) {
+  return (object)array('file' => db_fetch_object(db_query('SELECT f.* FROM {file_nodes} f WHERE f.nid = %d AND f.vid = %d', $node->nid, isset($node->old_vid) ? $node->old_vid : $node->vid)));
+}
+
+/**
+ * Implementation of hook_validate().
+ */
+function file_node_validate($node) {
+
+  // Save the file upload on the file preview page. The uploaded file is saved in RDF and bitcache,
+  // but not in the database at this stage since a user can navigate away from this page. We also set
+  // a session variable to be used in the file form and following file previews.
+  if ($upload = file_save_upload('file', file_get_validators())) {
+    $node_new = (object)array('nosave' => TRUE);
+    if (!file_node_save($node_new, $upload)) {
+      drupal_set_message(t("Error saving file %file. Please, contact site administrator.", array('%file' => $upload->filename)), 'error');
+    }
+    $file = $node_new->file;
+    $_SESSION['file_preview_file'] = $file;
+  }
+
+  // Make sure a file has been uploaded at some point
+  if (!isset($_SESSION['file_preview_file']) && !is_object(file_node_load($node)->file)) {
+    form_set_error('file', t('A file upload must be provided.'));
+  }
+}
+
+/**
+ * Implementation of hook_insert().
+ */
+function file_node_insert($node) {
+  $file = is_object($node->file) ? $node->file : NULL;
+  if (!is_object($file) && isset($_SESSION['file_preview_file']))
+    $file = file_save_upload('file');
+  if (!is_object($file))
+    $file = $_SESSION['file_preview_file'];
+
+  if (is_object($file)) {
+    file_node_save($node, $file);
+    module_invoke_all('file', 'insert', $node);
+    unset($_SESSION['file_preview_file']);
+  }
+}
+
+/**
+ * Implementation of hook_update().
+ */
+function file_node_update($node) {
+  $file = file_save_upload('file');
+  if (!is_object($file) && isset($_SESSION['file_preview_file']))
+    $file = $_SESSION['file_preview_file'];
+  if (!is_object($file))
+    $file = file_node_load($node)->file;
+
+  if (is_object($file)) {
+    file_node_save($node, $file);
+    module_invoke_all('file', 'update', $node);
+    unset($_SESSION['file_preview_file']);
+  }
+}
+
+/**
+ * Implementation of hook_delete().
+ */
+function file_node_delete($node) {
+  module_invoke_all('file', 'delete', $node);
+  $result = db_query('SELECT * FROM {file_nodes} WHERE nid = %d', $node->nid);
+  while ($file = db_fetch_object($result)) {
+    db_query('DELETE FROM {file_nodes} WHERE nid = %d AND vid = %d', $node->nid, $file->vid);
+    file_node_delete_node($file);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function file_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'update index':
+
+      // We index a plain text version of the files.
+      if (isset($node->file) && ($file = $node->file) && is_object($file)) {
+        if ($file->type == 'text/plain' ) {
+          $uri_txt = $file->uri;
+        }
+        else {
+          if ($generated = rdf_normalize(rdf_query(NULL, rdf_qname_to_uri('dc:source'), $file->uri, array('repository' => FILE_RDF_REPOSITORY)))) {
+            foreach ($generated as $uri => $data) {
+              if (rdf_value($uri, rdf_qname_to_uri('dc:format'), NULL, array('repository' => FILE_RDF_REPOSITORY)) == 'text/plain') {
+                // A plain text preview.
+                $uri_txt = $uri;
+                break;
+              }
+            }
+          }
+        }
+      }
+      return isset($uri_txt) ? array(bitcache_get_contents(file_get_hash($uri_txt))) : array();
+      break;
+
+    case 'delete revision':
+      db_query('DELETE FROM {file_nodes} WHERE nid = %d AND vid = %d', $node->nid, $node->vid);
+      file_node_delete_node($node->file);
+      break;
+
+    case 'rss item':
+      if ($node->type == 'file' && !empty($node->file)) {
+        // RSS only allows one enclosure per item
+        return array(array('key' => 'enclosure', 'attributes' => array('url' => url('file/'. $node->file->nid .'/download', array('absolute' => TRUE)), 'length' => $node->file->size, 'type' => $node->file->type)));
+      }
+      return array();
+  }
+}
+
+/**
+ * Implementation of hook_prepare().
+ */
+function file_node_prepare(&$node) {
+
+  // The session variable is cleared from the unsaved file uploads..
+  unset($_SESSION['file_preview_file']);
+}
+
+/**
+ * Implementation of hook_view().
+ */
+function file_node_view($node, $teaser = FALSE, $page = FALSE) {
+
+  // $page variable is set to TRUE on the normal page rendering, when the node is saved to the database.
+  // For the previews it is FALSE.
+  if (!isset($page) && !$teaser) {
+
+    // When looking at the preview of the saved file the file_node_load() is not triggered and file
+    // object is not loaded and asociated with the node. Have to do it manually.
+    if (isset($node->nid) && !is_object($node->file)) {
+      $node->file = file_node_load($node)->file;
+    }
+  }
+
+  if (isset($_SESSION['file_preview_file'])) {
+
+    // The file was uploaded on the previous preview page and it is saved in the session variable.
+    $file = $_SESSION['file_preview_file'];
+  }
+
+  // The following code checks if this function is called during the creation of the search index.
+  // We don't want the preview contrlol heading and generated pages be indexed as they do not belong
+  // to the node or file content, but are only suplementary to the page.
+  foreach (array_slice(debug_backtrace(), 1) as $stackframe) {
+    if (in_array($stackframe['function'], array ('_node_index_node', 'node_search'))) {
+      $search = TRUE;
+      break;
+    }
+  }
+
+  $file = isset($file) ? $file : $node->file;
+  $node = node_prepare($node, $teaser);
+  if (!is_object($file))
+    return $node;
+
+  $file->name = isset($file->name) ? $file->name : $node->title;
+
+  // We show generated files only on full page view, where the teaser is not set.
+  $data = array();
+  if (!$teaser && !isset($search)) {
+    $data = array(
+      'preview' => FILE_SHOW_PREVIEWS ? file_render_previews($file) : '',
+      'generated' => FILE_SHOW_GENERATED ? file_render_generated($file) : '',
+      'file' => FILE_SHOW_FILE ? theme('file_render', $file) : '',
+    );
+  }
+  $output = theme('file_show', $data);
+
+  // For browsers with javascript disabled.
+  if (FILE_SHOW_PREVIEWS && arg(2) == 'file_preview') {
+    $output .= file_wrapper_html($node, arg(3));
+  }
+
+  $node->content['file_preview'] = array('#value' => $output, '#weight' => 10);
+  return $node;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API extensions
+
+/**
+ * Implementation of the hook_file_validate().
+ */
+function file_file_validate($file) {
+  $errors = array();
+  if ($file->filesize == 0) {
+    $errors[] = t('The file is  empty.');
+  }
+  return $errors;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// RDF API HOOKS
+
+/**
+ * Implementation of hook_rdf_namespaces().
+ */
+function file_rdf_namespaces() {
+  return array(
+    'wordnet' => 'http://xmlns.com/wordnet/1.6/',
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Blocks
+
+/**
+ * Gets the file's metadata from the RDF.
+ *
+ * @return
+ *   Structured array of the file's metadata.
+ */
+function _file_block_properties() {
+  if (arg(0) == 'node' && preg_match('/(\d+)/', arg(1), $matches)) {
+    $file_node = node_load($matches[1]);
+    if (is_object($file_node) && $file_node->type == 'file' && node_access('view', $file_node) && !empty($file_node->file)) {
+      $metadata = array();
+      $namespaces = rdf_get_namespaces();
+      $info = file_get_metadata_info();
+      $data = rdf_normalize(rdf_query($file_node->file->uri, NULL, NULL, array('repository' => FILE_RDF_REPOSITORY)));
+      foreach ($data as $subject => $predicates) {
+        foreach ($predicates as $predicate => $objects) {
+          foreach ($objects as $object) {
+            $rdf = rdf_uri_to_qname($predicate, $namespaces, FALSE);
+            if (isset($info[$rdf]) && ($name = $info[$rdf]['name'])) {
+              $metadata[] = array($name, isset($info[$rdf]['theme']) ? theme($info[$rdf]['theme'], is_object($object) ? $object->value : $object) : theme('rdf_value', $object));
+            }
+          }
+        }
+      }
+      return theme('file_block_properties', $metadata);
+    }
+  }
+}
+
+/**
+ * Gets the file's derivatives.
+ *
+ * @return
+ *   A file node object.
+ */
+function _file_block_formats() {
+  if (arg(0) == 'node' && preg_match('/(\d+)/', arg(1), $matches)) {
+    $file_node = node_load($matches[1]);
+    if (is_object($file_node) && $file_node->type == 'file' && !empty($file_node->file)) {
+      $formats = array();
+      $file_uris = file_generated_for($file_node->file);
+      foreach ($file_uris as $uri => $data) {
+        if ($file_node->file->uri != $uri) {
+          $formats[] = array_merge($data, array(
+            'uri' => $uri,
+            'hash' => file_get_hash($uri),
+            'href' => bitcache_resolve_uri($uri, array('absolute' => TRUE)),
+            'description' => file_mime_description_for($data['type']),
+          ));
+        }
+      }
+      return theme('file_block_formats', array('formats' => $formats, 'nid' => $file_node->nid, 'vid' => $file_node->vid));
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File gallery integration
+
+/**
+ * Implementation of hook_file_gallery().
+ */
+function file_file_gallery($op) {
+  $args = array_slice(func_get_args(), 1); // skip $op
+  $gid = arg(1);
+  switch ($op) {
+    case 'term_link':
+      $term = array_shift($args);
+      return 'node/'. $gid .'/gallery/'. $term->vid . (!empty($term->tid) ? '/'. $term->tid : '');
+    case 'breadcrumb_home': return TRUE;
+    case 'root_link': return 'node/'. $gid .'/gallery';
+  }
+}
+

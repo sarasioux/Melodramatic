@@ -1,0 +1,145 @@
+.tribune-posts {
+    list-style-type: none;
+    background: none;
+}
+
+.tribune-message-preview {
+	position: absolute;
+	top: 0;
+    display: none;
+	height: 0;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+*> .tribune-message-preview {
+    position: fixed;
+    top: 1em;
+    padding: 1ex;
+	margin: inherit;
+    background: white;
+    border: 1px solid #443300;
+    line-height: normal;
+	height: auto;
+	overflow: inherit;
+}
+
+.tribune-message-preview li {
+    list-style-type: none;
+}
+
+.tribune-message-preview .tribune-moderate-post {
+	display: none;
+}
+
+.tribune-posts li {
+    background: none;
+    list-style-type: none;
+    padding: 0 0 0 5px;
+    margin: 0;
+    border-left: 3px solid #AAAAAA;
+    line-height: normal;
+}
+
+.tribune-first-clock {
+    padding: 0;
+    cursor: pointer;
+}
+
+.tribune-posts li.tribune-self-post {
+    border-left: 3px solid #D0D0D0;
+}
+
+li.tribune-answer {
+    border-left: 3px solid #EAEAEA;
+}
+
+.tribune-posts li.tribune-self-post .tribune-first-clock {
+    background-color: #D0D0D0;
+}
+
+li.tribune-answer .tribune-first-clock {
+    background-color: #EAEAEA;
+}
+
+.tribune-login {
+    color: #339933;
+    cursor: pointer;
+}
+
+.tribune-info {
+    color: #993333;
+    font-style: italic;
+    cursor: default;
+}
+
+.tribune-info i {
+    font-style: normal;
+}
+
+.tribune-message {
+    cursor: text;
+}
+
+.tribune-message a {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.tribune-info:before, .tribune-login:before {
+    content:    "<";
+}
+
+.tribune-info:after, .tribune-login:after {
+    content:    ">";
+}
+
+.tribune-clock {
+	color: #5555CC;
+	cursor: pointer;
+}
+
+.tribune-clock div {
+	color: black;
+}
+
+li.tribune-highlighted-main-post {
+    background-color: #EEEEEE;
+    border-left: 3px solid #000000;
+}
+
+li.tribune-moderated span {
+	color: #CCCCCC;
+}
+
+.tribune-highlighted-answer-clock {
+    background-color: #DDDDDD;
+}
+
+.tribune-post-form input {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.tribune-error {
+	background-color: red;
+}
+
+.tribune-palmipede {
+	padding-right: 15px;
+	width: 80%;
+}
+
+.tribune-reload-img, form div.tribune-email {
+	display: none;
+}
+
+/* Workaround some broken themes which
+ * really make too many assumptions */
+#primary .tribune-posts img {
+	float: none;
+	margin: 0;
+	padding: 0;
+}
+

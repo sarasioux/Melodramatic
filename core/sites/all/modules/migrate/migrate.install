@@ -1,0 +1,265 @@
+<?php
+
+/**
+ * @file
+ * Migrate module installation
+ */
+
+function migrate_schema() {
+  $schema = array();
+  $schema['migrate_status'] = migrate_schema_status();
+  $schema['migrate_log'] = migrate_schema_log();
+  return $schema;
+}
+
+function migrate_schema_status() {
+  return array(
+    'description' => 'Status information for migrations',
+    'fields' => array(
+      'machine_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Unique machine name for migration',
+      ),
+      'class_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Name of class to instantiate for this migration',
+      ),
+      'status' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Current status of migration',
+      ),
+      'highwater' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Highwater mark for detecting updated content',
+      ),
+      'arguments' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of arguments to the migration constructor',
+      ),
+    ),
+    'primary key' => array('machine_name'),
+  );
+}
+
+function migrate_schema_log() {
+  return array(
+    'description' => 'History of migration processes',
+    'fields' => array(
+      'mlid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary key for migrate_log table',
+      ),
+      'machine_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Unique machine name for migration',
+      ),
+      'process_type' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Type of migration process - 1 for import, 2 for rollback',
+      ),
+      'starttime' => array(
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Begin time of a migration process, times 1000',
+      ),
+      'endtime' => array(
+        'type' => 'int',
+        'size' => 'big',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'description' => 'End time of a migration process, times 1000',
+      ),
+      'initialhighwater' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Initial highwater mark',
+      ),
+      'finalhighwater' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Final highwater mark',
+      ),
+      'numprocessed' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'description' => 'Number of items processed',
+      ),
+    ),
+    'primary key' => array('mlid'),
+  );
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function migrate_requirements($phase) {
+  $t = get_t();
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    if (function_exists('autoload_registry_rebuild')) {
+      $requirements['migrate'] = array(
+        'title' => $t('Migrate'),
+        'value' => $t('OK'),
+        'severity' => REQUIREMENT_OK,
+      );
+    }
+    else {
+      $requirements['migrate'] = array(
+        'title' => $t('Migrate'),
+        'value' => $t('Incompatible'),
+        'description' => $t('Migrate requires Autoload version 2'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+  }
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function migrate_install() {
+  drupal_install_schema('migrate');
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function migrate_enable() {
+  // Make sure autoload registers our classes
+  drupal_flush_all_caches();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ * Drop map/message tables, in case implementing classes did not.
+ */
+function migrate_uninstall() {
+  // Note: If a derived Migration class defined its own map or message
+  // table name not fitting this pattern, that class is solely responsible for
+  // cleaning up
+  /* TODO: No db_find_tables in D6
+  foreach (db_find_tables('migrate_map_%') as $tablename) {
+    db_drop_table($tablename);
+  }
+  foreach (db_find_tables('migrate_message_%') as $tablename) {
+    db_drop_table($tablename);
+  }
+  */
+  drupal_uninstall_schema('migrate');
+}
+
+/**
+ * Convert lastimported datetime field to lastimportedtime int field.
+ */
+function migrate_update_6001() {
+  $ret = array();
+  db_add_field($ret, 'migrate_status', 'lastimportedtime', array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+      'description' => 'Date and time of last completed import',
+    )
+  );
+
+  $result = db_query("SELECT machine_name, lastimported
+                      FROM {migrate_status}");
+  while ($row = db_fetch_object($result)) {
+    $lastimportedtime = strtotime($row->lastimported);
+    db_query("UPDATE {migrate_status}
+              SET lastimportedtime=%d
+              WHERE machine_name='%s'", $lastimportedtime, $row->machine_name);
+  }
+
+  db_drop_field($ret, 'migrate_status', 'lastimported');
+
+  $ret[] = t('Converted lastimported datetime field to lastimportedtime int field');
+  return $ret;
+}
+
+/**
+ * Add support for history logging
+ */
+function migrate_update_6002() {
+  $ret = array();
+  db_create_table($ret, 'migrate_log', migrate_schema_log());
+  db_drop_field($ret, 'migrate_status', 'lastthroughput');
+  db_drop_field($ret, 'migrate_status', 'lastimportedtime');
+  return $ret;
+}
+
+/**
+ * Add and populate class_name field, and add arguments field. Any existing
+ * migration code using dependencies or sourceMigration() must be changed!
+ * See CHANGELOG.txt.
+ */
+function migrate_update_6003() {
+  $ret = array();
+  db_add_field($ret, 'migrate_status', 'class_name', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Name of class to instantiate for this migration',
+      )
+  );
+
+  db_query("UPDATE {migrate_status}
+            SET class_name = CONCAT(machine_name, 'Migration')
+           ");
+
+  db_add_field($ret, 'migrate_status', 'arguments', array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of arguments to the migration constructor',
+        )
+  );
+
+  return $ret;
+}
+
+/**
+ * We messed up, by starting Migrate V2 update functions at 6001 - Migrate V1 on D6
+ * was up to 6016. We restart at 6020 making sure the V2 tables get created and
+ * giving some advice on upgrading.
+ */
+function migrate_update_6020() {
+  $ret = array();
+  if (!db_table_exists('migrate_status')) {
+    $ret = drupal_install_schema('migrate');
+    drupal_set_message(st('You are upgrading from Migrate V1 to Migrate V2. There is no automated
+      mechanism for content sets you created under Migrate V1 to become Migrate V2
+      Migration classes. Please refer to !doc for help in upgrading',
+      array('!doc' => l('the documentation', 'http://drupal.org/node/1007000'))));
+  }
+  return $ret;
+}

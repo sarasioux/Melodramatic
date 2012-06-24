@@ -1,0 +1,16 @@
+<?php
+// $Id: blockcache_alter.install,v 1.1.2.5 2009/04/12 11:51:01 swentel Exp $
+
+/**
+ * @file
+ * Install file.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function blockcache_alter_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'bc_%'");
+  variable_del('bca_debug');
+  variable_del('bca_corepatch');
+}

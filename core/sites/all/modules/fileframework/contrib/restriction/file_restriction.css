@@ -1,0 +1,11 @@
+/* $Id$ */
+
+/*
+ * File extensions block
+ */
+div.file-restriction {
+  padding: 0 2px;
+  margin: 4px 0 0 0;
+  font-size: 0.85em;
+  max-width: 500px;
+}

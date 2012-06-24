@@ -1,0 +1,188 @@
+<?php
+
+/**
+ * @file
+ * Set up the migration example module.
+ */
+
+require_once drupal_get_path('module', 'migrate') . '/includes/d7.inc';
+//require drupal_get_path('module', 'content') . '/includes/content.crud.inc';
+require drupal_get_path('module', 'migrate_example') . '/beer.install.inc';
+require drupal_get_path('module', 'migrate_example') . '/wine.install.inc';
+
+function migrate_example_schema() {
+  $schema = migrate_example_beer_schema();
+  $schema += migrate_example_wine_schema();
+  return $schema;
+}
+
+function migrate_example_install() {
+  drupal_install_schema('migrate_example');
+  // A simple format for testing migration of format
+  db_query("INSERT INTO {filter_formats}
+            (name, roles, cache)
+            VALUES('Migrate example format', ',1,', 1)");
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function migrate_example_enable() {
+  migrate_example_beer_install();
+  migrate_example_wine_install();
+  // Make sure autoload registers our classes
+  drupal_flush_all_caches();
+}
+
+function migrate_example_uninstall() {
+  migrate_example_beer_uninstall();
+  migrate_example_wine_uninstall();
+  db_delete('filter_formats')
+    ->condition('name', 'Migrate example format')
+    ->execute();
+  drupal_uninstall_schema('migrate_example');
+}
+
+function migrate_example_disable() {
+  migrate_example_beer_disable();
+  migrate_example_wine_disable();
+}
+
+/**
+ * Convert modificationdate datetime field to modificationdatetime int field.
+ */
+function migrate_example_update_6001() {
+  $ret = array();
+  db_add_field($ret, 'migrate_example_beer_legacy_urls', 'modificationdatetime', array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    )
+  );
+
+  $result = db_query("SELECT id, modificationdate
+                      FROM {migrate_example_beer_legacy_urls}");
+  while ($row = db_fetch_object($result)) {
+    $modificationdatetime = strtotime($row->modificationdate);
+    db_query("UPDATE {migrate_example_beer_legacy_urls}
+              SET modificationdatetime=%d
+              WHERE id=%d", $modificationdatetime, $row->id);
+  }
+
+  db_drop_field($ret, 'migrate_example_beer_legacy_urls', 'modificationdate');
+
+  $ret[] = t('Converted modificationdate datetime field to modificationdatetime int field');
+  return $ret;
+}
+
+/**
+ * Add image alt/title/description columns.
+ */
+function migrate_example_update_6002() {
+  $ret = array();
+  db_add_field($ret, 'migrate_example_beer_node', 'image_alt', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Image ALT',
+    )
+  );
+  db_add_field($ret, 'migrate_example_beer_node', 'image_title', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Image title',
+    )
+  );
+  db_add_field($ret, 'migrate_example_beer_node', 'image_description', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Image description',
+    )
+  );
+  db_query("UPDATE {migrate_example_beer_node}
+            SET image_alt='%s', image_title='%s', image_description='%s'
+            WHERE bid=%d",
+    'Heinekin alt', 'Heinekin title', 'Heinekin description', 99999999);
+  $ret[] = t('Added image_alt, image_title, and image_description fields.');
+  return $ret;
+}
+
+/**
+ * Add sample data for file fields. And, make the image field multi-value.
+ */
+function migrate_example_update_6003() {
+  require drupal_get_path('module', 'content') . '/includes/content.crud.inc';
+  $ret = array();
+  db_query("UPDATE {migrate_example_wine}
+            SET image='%s'
+            WHERE wineid=%d",
+           'http://cyrve.com/files/penguin.jpeg', 1);
+  db_query("UPDATE {migrate_example_wine}
+            SET image='%s'
+            WHERE wineid=%d",
+           'http://cyrve.com/files/rioja.jpeg|http://cyrve.com/files/boutisse_0.jpeg', 2);
+  migrate_example_wine_image();
+  $ret[] = t('Added sample data for file fields.');
+  $ret[] = t('Made field_migrate_example_image multi-value');
+  return $ret;
+}
+
+/**
+ * Add file field example data.
+ */
+function migrate_example_update_6004() {
+  $ret = array();
+  db_create_table($ret, 'migrate_example_wine_files', migrate_example_wine_schema_files());
+  migrate_example_wine_data_files();
+
+  // Moved this data to migrate_example_wine_files
+  if (db_column_exists('migrate_example_wine', 'image')) {
+    db_drop_field($ret, 'migrate_example_wine', 'image');
+  }
+
+  $ret[] = t('Reconfigured sample data for file fields.');
+  return $ret;
+}
+
+/**
+ * Sample data for table destinations.
+ */
+function migrate_example_update_6005() {
+  $ret = array();
+  db_create_table($ret, 'migrate_example_wine_table_source', migrate_example_wine_schema_table_source());
+  db_create_table($ret, 'migrate_example_wine_table_dest', migrate_example_wine_schema_table_dest());
+  migrate_example_wine_data_table_source();
+
+  $ret[] = t('Added sample data for table destinations.');
+  return $ret;
+}
+
+/**
+ * Add data for testing/demonstrating roles.
+ */
+function migrate_example_update_6006() {
+  $ret = array();
+  db_add_field($ret, 'migrate_example_wine_account', 'positions', array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Positions held',
+    )
+  );
+  db_query("UPDATE {migrate_example_wine_account}
+            SET positions='%s'
+            WHERE accountid=%d",
+           '5', 1);
+  db_query("UPDATE {migrate_example_wine_account}
+            SET positions='%s'
+            WHERE accountid=%d",
+           '18', 3);
+  db_query("UPDATE {migrate_example_wine_account}
+            SET positions='%s'
+            WHERE accountid=%d",
+           '5,18', 9);
+  $ret[] = t('Added positions field to migrate_example_wine_account table.');
+  return $ret;
+}

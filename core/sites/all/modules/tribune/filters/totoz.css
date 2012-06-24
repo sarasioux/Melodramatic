@@ -1,0 +1,13 @@
+.tribune-posts a.tribune-totoz {
+	font-weight: normal;
+}
+
+.tribune-posts .tribune-totoz img {
+	display: none;
+	position: absolute;
+}
+
+.tribune-posts .tribune-totoz-visible img {
+	display: inline;
+}
+

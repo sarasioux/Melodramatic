@@ -1,0 +1,33 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Video file module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_video_enable() {
+  drupal_set_message(t('File video module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/format/video'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_video_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_video_uninstall() {
+  variable_del('file_video_flowplayer_version');
+  variable_del('file_video_getid3');
+  variable_del('file_video_getid3_data');
+  variable_del('file_video_convert_pipelines');
+}
+

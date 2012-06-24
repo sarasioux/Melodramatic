@@ -1,0 +1,86 @@
+<?php
+// $Id: webmail_plus_solr.install,v 1.1.2.5 2009/05/14 18:30:30 firmidea Exp $
+
+
+function webmail_plus_solr_enable() {
+  drupal_set_message(t('Webmail Plus Solr successfully installed.'));
+}
+
+
+function webmail_plus_solr_schema() {
+
+  $schema['webmail_plus_solr_queue'] = array(
+    'fields' => array(
+      'uid' => array('type' => 'int', 'not null' => TRUE),
+      'action' => array('type' => 'varchar', length => 32, 'not null' => TRUE, 'default' => ''),
+      'message_key' => array('type' => 'varchar', length => 32, 'not null' => TRUE, 'default' => ''), 
+    ),
+    'primary key' => array('uid', 'action', 'message_key'),
+  );
+
+  $schema['webmail_plus_solr_map'] = array(
+    'fields' => array(
+      'uid' => array('type' => 'int', 'not null' => TRUE),
+      'message_key' => array('type' => 'varchar', length => 32, 'not null' => TRUE, 'default' => ''), 
+    ),
+    'primary key' => array('uid', 'message_key'),
+  );
+  
+  $schema['webmail_plus_solr_history'] = array(
+    'fields' => array(
+      'uid' => array('type' => 'int', 'not null' => TRUE),
+      'keyword' => array('type' => 'varchar', length => 128, 'not null' => TRUE, 'default' => ''),
+    ),
+    'primary key' => array('uid', 'keyword'),
+  );
+  
+  $schema['webmail_plus_solr_results'] = array(
+  	'fields' => array(
+      'uid' => array('type' => 'int', 'not null' => TRUE),
+      'keyword_sha1' => array('type' => 'char', length => 40, 'not null' => TRUE, 'default' => ''),
+      'message_key' => array('type' => 'varchar', length => 32, 'not null' => TRUE, 'default' => ''),
+  	),
+  	'primary key' => array('uid', 'keyword_sha1', 'message_key'),
+  );
+  
+  $schema['webmail_plus_solr_results_headers'] = array(
+  	'fields' => array(
+      'uid' => array('type' => 'int', 'not null' => TRUE),
+      'keyword_sha1' => array('type' => 'char', length => 40, 'not null' => TRUE, 'default' => ''),
+      'folder' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE),
+      'message_key' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'subject' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'from' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'to' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'cc' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'date' => array('type' => 'int', 'not null' => TRUE),
+      'message_id' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'size' => array('type' => 'int', 'not null' => TRUE),
+      'message_uid' => array('type' => 'text',  'not null' => TRUE, 'default' => ''),
+      'msgno' => array('type' => 'int', 'not null' => TRUE),
+      'recent' => array('type' => 'int', 'not null' => TRUE),
+      'flagged' => array('type' => 'int', 'not null' => TRUE),
+      'answered' => array('type' => 'int', 'not null' => TRUE),
+      'deleted' => array('type' => 'int', 'not null' => TRUE),
+      'seen' => array('type' => 'int', 'not null' => TRUE),
+      'draft' => array('type' => 'int', 'not null' => TRUE),
+      'header' => array('type' => 'blob', 'size' => 'normal'),
+      'teaser' => array('type' => 'varchar', 'length' => 128, 'not null' => FALSE),
+      'attachments' => array('type' => 'int', 'not null' => TRUE),
+    ),
+     		
+  );
+  	  
+  
+  
+  
+  return $schema;
+}
+
+function webmail_plus_solr_install() {
+  drupal_install_schema('webmail_plus_solr');
+}
+
+function webmail_plus_solr_uninstall() {
+  drupal_uninstall_schema('webmail_plus_solr');
+}

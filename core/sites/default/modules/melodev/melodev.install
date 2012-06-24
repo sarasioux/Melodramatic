@@ -1,0 +1,320 @@
+<?php
+
+/**
+ * @file
+ * Melo schema and installation.
+ *
+ * Install file isn't really kept up to date since Melo is always
+ * changing and only barely open source.
+ */
+
+
+/**
+ * Install required tables.
+ */
+function melodev_install() {
+  drupal_install_schema('melodev');
+}
+
+/**
+ * Implementation of hook_schema
+ **/
+function melodev_schema() {
+  $schema = array();
+
+  $schema['stats_today'] = array(
+    'description' => t('User activity stats for today.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'total' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('id'),
+  );
+  
+  $schema['stats_recent'] = array(
+    'description' => t('User activity stats recently.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'total' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('id'),
+  );
+
+  $schema['stats_recent_breakdown'] = array(
+    'description' => t('User activity stats for a date range.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'date' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'total' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('id'),
+  );
+
+
+  $schema['stats_alltime'] = array(
+    'description' => t('User activity stats for all time.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'total' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('id'),
+  );
+  
+  $schema['stats_temp'] = array(
+    'description' => t('User activity stats during rotation.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'total' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('id'),
+  );
+  
+  $schema['karma'] = array(
+    'description' => t('User Karma (Calculated)'),
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'karma' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'unique keys' => array('uid_type' => array('uid', 'type')),
+    'primary key' => array('uid'),
+  );
+  $schema['karma_bonus'] = array(
+    'description' => t('Static Bonuses added to Karma'),
+    'fields' => array(
+      'kid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'karma' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'name' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
+      'message' => array('type' => 'text'),
+      'admin_uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE),
+      'timestamp' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),      
+    ),
+    'primary key' => array('kid'),
+  );
+  
+  $schema['melo_personal_tagcloud'] = array(
+    'description' => t('Stores serialized arrays for personal tag clouds.'),
+    'fields' => array(
+      'type' => array('type' => 'varchar', 'length' => 20, 'not null' => TRUE),
+      'id' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'tags' => array('type' => 'text'),
+    ),
+    'primary key' => array('type', 'id'),
+  );
+  
+  $schema['uc_paypal_subscriptions'] = array(
+    'description' => t('Stores subscription information for PayPal reconciliation.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'txn_id' => array('type' => 'varchar', 'length' => 50, 'not null' => TRUE),
+      'order_id' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'active' => array('type' => 'int', 'unsigned' => TRUE, 'default' => 0),
+      'last_billed' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+    ),
+    'primary key' => array('id'),
+  );
+  
+  /*
+  CREATE TABLE karma_bonus (
+    kid integer primary key auto_increment,
+    uid integer not null,
+    karma integer not null,
+    name varchar(255) not null,
+    message text,
+    admin_uid integer,
+    timestamp integer not null
+    );
+  
+  CREATE TABLE uc_gift_products (
+  `pfid` INT unsigned NOT NULL DEFAULT 0, 
+  `nid` INT unsigned NOT NULL DEFAULT 0, 
+  `pid` INT unsigned NOT NULL DEFAULT 0, 
+  PRIMARY KEY (pfid), 
+  UNIQUE KEY nid_pid (nid, pid)
+  );
+  
+  CREATE TABLE uc_gift_products (
+  `pfid` INT unsigned NOT NULL DEFAULT 0, 
+  `nid` INT unsigned NOT NULL DEFAULT 0, 
+  `pid` INT unsigned NOT NULL DEFAULT 0, 
+  PRIMARY KEY (pfid), 
+  UNIQUE KEY nid_pid (nid, pid)
+  );
+  */
+  $schema['uc_gift_products'] = array(
+    'description' => t('UC Gift Product Settings'),
+    'fields' => array(
+      'pfid' => array(
+        'description' => t('The ID of the product feature this is attached to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'nid' => array(
+        'description' => t('The ID of the node this role feature is attached to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'pid' => array(
+        'description' => t('The product ID to grant on purchase.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+    ),
+    'unique keys' => array('nid_pid' => array('nid', 'pid')),
+    'primary key' => array('pfid'),
+  );
+  
+  // Reimport User Table
+  $schema['melodev_reimport_user'] = array(
+    'description' => t('Reimport Users'),
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'status' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'primary key' => array('uid'),
+  );
+  
+  // Expiration Estimate Table
+  $schema['melodev_expiration_estimate'] = array(
+    'description' => t('Expiration Estimates'),
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'expiration' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0)
+    ),
+    'primary key' => array('uid'),
+  );
+  
+  // Melo Admin Notes
+  $schema['melodev_admin_notes'] = array(
+    'description' => t('Notes about administrative updates.'),
+    'fields' => array(
+      'id' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'form_id' => array('type' => 'varchar', 'length' => 250, 'not null' => TRUE),
+      'admin_uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'default' => NULL),
+      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'default' => NULL),
+      'note' => array('type' => 'text', 'not null' => TRUE),
+      'form' => array('type' => 'text', 'not null' => TRUE),
+    ),
+    'primary key' => array('id'),
+  );
+  
+  // Random Tours
+  $schema['random_tour'] = array(
+    'description' => t('Random Tours'),
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'last_update' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'tour' => array('type' => 'text', 'not null' => TRUE),
+      'active' => array('type' => 'int', 'unsigned' => TRUE, 'default' => 1)
+    ),
+    'primary key' => array('uid', 'type'),
+  );
+  
+  return $schema;
+}
+/*
+  $note = (object)array(
+    'form_id' => $form['form_id']['#value'],
+    'admin_uid' => $user->uid,
+    'uid' => $form['#uid'],
+    'nid' => $form['#nid'],
+    'note' => $form_state['values']['admin_note'],
+    'form' => serialize($form)
+  );
+*/
+function melodev_update_1000() {
+  $ret = array();
+
+  // Personal Tag Clouds
+  $schema = drupal_get_schema('melo_personal_tagcloud');
+  db_create_table($ret, 'melo_personal_tagcloud', $schema);
+  
+  // Uc Paypal Subscriptions
+  $schema = drupal_get_schema('uc_paypal_subscriptions');
+  db_create_table($ret, 'uc_paypal_subscriptions', $schema);
+  
+  return $ret;
+}
+
+function melodev_update_1001() {
+  $ret = array();
+
+  // Reimport Users
+  $schema = drupal_get_schema('melodev_reimport_user');
+  db_create_table($ret, 'melodev_reimport_user', $schema);
+   
+  return $ret;
+}
+
+function melodev_update_1004() {
+  $ret = array();
+
+  db_query('drop table uc_paypal_subscriptions');
+  
+  // Uc Paypal Subscriptions
+  $schema = drupal_get_schema('uc_paypal_subscriptions');
+  db_create_table($ret, 'uc_paypal_subscriptions', $schema);
+   
+  // Admin Notes
+  $schema = drupal_get_schema('melodev_admin_notes');
+  db_create_table($ret, 'melodev_admin_notes', $schema);
+   
+  return $ret;
+}
+
+function melodev_update_1005() {
+  $ret = array();
+
+  // Expiration Tracking
+  $schema = drupal_get_schema('melodev_expiration_estimate');
+  db_create_table($ret, 'melodev_expiration_estimate', $schema);
+   
+  return $ret;
+}
+
+function melodev_update_1006() {
+  $ret = array();
+
+  // Random Tour
+  $schema = drupal_get_schema('random_tour');
+  db_create_table($ret, 'random_tour', $schema);
+   
+  return $ret;
+}
+
+/**
+* Implementation of hook_uninstall().
+*/
+function melodev_uninstall() {
+  drupal_uninstall_schema('melodev');
+}

@@ -1,0 +1,32 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File audio module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_audio_enable() {
+  drupal_set_message(t('File audio module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/format/audio'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_audio_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_audio_uninstall() {
+  variable_del('file_audio_getid3');
+  variable_del('file_audio_getid3_data');
+  variable_del('file_audio_convert_pipelines');
+}
+

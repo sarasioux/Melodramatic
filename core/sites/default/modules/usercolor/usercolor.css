@@ -1,0 +1,104 @@
+/* $Id: preview.css,v 1.1 2006/10/29 13:17:38 unconed Exp $ */
+
+/* Positioning */
+#preview {
+  overflow: hidden;
+  max-width: 100%;
+}
+#preview {
+  width: 530px;
+  height: 310px;
+  margin-right: 200px;
+  margin-left: 5px;
+  margin-bottom: 20px;
+}
+#preview #img {
+  width: 530px;
+  height: 36px;
+  margin-right: 200px;
+  margin-bottom: 20px;
+}
+#preview p {
+  position: absolute;
+  top: 33px;
+  left: 20px;
+}
+#preview #preview-body p {
+  top: 0;
+}
+#preview #text p {
+  top: 20px;
+  left: 0px;
+  padding: 10px;
+}
+#preview #preview-body {
+  height: 230px;
+  float: left;
+  width: 530px;
+  position: relative;
+  top: 60px;
+}
+#preview #text {
+  position: absolute;
+  left: 20px;
+  width: 486px;
+  top: 35px;
+  height: 170px;
+  z-index: 5;
+}
+
+#preview #text h2 {
+  padding: 5px 0 2px 10px;
+}
+#preview #img {
+  position: relative;
+  z-index: 3;
+}
+
+/* Basic styles to match */
+#preview {
+  font: 12px/170% Verdana;
+}
+#preview h2 {
+  margin: 0;
+  padding: 0;
+  font-weight: normal;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 160%;
+  line-height: 130%;
+}
+#preview p {
+  margin: .5em 0;
+}
+#preview a:link, #preview a:visited {
+  text-decoration: none;
+  font-weight: normal;
+}
+#preview a:hover {
+  text-decoration: underline;
+}
+
+/* Palette */
+.color-form {
+  font-size: 0.9em;
+}
+.color-form label {
+  float: left; /* LTR */
+  clear: left; /* LTR */
+  width: 11em;
+}
+.color-form .text-color {
+  text-align: center;
+  margin-right: 5px; /* LTR */
+  cursor: pointer;
+}
+
+/* Preview */
+#preview {
+  display: none;
+}
+html.js #preview {
+  display: block;
+  position: relative;
+  float: left; /* LTR */
+}

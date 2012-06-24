@@ -1,0 +1,153 @@
+<?php
+// $Id: bitcache.test,v 1.3 2009/03/08 01:19:16 arto Exp $
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache unit tests (repository operations)
+
+class BitcacheRepositoryTestCase extends DrupalWebTestCase {
+  public function getInfo() {
+    return array(
+      'name'        => t('Repositories'),
+      'description' => t('Creates, renames and deletes a Bitcache repository.'),
+      'group'       => t('Bitcache'),
+    );
+  }
+
+  public function setup() {
+    $this->repository = 'simpletest';
+    //parent::setup('bitcache');
+  }
+
+  function test_create_repository() {
+    $this->assertTrue(is_null($this->settings()), t('Repository does not exist'));
+    $this->assertFalse(is_dir($this->path()), t('Directory does not exist'));
+
+    bitcache_create_repository($this->repository, array('title' => 'Simpletest', 'description' => ''));
+    $this->assertFalse(is_null($this->settings()), t('Repository was created'));
+    $this->assertTrue(is_dir($this->path()), t('Directory was created'));
+  }
+
+  function test_rename_repository() {
+    bitcache_rename_repository($this->repository, $this->repository . '_renamed', array('location' => TRUE));
+    $this->assertFalse(is_null($this->settings($this->repository . '_renamed')), t('Repository was renamed'));
+    $this->assertTrue(is_dir($this->path() . '_renamed'), t('Directory was renamed'));
+
+    bitcache_rename_repository($this->repository . '_renamed', $this->repository, array('location' => TRUE));
+    $this->assertFalse(is_null($this->settings()), t('Repository was renamed back'));
+    $this->assertTrue(is_dir($this->path()), t('Directory was renamed back'));
+  }
+
+  function test_delete_repository() {
+    bitcache_delete_repository($this->repository);
+    $this->assertTrue(is_null($this->settings()), t('Repository was deleted'));
+    $this->assertFalse(is_dir($this->path()), t('Directory was deleted'));
+  }
+
+  private function path() {
+    return BITCACHE_ROOT . '/' . $this->repository;
+  }
+
+  private function settings($name = NULL) {
+    return variable_get('bitcache_repository[' . ($name ? $name : $this->repository) . ']', NULL);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Bitcache unit tests (bitstream operations)
+
+class BitcacheOperationsTestCase extends DrupalWebTestCase {
+  public function getInfo() {
+    return array(
+      'name'        => t('Operations'),
+      'description' => t('Exercises the public Bitcache API operations.'),
+      'group'       => t('Bitcache'),
+    );
+  }
+
+  public function setup() {
+    $this->repository = 'simpletest';
+    $this->data = 'Simpletest';
+    $this->id = sha1($this->data);
+    //parent::setup('bitcache');
+  }
+
+  public function test_create_repository() {
+    bitcache_create_repository($this->repository, array('title' => 'Simpletest', 'description' => ''));
+    $this->assertFalse(is_null($this->settings()), 'bitcache_create_repository()');
+
+    bitcache_use_repository($this->repository);
+    $this->assertTrue(isset($GLOBALS['bitcache_repository']), 'bitcache_use_repository()');
+  }
+
+  public function test_get_repository() {
+    $this->assertTrue(is_object(bitcache_get_repository($this->repository)), 'bitcache_get_repository()');
+  }
+
+  public function test_get_repository_settings() {
+    $this->assertTrue(is_array(bitcache_get_repository_settings($this->repository)), 'bitcache_get_repository_settings()');
+  }
+
+  public function test_get_repository_path() {
+    $this->assertTrue(is_dir(bitcache_get_repository_path($this->repository)), 'bitcache_get_repository_path()');
+  }
+
+  public function test_get_total_count_0() {
+    $this->assertEqual(bitcache_get_total_count($this->repository), 0, 'bitcache_get_total_count()');
+  }
+
+  public function test_get_total_size_0() {
+    $this->assertEqual(bitcache_get_total_size($this->repository), 0, 'bitcache_get_total_size()');
+  }
+
+  public function test_put() {
+    $this->assertTrue(is_string(bitcache_put(NULL, '')), 'bitcache_put("")');
+    $this->assertTrue(is_string(bitcache_put(NULL, $this->data)), 'bitcache_put("Simpletest")');
+  }
+
+  public function test_put_file() {
+    $this->assertTrue(is_string(bitcache_put_file(NULL, __FILE__)), 'bitcache_put_file(__FILE__)');
+  }
+
+  public function test_get_total_count_3() {
+    $this->assertTrue(bitcache_get_total_count($this->repository) == 3, 'bitcache_get_total_count()');
+  }
+
+  public function test_get_total_size_3() {
+    $this->assertTrue(bitcache_get_total_size($this->repository) > 0, 'bitcache_get_total_size()');
+  }
+
+  public function test_exists() {
+    $this->assertTrue(bitcache_exists(sha1('')), 'bitcache_exists("")'); // FIXME
+    $this->assertTrue(bitcache_exists($this->id), 'bitcache_exists("Simpletest")');
+    $this->assertFalse(bitcache_exists(sha1('Unknown')), '!bitcache_exists("Unknown")');
+  }
+
+  public function test_get() {
+    $this->assertTrue(is_object(bitcache_get($this->id)), 'bitcache_get("Simpletest")');
+  }
+
+  public function test_get_stream() {
+    $this->assertTrue(is_resource(bitcache_get_stream($this->id)), 'bitcache_get_stream("Simpletest")');
+  }
+
+  public function test_get_contents() {
+    $this->assertEqual(bitcache_get_contents($this->id), $this->data, 'bitcache_get_contents("Simpletest")');
+  }
+
+  public function test_delete() {
+    $this->assertTrue(bitcache_delete(sha1('')), 'bitcache_delete("")');
+    $this->assertTrue(bitcache_delete($this->id), 'bitcache_delete("Simpletest")');
+  }
+
+  public function test_delete_repository() {
+    bitcache_use_repository(NULL);
+    $this->assertFalse(isset($GLOBALS['bitcache_repository']), 'bitcache_use_repository()');
+
+    bitcache_delete_repository($this->repository);
+    $this->assertTrue(is_null($this->settings()), 'bitcache_delete_repository()');
+  }
+
+  private function settings($name = NULL) {
+    return variable_get('bitcache_repository[' . ($name ? $name : $this->repository) . ']', NULL);
+  }
+}

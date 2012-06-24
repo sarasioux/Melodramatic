@@ -1,0 +1,15 @@
+name = API
+description = Generates and displays API documentation pages.
+package = Development
+core = 6.x
+dependencies[] = job_queue
+dependencies[] = node
+dependencies[] = grammar_parser
+dependencies[] = ctools
+
+; Information added by drupal.org packaging script on 2011-11-29
+version = "6.x-1.5"
+core = "6.x"
+project = "api"
+datestamp = "1322602537"
+

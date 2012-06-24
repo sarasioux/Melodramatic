@@ -1,0 +1,33 @@
+<?php
+
+/*  Melodev Last Installation  */
+
+/**
+ * Implementation of hook_install().
+ */
+function melodev_last_install() {
+
+  // Increase module weight
+  $sql = "UPDATE {system}
+          SET weight = 9999
+          WHERE name = 'melodev_last'";
+  db_query($sql);
+  
+}
+
+
+/*  Important Setup Queries
+
+// LOCAL
+// Give the melo2 role to everyone
+insert into users_roles (uid, rid) select uid, 5 from users where uid < 222797;
+// Set the format to melo2 HTML for appropriate nodes
+update node_revisions set format = 5 where nid in (select distinct newid from melodev_node_map where nodetype in ("article", "blog", "cliquepost", "favorite", "fppost"));
+
+// PRODUCTION
+// Give the melo2 role to everyone
+insert into users_roles (uid, rid) select uid, 13 from users where uid < 222797;
+// Set the format to melo2 HTML for appropriate nodes
+update node_revisions set format = 5 where nid in (select distinct newid from melodev_node_map where nodetype in ("article", "blog", "cliquepost", "favorite", "fppost"));
+
+*/

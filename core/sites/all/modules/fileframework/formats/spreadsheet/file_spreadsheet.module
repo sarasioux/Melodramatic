@@ -1,0 +1,65 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Supports spreadsheet file formats.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// File API hooks
+
+/**
+ * Implementation of hook_mime_types().
+ */
+function file_spreadsheet_mime_types() {
+  return array(
+    'application/vnd.oasis.opendocument.spreadsheet' => array(
+      'name' => t('OpenDocument Spreadsheet'),
+      'icon' => 'oo-impress.gif',
+    ),
+    'application/vnd.ms-excel' => array(
+      'name' => t('Excel spreadsheet'),
+      'icon' => 'excel.gif',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_converters().
+ */
+function file_spreadsheet_mime_converters() {
+  return array(
+    'application/vnd.oasis.opendocument.spreadsheet' => array(
+      'application/pdf' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].ods"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f pdf "[in_file].ods"; {mv} "[in_file].ods" "[in_file]"; {mv} "[in_file].pdf" "[out_file]"',
+        'handlers' => array('file_slideshow_pdf'),
+      ),
+      'application/vnd.ms-excel' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].ods"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f xls "[in_file].ods"; {mv} "[in_file].ods" "[in_file]"; {mv} "[in_file].xls" "[out_file]"',
+      ),
+      'text/csv' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].ods"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f csv "[in_file].ods"; {mv} "[in_file].ods" "[in_file]"; {mv} "[in_file].csv" "[out_file]"',
+      ),
+      'application/zip' => array(
+        'pipeline' => '{mkdir} "[in_file].tmp"; cd "[in_file].tmp"; {mv} "[in_file]" "[filename]"; {gzip} -c * > "[out_file]"; cd "[tmpdir]"; {touch} "[in_file]"; {rm} -rf "[in_file].tmp"',
+      ),
+    ),
+    'application/vnd.ms-excel' => array(
+      'application/pdf' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].xls"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f pdf "[in_file].xls"; {mv} "[in_file].xls" "[in_file]"; {mv} "[in_file].pdf" "[out_file]"',
+        'handlers' => array('file_slideshow_pdf'),
+      ),
+      'application/vnd.oasis.opendocument.spreadsheet' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].xls"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f ods "[in_file].xls"; {mv} "[in_file].xls" "[in_file]"; {mv} "[in_file].ods" "[out_file]"',
+      ),
+      'text/csv' => array(
+        'pipeline' => '{localhost:8100}cd "[tmpdir]"; {mv} "[in_file]" "[in_file].xls"; {java} -jar {{/opt/jodconverter/lib/jodconverter-cli-2.2.1.jar}} -f csv "[in_file].xls"; {mv} "[in_file].xls" "[in_file]"; {mv} "[in_file].csv" "[out_file]"',
+      ),
+      'application/zip' => array(
+        'pipeline' => '{mkdir} "[in_file].tmp"; cd "[in_file].tmp"; {mv} "[in_file]" "[filename]"; {gzip} -c * > "[out_file]"; cd "[tmpdir]"; {touch} "[in_file]"; {rm} -rf "[in_file].tmp"',
+      ),
+    ),
+  );
+}
+

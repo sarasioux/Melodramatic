@@ -1,0 +1,38 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * File image module installation and upgrade code.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+// Module installation/uninstallation
+
+/**
+ * Implementation of hook_enable().
+ */
+function file_image_enable() {
+  drupal_set_message(t('File image module successfully installed. Please review the available <a href="@settings">configuration settings</a>.', array('@settings' => url('admin/settings/file/format/image'))));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function file_image_install() {}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function file_image_uninstall() {
+  variable_del('file_image_use_image_magic');
+  variable_del('file_image_preview_resolution');
+  variable_del('file_image_medium_resolution');
+  variable_del('file_image_thumbnail_resolution');
+  variable_del('file_image_custom_previews');
+  variable_del('file_image_exif');
+  variable_del('file_image_exif_data');
+  variable_del('file_image_geo');
+  variable_del('file_image_convert_pipelines');
+}
+

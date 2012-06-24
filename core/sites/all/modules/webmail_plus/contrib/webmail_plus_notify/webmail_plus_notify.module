@@ -1,0 +1,67 @@
+<?php
+// $Id:
+/**
+ * @file
+ * Webmail Plus Notify plugin module
+ *
+ */
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function webmail_plus_notify_form_alter(&$form, $form_state, $form_id) {
+  global $user;
+  if ($form_id == "webmail_plus_preferences_presentation") {
+    $form['general']['webmail_plus_notify_user'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Notify on new message'),
+      '#default_value' => variable_get('webmail_plus_notify_user_'. $user->uid, FALSE),
+      '#description' => t('If checked, this will notify you when a new message is received in your webmail plus INBOX'),
+    );
+    $form['#submit'][] = 'webmail_plus_notify_form_submit';
+  }
+}
+
+/**
+ * Submit handler for the form alter above
+ */
+function webmail_plus_notify_form_submit($form, $form_state) {
+  global $user;
+  if (isset($form_state['values']['webmail_plus_notify_user'])) {
+    variable_set('webmail_plus_notify_user_'. $user->uid, $form_state['values']['webmail_plus_notify_user']);
+  }
+}
+
+/**
+ * Implementation of hook_webmail_plus_new_message()
+ *
+ * This function will notify the users external email address that they have received
+ * an email in their webmail plus email account.
+ *
+ * @param $message
+ *      Object containing the pertinent components of the message we have received
+ */
+function webmail_plus_notify_webmail_plus_new_message($message) {
+  // Load the user so we can retrieve their non webmail plus email address
+  if ($user = user_load(array('uid' => $message->uid))) {
+    if (variable_get('webmail_plus_notify_user_'. $user->uid, FALSE)) {
+      // Default headers that we will utilize for the message we are sending
+      $headers = array(
+        'MIME-Version' => '1.0',
+        'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
+        'Content-Transfer-Encoding' => '8Bit',
+        'X-Mailer' => 'Drupal',
+        'From' => variable_get('site_mail', ini_get('sendmail_from')),
+        'Reply-To' => variable_get('site_mail', ini_get('sendmail_from')),
+      );
+
+      $body_text = t('Date: !data \n\n New Subject: !subject \n\n Teaser\n !body', array('!date' => $message->date, '!subject' => $message->subject, '!body' => $message->teaser));
+      $mail = array('to' => $user->mail, 'id' => $message->message_key, 'headers' => $headers);
+      $mail['subject'] = t('Your RIO account !mail has received a new message', array('!mail' => $message->to));
+      $mail['body'] = drupal_wrap_text($body_text);
+      return drupal_mail_send($mail);
+    }
+  }
+  watchdog('webmail_plus_notify', t('User could not be resolved from the uid in the message. No email has been sent'), array(), WATCHDOG_ERROR);
+  return FALSE;
+}

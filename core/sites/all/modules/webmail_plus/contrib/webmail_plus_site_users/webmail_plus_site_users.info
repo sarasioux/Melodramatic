@@ -1,0 +1,13 @@
+; $Id:
+name = Webmail Plus Site Users
+description = Exposes all local users as an address book for autocomplete
+package = "Webmail Plus"
+dependencies[] = webmail_plus
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-05-14
+version = "6.x-1.16"
+core = "6.x"
+project = "webmail_plus"
+datestamp = "1242326190"
+

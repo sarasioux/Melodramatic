@@ -1,0 +1,19 @@
+<?
+function webmail_plus_simplestatus_menu() {  
+  $items = array();
+  
+  $items['webmail_plus/simplestatus/newmessages'] = array(
+   'title' => 'Webmail Plus Simple Status Messages',
+   'description' => 'Returns Yes if the user has new messages and No if he does not',
+   'access arguments' => array('access webmail_plus'),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array('webmail_plus_simplestatus_newmessages'),
+   'file' => 'webmail_plus_simplestatus.newmessages.inc',
+   'type' => MENU_CALLBACK,
+  
+  );
+  
+  return $items;
+  
+}
+?>

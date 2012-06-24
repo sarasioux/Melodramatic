@@ -1,0 +1,119 @@
+<?php
+// $Id: token_profile.module,v 1.2.2.1 2010/07/29 14:46:32 fizk Exp $
+/**
+ * @file
+ * Provides profile tokens in Drupal 6.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function token_profile_help($path, $arg) {
+  if ($path == 'admin/help#profile_token') {
+    $txt = <<<TXT
+The <strong>Profile Tokens</strong> module provides tokens exposing each
+profile field defined through the Profile module.
+TXT;
+    return '<p>'. $txt .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_token_values().
+ */
+function token_profile_token_values($type, $object = NULL) {
+  $values = array();
+  if ($type == 'node' || $type == 'user') {
+    switch ($type) {
+      case 'user':
+        $account = $object;
+        break;
+      case 'node':
+        $account = user_load($object->uid);
+        break;
+    }
+
+    profile_load_profile($account);
+    $fields = _token_profile_profile_fields();
+
+    foreach ($fields as $name => $field) {
+      $field->value = $account->$name;
+      $values[$type . ':' . $name] = _token_profile_format_field($field);
+    }
+  }
+
+  return $values;
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function token_profile_token_list($type = 'all') {
+  if ($type == 'node' || $type == 'user' || $type == 'all') {
+    $show_user = ($type == 'user' || $type == 'all');
+    $show_node = ($type == 'node' || $type == 'all');
+    $fields = _token_profile_profile_fields();
+    $tokens = array();
+
+    foreach ($fields as $name => $field) {
+      if($show_node) {
+        $tokens['node']['node:' . $name] = $field->title;
+      }
+      if($show_user) {
+        $tokens['user']['user:' . $name] = $field->title;
+      }
+    }
+
+    return $tokens;
+  }
+}
+
+function _token_profile_profile_fields() {
+  static $fields;
+
+  if (!isset($fields)) {
+    $fields = array();
+    $result = db_query('SELECT name, title, type FROM {profile_fields}');
+    while ($field = db_fetch_object($result)) {
+      $fields[$field->name] = $field;
+    }
+  }
+
+  return $fields;
+}
+
+function _token_profile_format_field($field) {
+  switch ($field->type) {
+    case 'checkbox':
+      return ($field->value) ? check_plain($field->title) : '';
+    case 'url':
+      return  '<a href="'. check_url($field->value) .'">'. check_plain($field->value) .'</a>';
+    case 'textarea':
+      return check_markup($field->value);
+    case 'date':
+      $format = substr(variable_get('date_format_short', 'm/d/Y - H:i'), 0, 5);
+      // Note: Avoid PHP's date() because it does not handle dates before
+      // 1970 on Windows. This would make the date field useless for e.g.
+      // birthdays.
+      $replace = array('d' => sprintf('%02d', $field->value['day']),
+              'j' => $field->value['day'],
+              'm' => sprintf('%02d', $field->value['month']),
+              'M' => map_month($field->value['month']),
+              'Y' => $field->value['year'],
+              'H:i' => NULL,
+              'g:ia' => NULL);
+      return strtr($format, $replace);
+    case 'list':
+      $values = split("[,\n\r]", $field->value);
+      $fields = array();
+      foreach ($values as $value) {
+        $value = trim($value);
+        if ($value) {
+          $fields[] = check_plain($value);
+        }
+      }
+      return implode(', ', $fields);
+    default:
+      return check_plain($field->value);
+  }
+}

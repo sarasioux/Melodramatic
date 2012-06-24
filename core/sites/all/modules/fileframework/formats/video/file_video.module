@@ -1,0 +1,544 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Supports video file formats.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_VIDEO_FLOWPLAYER_VERSION', variable_get('file_video_flowplayer_version', '3.0.0'));
+define('FILE_VIDEO_GETID3',             variable_get('file_video_getid3', 1));
+define('FILE_VIDEO_MODULE_PATH',        drupal_get_path('module', 'file_video'));
+define('FILE_VIDEO_QUICKTIME_LINK',     'http://www.apple.com/quicktime/download');
+define('FILE_VIDEO_WINDOWSMEDIA_LINK',  'http://windowsupdate.microsoft.com');
+define('FILE_VIDEO_REALMEDIA_LINK',     'http://www.real.com');
+define('FILE_VIDEO_FLASH_LINK',         'http://www.adobe.com/products/flashplayer');
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_init().
+ */
+function file_video_init() {
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_video_theme() {
+  return array(
+    'file_video_admin_settings' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_render_player' => array(
+      'arguments' => array('options' => NULL, 'output' => NULL, 'url' => NULL, 'link_text' => NULL, 'title' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_quicktime_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_windowsmedia_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_realmedia_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_flash_flv_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+    'file_video_flash_swf_render' => array(
+      'arguments' => array('options' => NULL),
+      'file' => 'file_video.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_video_menu() {
+  return array(
+    'admin/settings/file/format/video' => array(
+      'title' => 'Video',
+      'description' => 'Manage the video files.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_video_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_video.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function file_video_link($type, $node = NULL, $teaser = FALSE) {
+  $links = array();
+  if ($type == 'node' && $node->type == 'file' && !empty($node->file) && preg_match('/^video\//', $node->file->type)) {
+    if (!empty($node->file->uri)) {
+      $playtime = ($playtime = rdf_value($node->file->uri, rdf_qname_to_uri('wordnet:playtime_string'), NULL, array('repository' => FILE_RDF_REPOSITORY))) ? $playtime : NULL;
+      if (!empty($playtime)) {
+        $links['file_video_playtime'] = array(
+          'title' => t('Length @playtime', array('@playtime' => $playtime)),
+          'html'  => TRUE,
+        );
+      }
+    }
+  }
+
+  return $links;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API hooks
+
+
+/**
+ * Implementation of hook_mime_handlers().
+ */
+function file_video_mime_handlers() {
+  return array(
+    'file_video_quicktime' => array(
+      'name' => t('QuickTime'),
+    ),
+    'file_video_realmedia' => array(
+      'name' => t('Real Media'),
+    ),
+    'file_video_windowsmedia' => array(
+      'name' => t('Windows Media'),
+    ),
+    'file_video_flash_flv' => array(
+      'name' => t('Flash FLV'),
+      'weight' => -1,
+      'dimensions' => '0x90',
+    ),
+    'file_video_flash_swf' => array(
+      'name' => t('Flash SWF'),
+      'weight' => -1,
+    ),
+    'file_video_flash_image' => array(
+      'name' => t('Flash image'),
+      'weight' => 1,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_types().
+ */
+function file_video_mime_types() {
+  return array(
+    'video/mp4' => array(
+      'name' => t('MP4 video'),
+      'handlers' => array('file_video_quicktime'),
+    ),
+    'video/mpeg' => array(
+      'name' => t('MPEG video'),
+      'handlers' => array('file_video_quicktime'),
+    ),
+    'video/quicktime' => array(
+      'name' => t('QuickTime video'),
+      'handlers' => array('file_video_quicktime'),
+    ),
+    'video/x-msvideo' => array(
+      'name' => t('AVI video'),
+      'handlers' => array('file_video_windowsmedia'),
+    ),
+    'video/x-ms-wmv' => array(
+      'name' => t('Windows Media video'),
+      'handlers' => array('file_video_windowsmedia'),
+    ),
+    'video/x-flv' => array(
+      'name' => t('Flash FLV video'),
+      'handlers' => array('file_video_flash_flv'),
+      'extensions' => array('flv'),
+      'icon' => 'flash.gif',
+    ),
+    'application/x-shockwave-flash' => array(
+      'name' => t('Flash SWF video'),
+      'handlers' => array('file_video_flash_swf'),
+      'icon' => 'flash.gif',
+    ),
+    'application/vnd.rn-realmedia' => array(
+      'name' => t('RealMedia video'),
+      'handlers' => array('file_video_realmedia'),
+      'extensions' => array('rm'),
+      'icon' => 'video.gif',
+    ),
+    'video/vnd.rn-realvideo' => array(
+      'name' => t('RealMedia video'),
+      'handlers' => array('file_video_realmedia'),
+      'extensions' => array('rv'),
+      'icon' => 'video.gif',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_mime_converters().
+ */
+function file_video_mime_converters() {
+  return array(
+    'video/quicktime' => array(
+      'video/x-flv' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].flv"; {mv} "[out_file].flv" "[out_file]"',
+        'handlers' => array('file_video_flash_flv'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+    'video/mp4' => array(
+      'video/x-flv' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].flv"; {mv} "[out_file].flv" "[out_file]"',
+        'handlers' => array('file_video_flash_flv'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+    'video/mpeg' => array(
+      'video/x-flv' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].flv"; {mv} "[out_file].flv" "[out_file]"',
+        'handlers' => array('file_video_flash_flv'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+    'video/x-ms-wmv' => array(
+      'video/x-flv' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].flv"; {mv} "[out_file].flv" "[out_file]"',
+        'handlers' => array('file_video_flash_flv'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+    'video/x-msvideo' => array(
+      'video/x-flv' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].flv"; {mv} "[out_file].flv" "[out_file]"',
+        'handlers' => array('file_video_flash_flv'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+    'video/x-flv' => array(
+      'image/jpeg' => array(
+        'pipeline' => '{ffmpeg} -i "[in_file]" -y -ss 1 -r 1 -vframes 1 -an "[tmpdir]/%d.jpg"; {mv} "[tmpdir]/1.jpg" "[out_file]"',
+        'handlers' => array('file_video_flash_image'),
+      ),
+      'audio/mpeg' => array(
+        'pipeline' => '{ffmpeg} -y -i "[in_file]" -ar 22050 "[out_file].mp3"; {mv} "[out_file].mp3" "[out_file]"',
+        'handlers' => array('file_audio_mp3'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_metadata_info().
+ */
+function file_video_metadata_info() {
+  $info = array(
+    'wordnet:width' => array('name' => t('Width')),
+    'wordnet:height' => array('name' => t('Height')),
+    'exif:width' => array('name' => t('Width')),
+    'exif:height' => array('name' => t('Height')),
+  );
+  foreach (_file_video_getid3() as $name => $data) {
+    $info[$data['rdf']] = array('name' => t($data['name']));
+    if (isset($data['theme']))
+      $info[$data['rdf']]['theme'] = $data['theme'];
+  }
+  return $info;
+}
+
+/**
+ * Implementation of hook_metadata_parse().
+ */
+function file_video_metadata_parse($filename, $mimetype) {
+  if (!array_key_exists($mimetype, file_video_mime_types()))
+    return NULL;
+
+  // FIXME
+  // Refactor when getid3 module is ported to D6
+  $getid3_path = drupal_get_path('module', 'file') .'/vendor/getid3/getid3/getid3.php';
+  if (!file_exists($getid3_path))
+    return NULL;
+
+  require_once $getid3_path;
+  $id3 = new getID3;
+  $metadata = array();
+
+  $getid3 = _file_video_getid3();
+  foreach ($getid3 as $name => $data) {
+    $getid3_data_default[$name] = $data['default'];
+  }
+  $getid3_data = variable_get('file_video_getid3_data', $getid3_data_default);
+
+  if (($info = @$id3->analyze($filename)) && !empty($info['video'])) {
+
+    // Video comments
+    if (empty($info['comments']) && !empty($info['asf']['comments']))
+      $info['comments'] = $info['asf']['comments'];
+    if (empty($info['video']['codec']) && !empty($info['video']['encoder']))
+      $info['video']['codec'] = $info['video']['encoder'];
+
+    // Needed to get the resolution for Windows Media files
+    if (isset($info['video']['streams'])) {
+      foreach (reset($info['video']['streams']) as $key => $value) {
+        $info['video'][$key] = $value;
+      }
+    }
+
+    // Resolution for the FLV videos.
+    if (isset($info['meta']['onMetaData'])) {
+      $info['video']['resolution_x'] = $info['meta']['onMetaData']['width'];
+      $info['video']['resolution_y'] = $info['meta']['onMetaData']['height'];
+    }
+
+    // Basic sanity checks since FLV file widths and heights have
+    // demonstrated some very corrupted info with this getID3() version
+    if ($info['video']['resolution_x'] < 0 || $info['video']['resolution_x'] > 2048)
+      unset($info['video']['resolution_x']);
+    if ($info['video']['resolution_y'] < 0 || $info['video']['resolution_y'] > 2048)
+      unset($info['video']['resolution_y']);
+
+    $rdf_getid3 = array();
+    foreach ($getid3 as $name => $data) {
+      if (isset($getid3_data[$name]) && $element = file_get_recursive($info, $data['getid3'])) {
+        switch ($data['type']) {
+          case 'int' :
+            $rdf_getid3[$data['rdf']] = array((int)$element);
+            break;
+          case 'float' :
+            $rdf_getid3[$data['rdf']] = array(round($element, 4));
+            break;
+          default :
+            $rdf_getid3[$data['rdf']] = array($element);
+            break;
+        }
+      }
+    }
+    $metadata =  array_merge($rdf_getid3, $metadata);
+  }
+
+  return $metadata;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// MIME handlers
+
+/**
+ * Generates a flash_swf preview.
+ */
+function file_video_flash_swf_generate($file, $tier = NULL) {
+  if (isset($tier) && !in_array($file->handlers[$tier], isset($file->previews[$file->mimes[$tier]]) ? $file->previews[$file->mimes[$tier]] : array())) {
+    if (!file_get_converted($file, $tier))
+      return FALSE;
+    if (!file_data_save($file, $tier))
+      return FALSE;
+    watchdog('file_video', 'The %mime preview was generated for the file %name, uri=%uri.', array('%mime' => $file->mimes[$tier], '%name' => $file->filename, '%uri' => $file->uri), WATCHDOG_NOTICE, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+  }
+  return TRUE;
+}
+
+/**
+ * Generates a flash_flv preview.
+ */
+function file_video_flash_flv_generate($file, $tier = NULL) {
+  if (isset($tier) && !in_array($file->handlers[$tier], isset($file->previews[$file->mimes[$tier]]) ? $file->previews[$file->mimes[$tier]] : array())) {
+    if (!file_get_converted($file, $tier))
+      return FALSE;
+    if (!file_data_save($file, $tier))
+      return FALSE;
+    watchdog('file_video', 'The %mime preview was generated for the file %name, uri=%uri.', array('%mime' => $file->mimes[$tier], '%name' => $file->filename, '%uri' => $file->uri), WATCHDOG_NOTICE, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+  }
+
+  // Create an image previews.
+  $previews = array(
+    'file_video_flash_image' => 'image/jpeg',
+  );
+
+  $result = TRUE;
+  $tier = isset($tier) ? $tier + 1 : 0;
+  foreach ($previews as $handler => $to) {
+    $file->handlers[$tier] = $handler;
+    $file->mimes[$tier] = $to;
+    $result = file_generate_secondary_previews($file, $tier) && $result;
+  }
+  return $result;
+}
+
+/**
+ * Generates a flash_image preview.
+ */
+function file_video_flash_image_generate($file, $tier = NULL) {
+  if (function_exists('file_image_image_generate')) {
+    $file->handlers[$tier] = 'file_video_flash_image';
+    if (!file_image_image_generate($file, $tier)) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Implements quicktime handler.
+ */
+function file_video_quicktime_render($uri, $options = array()) {
+  $options = array_merge($options, _file_video_render_options($uri, $options));
+  return theme('file_video_quicktime_render', $options);
+}
+
+/**
+ * Implements windowsmedia handler.
+ */
+function file_video_windowsmedia_render($uri, $options = array()) {
+  $options = array_merge($options, _file_video_render_options($uri, $options));
+  return theme('file_video_windowsmedia_render', $options);
+}
+
+/**
+ * Implements realmedia handler.
+ */
+function file_video_realmedia_render($uri, $options = array()) {
+  $options = array_merge($options, _file_video_render_options($uri, $options));
+  return theme('file_video_realmedia_render', $options);
+}
+
+/**
+ * Implements flash_flv handler.
+ */
+function file_video_flash_flv_render($uri, $options = array()) {
+  $options = array_merge($options, _file_video_render_options($uri, $options));
+  return theme('file_video_flash_flv_render', $options);
+}
+
+/**
+ * Implements flash_swf handler.
+ */
+function file_video_flash_swf_render($uri, $options = array()) {
+  $options = array_merge($options, _file_video_render_options($uri, $options));
+  return theme('file_video_flash_swf_render', $options);
+}
+
+/**
+ * Implements flash_image handler.
+ */
+function file_video_flash_image_render($uri, $options = array()) {
+  if (function_exists('_file_image_render_options')) {
+    $options = array_merge($options, _file_image_render_options($uri, $options));
+    return theme('file_image_image_render', $options);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// RDF API hooks
+
+/**
+ * Implementation of hook_rdf_namespaces().
+ */
+function file_video_rdf_namespaces() {
+  return array(
+//    'exif' => 'http://www.w3.org/2003/12/exif/ns',
+//    'wordnet' => 'http://xmlns.com/wordnet/1.6/',
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Renders options for the video display.
+ */
+function _file_video_render_options($uri, $options = array()) {
+  $width = rdf_value($uri, rdf_qname_to_uri('wordnet:width'), NULL, array('repository' => FILE_RDF_REPOSITORY))->value;
+  $height = rdf_value($uri, rdf_qname_to_uri('wordnet:height'), NULL, array('repository' => FILE_RDF_REPOSITORY))->value;
+
+  $max_width = (int)(!empty($options['max_width']) ? $options['max_width'] : NULL);
+  $max_height = (int)(!empty($options['max_height']) ? $options['max_height'] : NULL);
+
+  $scale = !isset($options['scale']) ? TRUE : !empty($options['scale']);
+  $width = (int)($scale && !empty($options['width']) ? $options['width'] : $width);
+  //set a minimum width to preserve player ui
+  $width = (int)(!empty($options['min_width']) && $options['min_width']>$width ? $options['min_width'] : $width);
+  $height = (int)($scale && !empty($options['height']) ? $options['height'] : $height);
+
+  // Scale image width and height, if requested
+  if ($scale && $width && $max_width && $width > $max_width) {
+    $ratio = $max_width / $width;
+    list($width, $height) = array((int)floor($width * $ratio), (int)floor($height * $ratio));
+  }
+  if ($scale && $height && $max_height && $height > $max_height) {
+    $ratio = $max_height / $height;
+    list($width, $height) = array((int)floor($width * $ratio), (int)floor($height * $ratio));
+  }
+
+  $node = node_load($options['nid'], $options['vid']);
+  $title = isset($node->title) ? $node->title : NULL;
+  $src = bitcache_resolve_uri($uri, array('absolute' => FALSE, 'query' => isset($node->vid) ? array('vid' => $node->vid) : array()));
+
+  // Thumbnail
+  $source = rdf_value($uri, rdf_qname_to_uri('dc:source'), NULL, array('repository' => FILE_RDF_REPOSITORY));
+  $derivatives = rdf_normalize(rdf_query(NULL, rdf_qname_to_uri('dc:source'), isset($source) ? $source : $uri, array('repository' => FILE_RDF_REPOSITORY)));
+  foreach ($derivatives as $derivative => $data) {
+    if (rdf_exists($derivative, rdf_qname_to_uri('dc:creator'), 'file_video_flash_image', array('repository' => FILE_RDF_REPOSITORY))) {
+      $image = bitcache_resolve_uri($derivative, array('absolute' => FALSE, 'query' => isset($node->vid) ? array('vid' => $node->vid) : array()));
+      break;
+    }
+  }
+
+  $options = array_merge(array('class' => 'file-video'), $options);
+  return array_merge($options, compact('width', 'height', 'max_width', 'max_height', 'src', 'title', 'image'));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// GetID3 SETTINGS
+
+/**
+ * getID3 to RDF mapping.
+ */
+function _file_video_getid3() {
+  return array(
+    'width'                 => array('name' => 'Width',                    'getid3' => array('video' => array('resolution_x' => NULL)),       'rdf' => 'wordnet:width',                    'type' => 'int',   'default' => 1),
+    'height'                => array('name' => 'Height',                   'getid3' => array('video' => array('resolution_y' => NULL)),       'rdf' => 'wordnet:height',                   'type' => 'int',   'default' => 1),
+    'videodataformat'       => array('name' => 'Video data format',        'getid3' => array('video' => array('dataformat' => NULL)),         'rdf' => 'wordnet:video_dataformat',         'type' => '',      'default' => 1),
+    'videocodec'            => array('name' => 'Video codec',              'getid3' => array('video' => array('codec' => NULL)),              'rdf' => 'wordnet:video_codec',              'type' => '',      'default' => 1),
+    'videobitrate'          => array('name' => 'Video bitrate',            'getid3' => array('video' => array('bitrate' => NULL)),            'rdf' => 'wordnet:video_bitrate',            'type' => 'float', 'default' => 1),
+    'videobitratemode'      => array('name' => 'Video bitrate mode',       'getid3' => array('video' => array('bitrate_mode' => NULL)),       'rdf' => 'wordnet:video_bitrate_mode',       'type' => '',      'default' => 0),
+    'videolossless'         => array('name' => 'Video lossless',           'getid3' => array('video' => array('lossless' => NULL)),           'rdf' => 'wordnet:video_lossless',           'type' => '',      'default' => 0),
+    'videoframerate'        => array('name' => 'Video frame rate',         'getid3' => array('video' => array('frame_rate' => NULL)),         'rdf' => 'wordnet:video_frame_rate',         'type' => 'int',   'default' => 1),
+    'videobitspersample'    => array('name' => 'Video bits per sample',    'getid3' => array('video' => array('bits_per_sample' => NULL)),    'rdf' => 'wordnet:video_bits_per_sample',    'type' => 'int',   'default' => 1),
+    'videopixelaspectratio' => array('name' => 'Video pixel aspect ratio', 'getid3' => array('video' => array('pixel_aspect_ratio' => NULL)), 'rdf' => 'wordnet:video_pixel_aspect_ratio', 'type' => 'int',   'default' => 1),
+    'audiodataformat'       => array('name' => 'Audio data format',        'getid3' => array('audio' => array('dataformat' => NULL)),         'rdf' => 'wordnet:audio_dataformat',         'type' => '',      'default' => 1),
+    'audiocodec'            => array('name' => 'Audio codec',              'getid3' => array('audio' => array('codec' => NULL)),              'rdf' => 'wordnet:audio_codec',              'type' => '',      'default' => 1),
+    'audiobitrate'          => array('name' => 'Audio bitrate',            'getid3' => array('audio' => array('bitrate' => NULL)),            'rdf' => 'wordnet:audio_bitrate',            'type' => 'float', 'default' => 1),
+    'audiobitratemode'      => array('name' => 'Audio bitrate mode',       'getid3' => array('audio' => array('bitrate_mode' => NULL)),       'rdf' => 'wordnet:audio_bitrate_mode',       'type' => '',      'default' => 0),
+    'audiolossless'         => array('name' => 'Audio lossless',           'getid3' => array('audio' => array('lossless' => NULL)),           'rdf' => 'wordnet:audio_lossless',           'type' => '',      'default' => 0),
+    'audiosamplerate'       => array('name' => 'Audio sample rate',        'getid3' => array('audio' => array('sample_rate' => NULL)),        'rdf' => 'wordnet:audio_sample_rate',        'type' => 'int',   'default' => 1),
+    'audiochannels'         => array('name' => 'Audio channels',           'getid3' => array('audio' => array('channels' => NULL)),           'rdf' => 'wordnet:audio_channels',           'type' => 'int',   'default' => 1),
+    'audiochannelmode'      => array('name' => 'Audio channel mode',       'getid3' => array('audio' => array('channelmode' => NULL)),        'rdf' => 'wordnet:audio_channelmode',        'type' => '',      'default' => 0),
+    'audioencoderoptions'   => array('name' => 'Audio encoder options',    'getid3' => array('audio' => array('encoder_options' => NULL)),    'rdf' => 'wordnet:audio_encoder_options',    'type' => '',      'default' => 0),
+    'audiocompressionratio' => array('name' => 'Audio compression ratio',  'getid3' => array('audio' => array('compression_ratio' => NULL)),  'rdf' => 'wordnet:audio_compression_ratio',  'type' => '',      'default' => 1),
+    'audiobitspersample'    => array('name' => 'Audio bits per sample',    'getid3' => array('audio' => array('bits_per_sample' => NULL)),    'rdf' => 'wordnet:audio_bits_per_sample',    'type' => 'int',   'default' => 1),
+    'playtimeseconds'       => array('name' => 'Playtime seconds',         'getid3' => array('playtime_seconds' => NULL),                     'rdf' => 'wordnet:playtime_seconds',         'type' => 'float', 'default' => 1),
+    'playtimestring'        => array('name' => 'Playtime string',          'getid3' => array('playtime_string' => NULL),                      'rdf' => 'wordnet:playtime_string',          'type' => '',      'default' => 1),
+  );
+}
+

@@ -1,0 +1,275 @@
+<?php
+// $Id: node_limitnumber.module,v 1.6.2.1.2.24 2011/01/25 16:30:39 jdwfly Exp $
+/**
+ * @file
+ * Lets users create special rules that will limit posting of nodes.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function node_limitnumber_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#node_limitnumber":
+      // TODO This help page needs to be more informative.
+      $output = t("Lets users create special rules that will limit the creation of nodes or comments.") ."<br />";
+      $output .= t("Navigate to "). l("Triggered Rules", "admin/rules/trigger"). t(" to start creating your rules.") ."</p>";
+      $output .= "<h3>". t('Requirements in Rules') ."</h3><p>". t("When creating your rules there is a special event called \"Check a Node limit\" or \"Check a Comment Limit\" that you will need to use in order for the rule to be activated at the right time. Once you have created the rule with the appropiate event then you will need to make sure that you include the \"Reached limit for the node type\". This allows the rule to decide if the limit has been reached.") ."</p>";
+      $output .= "<h3>". t('Conditions') ."</h3><p>". t("Any additional conditions that you set for the rule will allow the limit to be more selective in who or what is limited. For example if you were to add a user role condition then that rule with only execute for users that are part of the role. This also allows for Custom PHP conditions that pretty much open up the conditions to anything. This can then allow for very specific limits.") ."</p>";
+      $output .= "<h3>". t('Actions') ."</h3><p>". t("The default rule only includes showing a configurable message, and then a page redirect. If you want some other type of action to happen it can be added here, but make sure that it is before the page redirect action.") ."</p>";
+      break;
+  }
+  return $output;
+}
+/**
+ * Implementation of hook_nodeapi().
+ */
+function node_limitnumber_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  global $user;
+  if (($op == 'prepare' || $op == 'presave') && $user->uid != 1 && !$node->nid) {
+    rules_invoke_event('node_limitnumber_check_limit', $node, $user);
+  }
+}
+/**
+ * Implementation of hook_comment().
+ */
+function node_limitnumber_comment(&$a1, $op) {
+  global $user;
+  // Only apply this limit to new comments
+  if ($op == 'validate' && $user->uid != 1 && $a1['cid'] == NULL) {
+    rules_invoke_event('node_limitnumber_comment_limit', $a1, $user);
+  }
+}
+/**
+ * Implementation of hook_rules_event_info().
+ * @ingroup rules
+ */
+function node_limitnumber_rules_event_info() {
+  return array(
+    'node_limitnumber_check_limit' => array(
+      'label' => t('Check a Node limit'),
+      'module' => 'Node Limit Number',
+      'arguments' => array(
+        'node' => array('type' => 'node', 'label' => t('Node')),
+        'user' => array('type' => 'user', 'label' => t('User')),
+      ),
+    ),
+    'node_limitnumber_comment_limit' => array(
+      'label' => t('Check a Comment limit'),
+      'module' => 'Node Limit Number',
+      'arguments' => array(
+        'comment' => array('type' => 'comment', 'label' => t('Comment')),
+        'user' => array('type' => 'user', 'label' => t('User')),
+      ),
+    ),
+  );
+}
+/**
+ * Implementation of hook_rules_condition_info().
+ * @ingroup rules
+ */
+function node_limitnumber_rules_condition_info() {
+  return array(
+    'node_limitnumber_rules_condition_limit' => array(
+      'label' => t('Reached limit for the node type'),
+      'module' => 'Node Limit Number',
+      'arguments' => array(
+        'node' => array('label' => t('Node'), 'type' => 'node'),
+        'user' => array('label' => t('User'), 'type' => 'user'),
+      ),
+    ),
+    'node_limitnumber_rules_comment_limit' => array(
+      'label' => t('Reached limit for comments'),
+      'module' => 'Node Limit Number',
+      'arguments' => array(
+        'comment' => array('type' => 'comment', 'label' => t('Comment')),
+        'user' => array('label' => t('User'), 'type' => 'user'),
+      ),
+    ),
+  );
+}
+/**
+ * Helper function to check limit
+ */
+function _node_limitnumber_check_limit($time, $node, $user, $limit) {
+  switch ($time) {
+    case 'none':
+      $q = "SELECT nid FROM {node} WHERE type = '%s' AND uid = %d";
+      $result = db_query($q, $node->type, $user->uid);
+      break;
+    case 'daily':
+      $q = "SELECT nid FROM {node} WHERE type = '%s' AND uid = %d AND created > %d";
+      $day = strtotime(date('Y-m-d'));
+      $result = db_query($q, $node->type, $user->uid, $day);
+      break;
+    case 'weekly':
+      $q = "SELECT nid FROM {node} WHERE type = '%s' AND uid = %d AND created > %d";
+      $week = time() - 604800;
+      $result = db_query($q, $node->type, $user->uid, $week);
+      break;
+    case 'monthly':
+      $q = "SELECT nid FROM {node} WHERE type = '%s' AND uid = %d AND created > %d";
+      $month = strtotime(substr(date('Y-m-d'), 0, 8) .'01-01');
+      $result = db_query($q, $node->type, $user->uid, $month);
+      break;
+    case 'annually':
+      $q = "SELECT nid FROM {node} WHERE type = '%s' AND uid = %d AND created > %d";
+      $year = strtotime(substr(date('Y-m-d'), 0, 5) .'01-01');
+      $result = db_query($q, $node->type, $user->uid, $year);
+  }
+  $num = db_affected_rows();
+  if ($num >= $limit) {
+    return TRUE;
+  }
+  return FALSE;
+}
+/**
+ * Condition Implementation: Set the Limit for the node type
+ * @ingroup rules
+ */
+function node_limitnumber_rules_condition_limit($node, $user, $settings) {
+  if (module_exists('og')) {
+    // if settings['og'] is equal to none this is a simple limit
+    if ($settings['og'] != 'none') {
+      if (is_array($node->og_groups)) {
+        // Loop through each of the og settings to find enabled
+        foreach ($node->og_groups as $node_gid) {
+          // Loop through each of the groups for the node to see if they match
+          if ($settings['og'] == $node_gid || $settings['og'] == 'all') {
+            // The node matches the group with the limit
+            // Find all nodes that have been created for that group
+            $q = "SELECT nid FROM {node} INNER JOIN {og_ancestry} ON node.nid=og_ancestry.nid WHERE og_ancestry.group_nid = %d AND node.type='%s'";
+            $result = db_query($q, $node_gid, $node->type);
+            $num = db_affected_rows();
+            if ($num >= $settings['limit']) {// We have the data, now we check the limit
+              return TRUE;
+            }
+            // Did not match but we still need to loop through the rest; not returning false
+          }
+        }
+      }
+      return FALSE;
+    }
+  }
+  // Continue checking as a simple limit since the OG check is over
+  return _node_limitnumber_check_limit($settings['time'], $node, $user, $settings['limit']);
+}
+/**
+ * Condition set the limit configuration form.
+ */
+function node_limitnumber_rules_condition_limit_form($settings, &$form) {
+  $settings += array('limit' => '', 'time' => '', 'og' => 'none');
+  $form['settings']['limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Node Limit'),
+    '#default_value' => $settings['limit'],
+    '#description' => t('Set the node limit for this rule'),
+  );
+  $form['settings']['time'] = array(
+    '#type' => 'select',
+    '#title' => t('Set a time frame'),
+    '#default_value' => $settings['time'],
+    '#description' => t('Create the limit of nodes per time frame'),
+    '#options' => array(
+      'none' => t('No Time Limit'),
+      'daily' => t('Daily'),
+      'weekly' => t('Weekly (Last 7 Days)'),
+      'monthly' => t('Monthly'),
+      'annually' => t('Annually'),
+    ),
+  );
+  if (module_exists('og')) {
+    $q = "SELECT nid,og_description FROM {og}";
+    $result = db_query($q);
+    $groups['none'] = t('None');
+    $groups['all'] = t('All');
+    while ($data = db_fetch_array($result)) {
+      $node = node_load($data['nid']);
+      $groups[$node->nid] = $node->title;
+    }
+    $form['settings']['og'] = array(
+      '#type' => 'radios',
+      '#title' => t('Limit By Organic Group'),
+      '#default_value' => $settings['og'],
+      '#description' => t('This limits the amount of group posts'),
+      '#options' => $groups,
+    );
+  }
+}
+/**
+ * Condition set the limit validation function
+ */
+function node_limitnumber_rules_condition_limit_validate($form, $form_state) {
+  $limit = $form_state['values']['settings']['limit'];
+  if (is_numeric($limit)) {
+    if ($limit < 1) {
+      form_set_error('settings][limit','Must be a positive integer greater than 0');
+    }
+  } else {
+    form_set_error('settings][limit','Must be a number');
+  }
+}
+/**
+ * Condition Implementation: Set the Limit for the Comment
+ * @ingroup rules
+ */
+function node_limitnumber_rules_comment_limit($comment, $user, $settings) {
+  switch ($settings['time']) {
+    case 'none':
+      $q = "SELECT cid FROM {comments} WHERE uid = %d";
+      $result = db_query($q, $user->uid);
+      break;
+    case 'daily':
+      $q = "SELECT cid FROM {comments} WHERE uid = %d AND timestamp > %d";
+      $day = strtotime(date('Y-m-d'));
+      $result = db_query($q, $user->uid, $day);
+      break;
+    case 'monthly':
+      $q = "SELECT cid FROM {comments} WHERE uid = %d AND timestamp > %d";
+      $month = strtotime(substr(date('Y-m-d'), 0, 8) .'01');
+      $result = db_query($q, $user->uid, $month);
+      break;
+  }
+  $num = db_affected_rows();
+  if ($num >= $settings['limit']) {
+    return TRUE;
+  }
+  return FALSE;
+}
+/**
+ * Condition set the Comment limit configuration form.
+ */
+function node_limitnumber_rules_comment_limit_form($settings, &$form) {
+  $settings += array('limit' => '', 'time' => '');
+  $form['settings']['limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Comment Limit'),
+    '#default_value' => $settings['limit'],
+    '#description' => t('Set the Comment limit for this rule'),
+  );
+  $form['settings']['time'] = array(
+    '#type' => 'select',
+    '#title' => t('Set a time frame'),
+    '#default_value' => $settings['time'],
+    '#description' => t('Create the limit of comments per time frame'),
+    '#options' => array(
+      'none' => t('No Time Limit'),
+      'daily' => t('Daily'),
+      'monthly' => t('Monthly'),
+    ),
+  );
+}
+/**
+ * Condition set the Comment limit validation function
+ */
+function node_limitnumber_rules_comment_limit_validate($form, $form_state) {
+  $limit = $form_state['values']['settings']['limit'];
+  if (is_numeric($limit)) {
+    if ($limit < 1) {
+      form_set_error('settings][limit','Must be a positive integer greater than 0');
+    }
+  } else {
+    form_set_error('settings][limit','Must be a number');
+  }
+}

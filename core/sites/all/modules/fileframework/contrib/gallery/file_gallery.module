@@ -1,0 +1,574 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Provides a taxonomy-based gallery view of various file types such as
+ * images and videos.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_GALLERY_PER_PAGE',   variable_get('file_gallery_per_page', 12));
+define('FILE_GALLERY_EMBED_SIZE', variable_get('file_gallery_embed_size', '130x150'));
+define('FILE_GALLERY_POPUP_SIZE', variable_get('file_gallery_popup_size', '800x600'));
+define('FILE_GALLERY_HIDE_EMPTY', variable_get('file_gallery_hide_empty', 0));
+define('FILE_GALLERY_NAVIGATION', variable_get('file_gallery_navigation', 0));
+
+define('FILE_GALLERY_TITLE_LENGTH_SHORT',  18);
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_help().
+ */
+function file_gallery_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/file/gallery':
+      return '<p>'. t('File gallery uses the same vocabularies as !file_browser module.', array('!file_browser' => l('file browser', 'admin/settings/file/browser'))) .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_gallery_theme() {
+  return array(
+    'file_gallery_page' => array(
+      'arguments' => array('content' => NULL, 'options' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_term' => array(
+      'arguments' => array('data' => NULL, 'options' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_node' => array(
+      'arguments' => array('data' => NULL, 'options' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_empty' => array(
+      'arguments' => array(),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_filter' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_navigation' => array(
+      'arguments' => array('navigation' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+    'file_gallery_tabs' => array(
+      'arguments' => array('tabs' => NULL),
+      'file' => 'file_gallery.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function file_gallery_perm() {
+  return array('view files');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_gallery_menu() {
+  return array(
+    'admin/settings/file/gallery' => array(
+      'title' => 'Gallery',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_gallery_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_gallery.admin.inc',
+    ),
+    'file_gallery' => array(
+      'title' => 'File gallery',
+      'page callback' => 'file_gallery_page',
+      'access arguments' => array('view files'),
+      'type' => MENU_NORMAL_ITEM,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function file_gallery_block($op = 'list', $delta = 0, $edit = array()) {
+  if (!user_access('view files'))
+    return;
+
+  switch ($op) {
+    case 'list':
+      $block = array(
+        'filter' => array(
+          'info' => t('Gallery filter'),
+          'status' => 1,
+          'region' => 'right',
+          'weight' => -3,
+        ),
+      );
+      return $block;
+    case 'configure':
+      return '';
+    case 'view':
+      $block_show = ((arg(0) == 'file_gallery' && (arg(1) && arg(2)) || arg(1) == 'my') || (module_exists('og_vocab') && arg(0) == 'node' && arg(2) == 'gallery' && (arg(3) && arg(4) || arg(3) == 'my') && ($node = menu_get_object()) && !empty($node->og_vocabularies))) ? TRUE : FALSE;
+      switch ($delta) {
+        case 'filter':
+          $block['subject'] = check_plain(t('Gallery filter'));
+          $block['content'] = $block_show ? _file_gallery_filter() : NULL;
+          break;
+      }
+      return $block;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Menu callbacks
+
+/**
+ * Menu callback for rendering a file gallery page.
+ */
+function file_gallery_page($vid = 'all', $tid = NULL, $filter = NULL, $module = NULL) {
+  $layout = empty($_GET['layout']) || $_GET['layout'] == 'on';
+  if (!is_numeric($vid)) {
+    $filter = $tid;
+    unset($tid);
+  }
+  $module = !$module && !empty($_GET['module']) ? $_GET['module'] : $module;
+  $tids = empty($tid) ? array() : array((integer)$tid);
+  print theme(($layout ? 'page' : 'file_gallery_page'), file_gallery_content($vid, $tids, $filter, array('module' => $module)), array('breadcrumb' => TRUE));
+}
+
+/*
+ * Builds a gallery content.
+ */
+function file_gallery_content($vid, $tids = array(), $filter = NULL, $options = array()) {
+  $module = empty($options['module']) ? NULL : $options['module'];
+  _file_gallery_add_headers($module);
+
+  $pager = $module && ($p = module_invoke($module, 'file_gallery', 'pager')) && $p > 0 ? $p : FILE_GALLERY_PER_PAGE;
+  $vocabularies = taxonomy_get_vocabularies('file');
+  $vocabulary = (!is_array($vid) && is_numeric($vid)) ? $vocabularies[$vid] : NULL;
+  $term = taxonomy_get_term(reset($tids));
+
+  $embed_options = _file_gallery_embed_options();
+
+  $output = _file_gallery_head(array('vid' => $vid, 'tid' => is_object($term) ? $term->tid : 0, 'filter' => $filter, 'module' => $module));
+  $output .= '<div id="file-gallery-body">';
+  $output .= '<ul class="file-gallery">';
+
+  $sql_filters = array(
+    1 => "fn.type LIKE 'image%'",
+    2 => "fn.type LIKE 'audio%'",
+    3 => "fn.type LIKE 'video%'",
+    4 => "(fn.type NOT LIKE 'image%' AND fn.type NOT LIKE 'audio%' AND fn.type NOT LIKE 'video%')",
+  );
+  $filter_array = _file_gallery_build_filter($filter);
+  $sql_filter = implode(' OR ', array_intersect_key($sql_filters, $filter_array));
+  $sql_filter = !empty($sql_filter) ? ' AND ('. $sql_filter .')' : NULL;
+
+  // All checked means no filter.
+  $sql_filter = ($filter == 30 || $filter == 31) ? '' : $sql_filter;
+
+  $folders = $files = 0;
+  if (is_array($vid)) {
+    foreach ($vid as $v) {
+      $folders++;
+      $output .= _file_gallery_term($vocabularies[$v], $embed_options, $filter, $module);
+    }
+  }
+  else if ($vid == 'all') {
+    global $user;
+
+    // For the vocabulary view, get the list of file_browser.module
+    // vocabularies, if available, and the user's og_vocab.module
+    // subscriptions:
+    $vocabularies = taxonomy_get_vocabularies('file');
+
+    $og_vocabs = $og_vocabs_hidden = array();
+    if (module_exists('og_vocab')) {
+      $result = db_query('SELECT nid, vid FROM {og_vocab}');
+      while ($row = db_fetch_object($result)) {
+        if (in_array($row->nid, array_keys($user->og_groups)))
+          $og_vocabs[] = $row->vid;
+        else
+          $og_vocabs_hidden[] = $row->vid;
+      }
+    }
+
+    $terms = array_diff(FILE_BROWSER_VOCABULARIES_ALL ? array_keys($vocabularies) : array_unique(array_merge(array_intersect(array_keys(unserialize(FILE_BROWSER_VOCABULARIES)), array_keys($vocabularies)), FILE_BROWSER_OG_VOCABULARIES ? $og_vocabs : array())), $og_vocabs_hidden);
+    foreach ($terms as $term) {
+      $folders++;
+      $output .= _file_gallery_term($vocabularies[$term], $embed_options, $filter, $module);
+    }
+  }
+  else if ($vid == 'my' && isset($sql_filter)) {
+    global $user;
+    drupal_set_title(t('My files'));
+
+    $sql = 'SELECT DISTINCT(n.nid) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid INNER JOIN {users} u ON n.uid = u.uid WHERE n.status = 1 AND u.uid = %d'. $sql_filter .' ORDER BY n.title';
+    $sql_count = 'SELECT COUNT(DISTINCT(n.nid)) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid INNER JOIN {users} u ON n.uid = u.uid WHERE n.status = 1 AND u.uid = %d'. $sql_filter;
+    $result = pager_query(db_rewrite_sql($sql), $pager, 0, db_rewrite_sql($sql_count), $user->uid);
+    while ($nid = db_result($result)) {
+      $files++;
+      $output .= _file_gallery_node(node_load($nid), $embed_options, $module);
+    }
+    $output .= '</ul>';
+    $output .= theme('pager', NULL, $pager, 0);
+    $output .= '<ul class="file-gallery">';
+  }
+  else if (is_numeric($vid)) {
+    if (isset($filter_array[0])) {
+      if (!FILE_GALLERY_HIDE_EMPTY) {
+        $sql = 'SELECT t.* FROM {term_data} t INNER JOIN {term_hierarchy} h ON h.tid = t.tid WHERE t.vid = %d AND h.parent = %d ORDER BY t.weight, t.name';
+        $sql_count = 'SELECT COUNT(DISTINCT(t.tid)) FROM {term_data} t INNER JOIN {term_hierarchy} h ON h.tid = t.tid WHERE t.vid = %d AND h.parent = %d ORDER BY t.weight, t.name';
+      }
+      else {
+        $sql = 'SELECT DISTINCT(t.tid), t.vid, t.name, t.description, t.weight FROM {term_data} t INNER JOIN {term_hierarchy} h ON h.tid = t.tid INNER JOIN {term_node} tn ON t.tid = tn.tid INNER JOIN {node} n ON tn.vid = n.vid WHERE t.vid = %d AND h.parent = %d AND n.type = \'file\' ORDER BY t.weight, t.name';
+        $sql_count = 'SELECT COUNT(DISTINCT(t.tid)) FROM {term_data} t INNER JOIN {term_hierarchy} h ON h.tid = t.tid INNER JOIN {term_node} tn ON t.tid = tn.tid INNER JOIN {node} n ON tn.vid = n.vid WHERE t.vid = %d AND h.parent = %d AND n.type = \'file\' ORDER BY t.weight, t.name';
+      }
+      $result = pager_query(db_rewrite_sql($sql, 't', 'tid'), $pager, 0, db_rewrite_sql($sql_count, 't', 'tid'), $vid, !empty($tids) ? reset($tids) : 0);
+      while ($term = db_fetch_object($result)) {
+        $folders++;
+        $output .= _file_gallery_term($term, $embed_options, $filter, $module);
+      }
+    }
+    $output .= '</ul>';
+    $output .= theme('pager', NULL, $pager, 0);
+    $output .= '<ul class="file-gallery">';
+    if (isset($sql_filter)) {
+      $result = _file_gallery_taxonomy_select_nodes($tids, 'and', 0, array('limit' => $pager, 'element' => 1), 'n.sticky DESC, n.title ASC', $sql_filter);
+      while ($nid = db_result($result)) {
+        $output .= _file_gallery_node(node_load($nid), $embed_options, $module);
+        $files++;
+      }
+    }
+  }
+  else{
+    $nids = isset($module) ? module_invoke($module, 'file_gallery', 'nodes', $vid) : array();
+    if (!empty($nids) && isset($sql_filter)) {
+      $placeholders = db_placeholders($nids, 'int');
+      $sql = 'SELECT DISTINCT(n.nid) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid WHERE n.status = 1 AND n.nid IN ('. $placeholders .')'. $sql_filter .' ORDER BY n.title';
+      $sql_count = 'SELECT COUNT(DISTINCT(n.nid)) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid WHERE n.status = 1 AND n.nid IN ('. $placeholders .')'. $sql_filter;
+      $result = pager_query(db_rewrite_sql($sql), $pager, 0, db_rewrite_sql($sql_count), $nids);
+      while ($nid = db_result($result)) {
+        $files++;
+        $output .= _file_gallery_node(node_load($nid), $embed_options, $module);
+      }
+      $output .= '</ul>';
+      $output .= theme('pager', NULL, $pager, 0);
+      $output .= '<ul class="file-gallery">';
+    }
+  }
+
+  $output .= '</ul>';
+  $output .= theme('pager', NULL, $pager, 1);
+
+  if ($folders == 0 && $files == 0) {
+    $output .= theme('file_gallery_empty');
+  }
+  $output .= '</div>'; // file-gallery-body
+
+  $output .= _file_gallery_add_footers($module);
+  return $output;
+}
+
+/*
+ * Builds a head section of the gallery.
+ */
+function _file_gallery_head($data) {
+  $query = isset($data['module']) ? module_invoke($data['module'], 'file_gallery', 'query') : NULL;
+  $root_link = isset($data['module']) && ($b = module_invoke($data['module'], 'file_gallery', 'root_link')) && !empty($b) ? $b : 'file_gallery';
+  $tabs = array('all' => t('All files'), 'my' => t('My files'));
+  $tabs += isset($data['module']) && ($t = module_invoke($data['module'], 'file_gallery', 'tabs')) && !empty($t) ? $t : array();
+  $active = array_key_exists($data['vid'], $tabs) ? $data['vid'] : 'all';
+  foreach ($tabs as $l => $tab) {
+    $tabs[$l] = array('title' => $tab, 'link' => $root_link .'/'. $l, 'query' => $query);
+    $tabs[$l] += $l == $active ? array('active' => TRUE) : array();
+  }
+
+  $output = '<div id="file-gallery-head">';
+  $breadcrumb = _file_gallery_breadcrumb($data);
+  $output .= isset($data['module']) && module_invoke($data['module'], 'file_gallery', 'show_tabs') ? theme('file_gallery_tabs', $tabs) : '';
+  $output .= FILE_GALLERY_NAVIGATION || isset($data['module']) && !module_invoke($data['module'], 'file_gallery', 'navigation') ? theme('file_gallery_navigation', array_slice($breadcrumb, 1)) : '';
+  $output .= isset($data['module']) && module_invoke($data['module'], 'file_gallery', 'filter') ? _file_gallery_filter_select($data) : '';
+  $output .= '</div>';
+  return $output;
+}
+
+/*
+ * Builds a breadcrumb.
+ */
+function _file_gallery_breadcrumb($data) {
+  $breadcrumb = array();
+  $query = isset($data['module']) ? module_invoke($data['module'], 'file_gallery', 'query') : NULL;
+  $root_link = isset($data['module']) && ($b = module_invoke($data['module'], 'file_gallery', 'root_link')) && !empty($b) ? $b : 'file_gallery';
+  $breadcrumb_root = isset($data['module']) ? module_invoke($data['module'], 'file_gallery', 'breadcrumb_root') : array('file_gallery' => t('File gallery'));
+
+  // If the gallery is being embedded by some other module, we'll make the
+  // Home link point to the "All files" view instead of the home page,
+  // so as not to break any IFRAMEs that we may be embedded in.
+  $breadcrumb_home = isset($data['module']) ? module_invoke($data['module'], 'file_gallery', 'breadcrumb_home') : TRUE;
+  if ($breadcrumb_home !== FALSE) {
+    $breadcrumb[] = $breadcrumb_home ? l(t('Home'), '') : l(t('Home'), $root_link, array('query' => $query));
+  }
+  if (!empty($breadcrumb_root)) {
+    foreach ($breadcrumb_root as $l => $n) {
+      $breadcrumb[] = l($n, $l, array('query' => $query));
+    }
+  }
+
+  if (!is_array($data['vid']) && is_numeric($data['vid'])) {
+    $vocabularies = taxonomy_get_vocabularies();
+    $vocabulary = $vocabularies[$data['vid']];
+    $breadcrumb[] = l($vocabulary->name, $root_link .'/'. $data['vid'], array('query' => $query));
+  }
+
+  if ($data['tid']) {
+    foreach (taxonomy_get_parents($data['tid']) as $parent) {
+      $breadcrumb[] = l($parent->name, $root_link .'/'. $data['vid'] .'/'. $parent->tid, array('query' => $query));
+    }
+
+    $term = taxonomy_get_term($data['tid']);
+    $breadcrumb[] = l($term->name, $root_link .'/'. $data['vid'] .'/'. $data['tid'], array('query' => $query));
+  }
+
+  drupal_set_breadcrumb($breadcrumb);
+  return $breadcrumb;
+}
+
+/*
+ * Builds an idividual taxonomy term block.
+ */
+function _file_gallery_term($term, $options = array(), $filter = NULL, $module = NULL) {
+  $childterms = taxonomy_get_tree($term->vid, isset($term->tid) ? $term->tid : 0, -1, NULL);
+  foreach ($childterms as $childterm) {
+    if (is_object($childterm)) {
+      $term = _file_browser_term_nodes($term, $childterm, NULL);
+    }
+  }
+  $term = _file_browser_term_nodes($term, $term, NULL);
+  $count_files = array_sum(array_map(create_function('$node', 'return is_object($node) && is_object($node->file) ? 1 : 0;'), $term->nodes));
+  $query = isset($module) ? module_invoke($module, 'file_gallery', 'query') : NULL;
+  $url = isset($module) ? module_invoke($module, 'file_gallery', 'term_link', $term) : NULL;
+  $url = $url ? $url : 'file_gallery/'. $term->vid . (!empty($term->tid) ? '/'. $term->tid : '');
+  $url .= $filter ? '/'. $filter : '';
+
+  return theme('file_gallery_term', compact('term', 'query', 'url', 'count_files'), $options);
+}
+
+/*
+ * Builds a file node block.
+ */
+function _file_gallery_node($node, $options = array(), $module = NULL) {
+  $url_preview = isset($module) ? module_invoke($module, 'file_gallery', 'node_link', $node->nid) : NULL;
+  $file_links = isset($module) && ($l = module_invoke($module, 'file_gallery', 'file_links', $node->nid)) && is_array($l) ? $l : array();
+
+  $file = $node->file;
+
+  // Find a thumbnail for the file.
+  if (defined('FILE_IMAGE_THUMBNAIL_RESOLUTION'))
+    $thumbnail = file_get_image($file, 'file_image_thumbnail', explode('x', FILE_IMAGE_THUMBNAIL_RESOLUTION));
+
+  // Find a first enabled handler for the file.
+  if ($preview = file_first_preview($file)) {
+    $width_preview = $preview['width'];
+    $height_preview = $preview['height'];
+  }
+
+  $url_preview = isset($url_preview) ? $url_preview : (isset($preview) ? array('link' => 'node/'. $file->nid .'/embed/'. $preview['handler'], 'query' => array('width' => $preview['width'], 'height' => $preview['height'])) : NULL);
+  $thickbox = isset($module) && module_invoke($module, 'file_gallery', 'thickbox') === FALSE ? FALSE : (isset($preview) ? TRUE : FALSE);
+  $url_open = isset($module) ? module_invoke($module, 'file_gallery', 'node_link', $node->nid, FALSE) : array('link' => 'node/'. $node->nid);
+
+  $title = $node->title;
+  $title_short = drupal_strlen($title) > FILE_GALLERY_TITLE_LENGTH_SHORT ? drupal_substr($title, 0, FILE_GALLERY_TITLE_LENGTH_SHORT - 3) .'...' : $title;
+
+  static $initialized = FALSE;
+  if (!$initialized) {
+    $initialized = TRUE;
+    $url_js = isset($module) ? module_invoke($module, 'file_gallery', 'node_js') : NULL;
+    if (isset($url_js))
+      drupal_add_js($url_js, 'inline');
+  }
+
+  return theme('file_gallery_node', compact('file', 'thumbnail', 'title', 'title_short', 'url_preview', 'url_open', 'width_preview', 'height_preview', 'file_links', 'thickbox'), $options);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Form API
+
+/**
+ * Creates a gallery filter form.
+ */
+function file_gallery_filter_form($form_state) {
+  $filter = array(
+    t('Folders'),
+    t('Images'),
+    t('Audio'),
+    t('Video'),
+    t('Other'),
+  );
+  $form['filter'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $filter,
+    '#default_value' => array_keys(_file_gallery_build_filter()),
+  );
+  $form['filter_submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Filter'),
+    '#name' => 'filter-submit',
+  );
+
+  return $form;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Blocks
+
+/**
+ * Creates a gallery filter.
+ *
+ * @return
+ *   A HTML section for the block.
+ */
+function _file_gallery_filter() {
+  $form = drupal_get_form('file_gallery_filter_form');
+  return theme('file_gallery_filter', $form);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Miscellaneous helpers
+
+/*
+ * Builds a file node filter.
+ */
+function _file_gallery_filter_select($data) {
+  // The filter drop-down box allows restricting the current gallery view
+  // based on file content types.
+  $output = '<div id="file-gallery-filter">';
+
+  $filter_choices = array('' => t('Everything'), '1' => t('Only folders'));
+  $filter_choices += ($data['vid'] == 'all') ? array() : array('2' => t('Only images'), '4' => t('Only audio'), '8' => t('Only video'), '16' => t('Only other'));
+
+  $select = array('#name' => 'filter', '#id' => 'file-gallery-selector', '#type' => 'select', '#title' => t('Show'), '#value' => $data['filter'], '#options' => $filter_choices, '#parents' => array());
+
+  if ($data['vid'] == 'all') {
+    // Disable the selector on the top-level, as there is nothing else shown but folders
+    $select['#attributes'] = array('disabled' => 'disabled');
+  }
+
+  $output .= theme_select($select);
+  $output .= '</div>';
+  return $output;
+}
+
+/*
+ * Sets a default embed options.
+ */
+function _file_gallery_embed_options() {
+  list($width, $height) = explode('x', FILE_GALLERY_EMBED_SIZE);
+  return array('max_width' => $width, 'max_height' => $height);
+}
+
+/*
+ * Loads a page headders.
+ */
+function _file_gallery_add_headers($module = NULL) {
+  static $initialized = FALSE;
+  if (!$initialized) {
+    $initialized = TRUE;
+
+    drupal_add_css(drupal_get_path('module', 'file_gallery') .'/file_gallery.css', 'module');
+    drupal_add_js(drupal_get_path('module', 'file_gallery') .'/file_gallery.js', 'module');
+  }
+}
+
+/*
+ * Loads a page footers.
+ */
+function _file_gallery_add_footers($module = NULL) {
+  static $initialized = FALSE;
+  if (!$initialized) {
+    $initialized = TRUE;
+
+    $js = isset($module) && ($page_js = module_invoke($module, 'file_gallery', 'page_js')) ? $page_js : NULL;
+    $output = isset($js) ? "<script type='text/javascript'>". $js ."</script>" : NULL;
+
+    //drupal_add_js('$(document).ready(function() { $(\'a.file-metadata\').cluetip({activation: \'click\', arrows: true}); });', 'inline');
+    //drupal_add_js('$(document).ready(function() { $(\'a.file-metadata\').cluetip({arrows: true}); });', 'inline');
+
+    return $output;
+  }
+}
+
+/*
+ * Modified taxonomy_select_nodes() function.
+ */
+function _file_gallery_taxonomy_select_nodes($tids = array(), $operator = 'or', $depth = 0, $pager = array(), $order = 'n.sticky DESC, n.created DESC', $filter = NULL) {
+  if (count($tids) > 0) {
+    // For each term ID, generate an array of descendant term IDs to the right depth.
+    $descendant_tids = array();
+    if ($depth === 'all') {
+      $depth = NULL;
+    }
+    foreach ($tids as $index => $tid) {
+      $term = taxonomy_get_term($tid);
+      $tree = taxonomy_get_tree($term->vid, $tid, -1, $depth);
+      $descendant_tids[] = array_merge(array($tid), array_map('_taxonomy_get_tid_from_term', $tree));
+    }
+
+    if ($operator == 'or') {
+      $args = call_user_func_array('array_merge', $descendant_tids);
+      $placeholders = db_placeholders($args, 'int');
+      $sql = 'SELECT DISTINCT(n.nid), n.sticky, n.title, n.created FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid INNER JOIN {term_node} tn ON n.vid = tn.vid WHERE tn.tid IN ('. $placeholders .') AND n.status = 1'. $filter .' ORDER BY '. $order;
+      $sql_count = 'SELECT COUNT(DISTINCT(n.nid)) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid INNER JOIN {term_node} tn ON n.vid = tn.vid WHERE tn.tid IN ('. $placeholders .') AND n.status = 1'. $filter;
+    }
+    else {
+      $joins = '';
+      $wheres = '';
+      $args = array();
+      foreach ($descendant_tids as $index => $tids) {
+        $joins .= ' INNER JOIN {term_node} tn'. $index .' ON n.vid = tn'. $index .'.vid';
+        $wheres .= ' AND tn'. $index .'.tid IN ('. db_placeholders($tids, 'int') .')';
+        $args = array_merge($args, $tids);
+      }
+      $sql = 'SELECT DISTINCT(n.nid), n.sticky, n.title, n.created FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid '. $joins .' WHERE n.status = 1 '. $wheres . $filter .' ORDER BY '. $order;
+      $sql_count = 'SELECT COUNT(DISTINCT(n.nid)) FROM {node} n INNER JOIN {file_nodes} fn ON n.vid = fn.vid '. $joins .' WHERE n.status = 1 '. $wheres . $filter;
+    }
+    $sql = db_rewrite_sql($sql);
+    $sql_count = db_rewrite_sql($sql_count);
+    if (!empty($pager)) {
+      return pager_query($sql, $pager['limit'], $pager['element'], $sql_count, $args);
+    }
+    else {
+      return db_query($sql, $args);
+    }
+  }
+}
+
+/*
+ * Builds a filter array.
+ *
+ * @param $filter
+ *   A filter in decimal representation.
+ *
+ * @return
+ *   A filter array.
+ */
+function _file_gallery_build_filter($filter = NULL) {
+  if (!is_numeric($filter)) {
+    if (arg(0) == 'file_gallery') {
+      $filter = is_numeric(arg(1)) ?  arg(3) : arg(2);
+    }
+    else if (module_exists('og_vocab') && arg(0) == 'node' && arg(2) == 'gallery' && arg(3) && arg(4) && ($node = menu_get_object()) && !empty($node->og_vocabularies)) {
+      $filter = is_numeric(arg(3)) ? arg(5) : arg(4);
+    }
+  }
+
+  return array_filter(preg_split('//', !is_numeric($filter) ? '11111' : strrev(decbin($filter)), -1, PREG_SPLIT_NO_EMPTY));
+}
+

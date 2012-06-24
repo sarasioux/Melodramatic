@@ -1,0 +1,48 @@
+div.file-attachments {
+  clear: both;
+}
+
+div.file-attach-container {
+  clear: both;
+  padding: 2px;
+}
+
+div.file-attach-show {
+  padding: 5px;
+  border: 1px solid grey;
+}
+
+a.file-attach-download-button,
+a.file-attach-preview-button {
+  -moz-border-radius-bottomleft:3px;
+  -moz-border-radius-bottomright:3px;
+  -moz-border-radius-topleft:3px;
+  -moz-border-radius-topright:3px;
+  background-color: #A6CEE7;
+  border:1px solid #61789C;
+  font-weight: bold;
+  padding: 3px 6px;
+  margin-right: 5px;
+}
+
+a.file-attach-download-button:link,
+a.file-attach-preview-button:link,
+a.file-attach-download-button:visited,
+a.file-attach-preview-button:visited {
+  color: #FFFFFF; 
+}
+
+a.file-attach-download-button:hover,
+a.file-attach-preview-button:hover {
+  background-color: #61789C;
+  text-decoration: none;
+}
+
+a.file-attach-preview-button.active {
+  border: 1px solid #D30000;
+}
+
+a.file-attach-preview-button.active:hover {
+  background-color: #D30000;
+}
+

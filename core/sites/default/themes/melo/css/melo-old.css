@@ -1,0 +1,1289 @@
+/* $Id: zen.css,v 1.14.2.1 2009/02/13 07:46:04 johnalbin Exp $ */
+
+/** body **/
+  body
+  {
+    margin: 0;
+    padding: 10px;
+    font-family: Verdana;
+    font-size: 0.7em;
+  }
+
+  body.no-sidebars #main-inner {
+    padding: 20px;
+  }
+
+/** header **/
+
+  #logo /* Wrapper for logo */
+  {
+    margin: 0 10px 0 0;
+    padding: 0;
+  }
+
+  h1#site-name, div#site-name /* The name of the website */
+  {
+    margin: 0;
+  }
+
+  body.in-maintenance #site-name a:link,
+  body.in-maintenance #site-name a:visited
+  {
+    text-decoration: none;
+    display: block;
+    width: 240px;
+    height: 120px;
+    text-indent: -9999px;
+    position: relative;
+    top: 65px;
+  }
+  
+  #site-name a:link,
+  #site-name a:visited
+  {
+    text-decoration: none;
+    display: block;
+    float: right;
+    width: 240px;
+    height: 120px;
+    margin-top: -70px;
+    text-indent: -9999px;
+  }
+
+  #header-blocks /* Wrapper for any blocks placed in the header region */
+  {
+    font-size: 0.8em;
+  }
+
+/** content **/
+
+  #content-inner
+  {
+    padding: 0px;
+    margin-bottom: 1em;
+    margin-top: 10px;
+  }
+
+  #content-header h1.title {
+    padding: 2px 0 3px 10px;
+  }
+  #content-area {
+    padding: 20px;
+  }
+
+  .breadcrumb /* The path to the current page in the form of a list of links */
+  {
+    padding: 0;
+    padding-left: 20px;
+  }
+
+  h1.title, /* The title of the page */
+  h2.title, /* Block title or the title of a piece of content when it is given in a list of content */
+  h3.title /* Comment title */
+  {
+    margin: 0;
+  }
+
+  h1.title, h2.title {
+    font-family: "Helvetica Neue", "Helvetica";
+    font-size: 2.0em;
+    font-weight: normal;
+  }
+
+  h1.title span.title-right {
+    float: right;
+    padding-right: 15px;
+    font-size: 0.8em;
+  }
+  h1.title span.title-right a:hover {
+    color: inherit;
+  }
+  div.messages /* Important messages (status, warning, and error) for the user */
+  {
+    margin-top: 10px;
+  }
+
+  .help /* Help text on a page */
+  {
+    padding: 20px;
+  }
+
+  .more-help-link /* Link to more help */
+  {
+    font-size: 0.85em;
+    text-align: right;
+  }
+
+  .pager /* A list of page numbers when more than 1 page of content is available */
+  {
+    clear: both;
+    margin: 1em 0;
+    text-align: center;
+  }
+
+  .pager a, .pager strong.pager-current
+  {
+    padding: 0.5em;
+  }
+
+  .feed-icons /* The links to the RSS or Atom feeds for the current list of content */
+  {
+    margin: 1em 0;
+  }
+
+/** navbar **/
+  #navbar-inner
+  {
+    padding: 4px;
+    padding-left: 0;
+  }
+
+  #edit-search-theme-form-1-wrapper label /* Label that says "Search this site:" */
+  {
+    display: none;
+  }
+
+  #secondary /* Secondary links */
+  {
+  }
+
+/** sidebar-left **/
+  #sidebar-left
+  {
+  }
+
+  #sidebar-left-inner
+  {
+    padding: 10px;
+    padding-right: 0;
+  }
+
+/** sidebar-right **/
+  #sidebar-right
+  {
+  }
+
+  #sidebar-right-inner
+  {
+    padding: 10px;
+    padding-left: 0;
+  }
+
+/** footer **/
+  #footer
+  {
+    padding: 0;
+  }
+  #block-languageinterface-0 .content {
+    padding: 0;
+  }  
+  #language-interface {
+    background: black;
+    padding-top: 2px;
+    padding-left: 3px;
+  }
+  #language-interface li {
+    display: inline;
+    padding-right: 20px;
+  }
+  #language-interface a {
+    color: #aaa;
+  }
+  #language-interface a.active {
+    color: white;
+  }
+  #language-interface img {
+    margin: -3px;
+    padding-right: 5px;
+  }
+
+/** Nodes **/
+
+  .node-unpublished div.unpublished, /* The word "Unpublished" displayed beneath the content. */
+  .comment-unpublished div.unpublished
+  {
+    color: #d8d8d8;
+    font-size: 20px;
+    line-height: 1;
+    word-wrap: break-word; /* A very nice CSS3 property */
+  }
+  .marker /* "New" or "Updated" marker for content that is new or updated for the current user */
+  {
+    color: #c00;
+  }
+
+  .node .picture /* The picture of the node author */
+  {
+    float: left;
+    margin: 0 15px 10px 0;
+  }
+
+  .node.node-unpublished .picture,
+  .comment.comment-unpublished .picture
+  {
+    position: relative; /* Otherwise floated pictures will appear below the "Unpublished" text. */
+  }
+
+  .node .meta /* Wrapper for submitted and terms data */
+  {
+    color: #444;
+    font-size: 0.9em;
+  }
+  .node div.links /* Wrapper for node links */
+  {
+    margin: 1em 0;
+  }
+
+  ul.links /* Taxonomy links, node links, comment links */
+  {
+    margin: 0;
+    padding: 0;
+  }
+
+  ul.links.inline
+  {
+    display: inline;
+  }
+
+  ul.links li
+  {
+    display: inline;
+    list-style-type: none;
+    padding: 0 0.7em 0 0;
+  }
+
+
+/** Comments **/
+  #comments /* Wrapper for the list of comments and its title */
+  {
+    margin: 1em 0;
+  }
+
+  #page #comments .comment /* Wrapper for a single comment */
+  {
+    padding: 0 10px 0 10px;
+  }
+  .new /* "New" marker for comments that are new for the current user */
+  {
+    color: #c00;
+  }
+
+  .comment .picture /* The picture of the comment author */
+  {
+    float: left;
+    margin: 0 10px 0 0;
+  }
+  .comment .picture img {
+    width: 50px;
+    height: 50px;
+    border: solid black 1px;
+  }
+
+  .comment .submitted /* The "posted by" information */
+  {
+    color: #666;
+    font-size: 0.9em;
+    float: left;
+    width: 495px;
+    padding-bottom: 5px;
+    clear: right;
+  }
+  .view-Guestbook.view-display-id-page_2 .comment .submitted {
+    width: 470px;
+  }
+
+  .comment span.comment-author {
+    float: left;
+    font-size: 1.2em;
+    text-decoration: underline;
+  }
+
+  .comment span.comment-date {
+    float: right;
+  }
+
+  .comment ul.links {
+    display: inline;
+    float: right;
+    margin-left: 10px;
+  }
+  .comment ul.links li {
+    padding: 0 2px;
+  }
+  .comment ul.links a {
+    text-decoration: underline;
+  }
+
+  .comment .content /* Comment's content wrapper */
+  {
+    border-bottom: solid #bbb 1px;
+    padding-bottom: 10px;
+    margin-top: 10px;
+    padding-left: 65px;
+  }
+  
+  .comment.last .content {
+    border-bottom: none;
+  }
+  
+  .comment .user-signature /* The user's signature */
+  {
+  }
+  span.gspot-re {
+    font-size: 0.8em;
+  }
+  #edit-comment {
+    height: 75px;
+    width: 550px;
+  }
+
+/** Blocks **/
+  #sidebar-left .block,
+  #sidebar-right .block /* Block wrapper */
+  {
+    margin-bottom: 1em;
+  }
+
+  #sidebar-left .block h2.title,
+  #sidebar-right .block h2.title /* Block title */
+  {
+    padding: 1px 5px 2px 5px;
+    font-size: 12pt;
+    font-family: "Helvetica Neue";
+    text-transform: lowercase;
+    font-weight: normal;
+  }
+  #main .block div.content h2.title {
+    background: transparent;
+    text-transform: none;
+  }
+
+  .block .content /* Block's content wrapper */
+  {
+    padding: 10px;
+  }
+
+
+/** Miscellaneous styles **/
+  .more-link /* Aggregator, blog, and forum more link */
+  {
+    text-align: right;
+  }
+
+  #user-login-form /* Drupal's default login form */
+  {
+    text-align: left;
+  }
+
+  /* Header links and things */
+   .red a {
+    color: red;
+  }
+
+/** Forms **/
+  .form-item, /* Wrapper for a form element (or group of form elements) and its label */
+  .form-checkboxes,
+  .form-radios
+  {
+    margin: 1em 0;
+  }
+
+  .form-item input.error, /* Highlight the form elements that caused a form submission error */
+  .form-item textarea.error,
+  .form-item select.error
+  {
+    border: 2px solid #c00;
+  }
+
+  .form-item label /* The label for a form element */
+  {
+    display: block;
+    font-weight: bold;
+  }
+
+  .form-item label.option /* The label for a radio button or checkbox */
+  {
+    display: inline;
+    font-weight: normal;
+  }
+
+  .form-required /* The part of the label that indicates a required field */
+  {
+    color: #c00;
+  }
+
+  .form-item .description /* The descriptive help text (separate from the label) */
+  {
+    font-size: 0.85em;
+  }
+
+  .form-checkboxes .form-item, /* Pack groups of checkboxes and radio buttons closer together */
+  .form-radios .form-item
+  {
+    margin: 0.4em 0;
+  }
+
+  .form-submit /* The submit button */
+  {
+  }
+
+  .container-inline div, .container-inline label /* Inline labels and form divs */
+  {
+    display: inline;
+  }
+
+  .tips /* Tips for Drupal's input formats */
+  {
+    margin: 0;
+    padding: 0;
+    font-size: 0.9em;
+  }
+
+/** OpenID **/
+  /* The default styling for the OpenID login link seems to assume Garland's
+   * styling of list items.
+   */
+  #user-login-form ul /* OpenID creates a new ul above the login form's links. */
+  {
+    margin-bottom: 0; /* Position OpenID's ul next to the rest of the links. */
+  }
+
+  #user-login-form li.openid-link, /* The "Log in using OpenID" links. */
+  #user-login li.openid-link
+  {
+    margin-top: 1em;
+    margin-left: -20px; /* Un-do some of the padding on the ul list. */
+    padding-left: 20px;
+    background-position: left center;
+  }
+
+  #user-login-form li.user-link, /* The "Cancel OpenID login" links. */
+  #user-login li.user-link
+  {
+    margin-top: 1em;
+    list-style-type: disc;
+    list-style-position: outside;
+  }
+
+  #user-login li.openid-link, /* The OpenID links on the /user form. */
+  #user-login li.user-link
+  {
+    margin-left: -2em; /* Un-do all of the padding on the ul list. */
+  }
+
+/** Drupal admin tables **/
+  /* We overrode these styles in html-elements.css, but restore them for the
+   * forms on the site.
+   */
+  form tbody
+  {
+    border-top: 1px solid #ccc;
+  }
+
+  form th
+  {
+    text-align: left;
+    padding-right: 1em;
+    border-bottom: 3px solid #ccc;
+  }
+
+  form tbody th
+  {
+    border-bottom: 1px solid #ccc;
+  }
+
+  form thead th
+  {
+    text-align: left;
+    padding-right: 1em;
+    border-bottom: 3px solid #ccc;
+  }
+
+  /* Node comment styling */
+  #comment-input h2.title,
+  #comments #comments-title,
+  .view-Guestbook .view-header h2.title {
+    font-weight: normal;
+    text-transform: lowercase;
+    padding: 3px 5px 3px 10px;
+  }
+  .view-Guestbook .view-header h2.title {
+    background: black;
+    color: white;
+    margin-bottom: 10px;
+    margin-left: -10px;
+    margin-right: -10px;
+    font-size: 1.5em;
+  }
+  .view-Guestbook .view-header #comment-input div.content {
+    padding-top: 0;
+  }
+  .view-Guestbook .view-header #comment-input textarea {
+    width: 509px;
+    height: 120px;
+  }
+  .view-Guestbook .view-header #comment-input div.grippie {
+    width: 514px;
+  }
+  body.node-comments #content-area {
+    padding: 0;
+  }
+  body.node-comments #content-area .node {
+    padding: 10px;
+  }
+  body.node-comments #content-area .node .node {
+    padding: 0;
+  }
+  #comment-input div.content {
+    padding: 10px;
+  }
+  #comments div.comment {
+    padding: 10px;
+  }
+  
+  /*  Ad Block  */
+  #block-block-1 .content {
+    padding: 0px;
+    border: none;
+    background: transparent;
+  }
+  
+  /*  Stats  */
+  .view-TopStats table.views-view-grid td.col-1,
+  .view-TopStats table.views-view-grid td.col-2 {
+    vertical-align: top;
+    width: 50%;
+  }
+  .view-TopStats table.views-view-grid td.col-1 {
+    padding-right: 10px;
+  }
+  .view-TopStats table.views-view-grid td.col-2 {
+    padding-left: 10px;
+  }
+  #page .view-TopStats .views-field-title {
+    background: transparent;
+    padding: 10px 0;
+  }
+  #page .view-TopStats .views-field-title span {
+    font-size: 16pt;
+    font-weight: normal;
+  }
+  .attachment-before .view-Stats div.picture {
+    float: left;
+    margin-right: 10px;
+  }
+  .attachment-before .view-Stats:after,
+  #block-views-Stats-block_2:after {
+    display: block;
+    clear: both;
+    content: " ";
+    margin-bottom: 5px;
+  }
+  .view-Stats .view-display-id-attachment_1 .views-field-picture {
+    float: left;
+    margin-right: 10px;
+  }
+  .view-Stats tr {
+    background: transparent;
+  }
+  .view-Stats table {
+    width: 280px;
+  }
+  .view-Stats tr:hover {
+    background: #ddd;
+  }
+  .view-Stats tr img {
+    width: 25px;
+    height: 25px;
+  }
+  .view-Stats td.views-field-picture {
+    width: 50px;
+  }
+  #block-views-Stats-block_2 {
+    margin: 20px 20px 0 20px;
+  }
+  #block-views-Stats-block_2 .views-field-picture img {
+    float: left;
+    margin-right: 10px;
+    margin-bottom: 5px;
+  }
+  #block-views-Stats-block_2 .views-field-name {
+    font-size: 22pt;
+    margin-bottom: 15px;
+  }
+  .view-display-id-attachment_1 .views-field-name a {
+    font-size: 14pt;
+    line-height: 22pt;
+    font-weight: normal;
+  }
+  
+  body.front div.dev-query {
+    color: #ededed;
+  }
+  
+  div.dev-query td {
+    height: 100px;
+    overflow: scroll;
+  }
+  
+  /*  Type Icons  */
+  .mymelo-type,
+  .views-field-type div {
+    text-indent: -9999px;
+    height: 16px;
+    width: 16px;
+  }
+  span.mymelo-type {
+    display: inline-block;
+    margin-right: 3px;
+  }
+  .mymelo-type-blog {
+    background: url(/sites/melodramatic/themes/melo/images/icons/page_white_text.png) top left no-repeat;
+  }
+  .mymelo-type-photo {
+    background: url(/sites/melodramatic/themes/melo/images/icons/picture.png) top left no-repeat;
+  }
+  .mymelo-type-cliquepost {
+    background: url(/sites/melodramatic/themes/melo/images/icons/page.png) top left no-repeat;
+  }
+  .mymelo-type-poll {
+    background: url(/sites/melodramatic/themes/melo/images/icons/chart_bar.png) top left no-repeat;
+  }
+  .mymelo-type-folder {
+    background: url(/sites/melodramatic/themes/melo/images/icons/folder.png) top left no-repeat;  
+  }
+  .mymelo-type-favorite {
+    background: url(/sites/melodramatic/themes/melo/images/icons/star.png) top left no-repeat;  
+  }
+  
+  
+  
+  /*  My Melo Styles  */
+  .view-MyMelo .views-field-type {
+    width: 20px;
+  }
+  .view-MyMelo .views-field-created {
+    width: 70px;
+    font-size: 0.9em;
+  }
+  .view-MyMelo td.views-field-title {
+    width: 300px;
+  }
+  .view-MyMelo table {
+    width: 530px;
+    margin-bottom: 20px;
+  }
+  
+  p.seemore {
+    text-align: right;
+    margin: 0 0 20px 0;
+  }
+  p.seemore a {
+    font-size: 0.9em;
+  }
+  .view-MyMelo table.melo-pre-hidden-table {
+    margin-bottom: 0;
+  }
+  .view-MyMelo table.melo-hidden-table {
+    margin-left: 62px;
+  }
+  .view-MyMelo tr {
+    background: transparent;
+  }
+  .view-MyMelo table td.views-field-title {
+    width: 400px;
+    padding: 0;
+  }
+  .view-MyMelo table td.views-field-created {
+    width: 115px;
+  }
+  .view-MyMelo table td.views-field-field-folder-permission-value {
+    width: 40px;
+  }
+  .view-MyMelo table td.views-field-field-folder-reference-nid {
+    width: 100px; 
+  }
+  .view-MyMelo div.picture {
+    float: left;
+    margin-right: 10px;
+  }
+  div.total-posts {
+    float: right;
+    margin-top: -15px;
+  }
+  div.mymelo-table-scroll {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-bottom: 20px;
+  }
+  .views-field-field-folder-permission-value {
+    width: 16px;
+  }
+  .views-field-field-folder-permission-value div {
+    min-width: 16px;
+    height: 16px;
+    text-indent: -9999px;
+  }
+  div.mymelo-perm-folder {
+    text-indent: 0;
+    padding-left: 25px;
+  }
+  div.mymelo-perm-public {
+    background: url(/sites/melodramatic/themes/melo/images/icons/folder.png) top left no-repeat;
+  }
+  div.mymelo-perm-friends {
+    background: url(/sites/melodramatic/themes/melo/images/icons/folder_heart.png) top left no-repeat;
+  }
+  div.mymelo-perm-private {
+    background: url(/sites/melodramatic/themes/melo/images/icons/folder_key.png) top left no-repeat;
+  }
+  td.views-field-field-folder-permission-value {
+    width: 90px;
+  }
+  #vbo-table-view-Folders td.views-field-title {
+    width: 400px;
+  }
+  .views-field-field-folder-permission-value select {
+    font-size: 0.9em;
+    float: left;
+  }
+  .block .view-Folders td.views-field-title {
+    width: 100%;
+  }
+  
+  body.section-mymelo h1.title #folder-select {
+    font-size: 10pt;
+    text-align: right;
+    width: 100%;
+    margin-top: -30px;
+  }
+  body.section-mymelo h1.title #folder-select select {
+    border: 0;
+    padding: 0;
+    font-size: 10pt;
+    margin-right: 5px;
+  }
+  
+  /*  Ajax Upload  */
+  #page .ahah-progress .throbber {
+    width: 15px;
+    height: 15px;
+    margin: 2px;
+    background: transparent url(/sites/melodramatic/themes/melo/images/ajax-loader.gif) no-repeat 0px 0px;
+    float: right; /* LTR */
+  }
+  
+  /*  My Melo Exposed Search form */
+  .views-exposed-form {
+    font-size: 0.9em;
+    padding-left: 50px;
+    padding-bottom: 20px;
+  }
+  .views-exposed-form #edit-date-filter-min-wrapper div.description,
+  .views-exposed-form #edit-date-filter-max-wrapper div.description {
+    display: none;
+  }
+  .views-exposed-form #edit-date-filter-min-wrapper label,
+  .views-exposed-form #edit-date-filter-max-wrapper label {
+    font-size: 1.1em;
+  }
+  .view-Blogs .date-views-filter-wrapper {
+    min-width:120px;
+    width: 120px;
+  }
+  .views-exposed-form .form-select {
+    font-size: 1em;
+    height: 6em;
+  }
+  .views-exposed-form .form-text,
+  .views-exposed-form .form-select {
+    background: #d4d4dd;
+  }
+
+  
+  /*  Color Scheme  */
+  #color_scheme_form #placeholder {
+    float: right;
+  }
+  #color_scheme_form #edit-title-wrapper {
+    width: 100%;
+  }
+  #color_scheme_form #edit-title-wrapper input.form-text {
+    width: 525px;
+  }
+  #color_scheme_form .group-scheme-colors {
+    width: 510px;
+  }
+  fieldset.group-scheme-colors div.form-item {
+    width: 250px;
+    height: 12px;
+    float: left;
+  }
+  
+  /* Flag */
+  
+  .flag-message {
+    position: absolute;
+    top: 1.7em;
+    line-height: normal;
+    left: 0;
+    width: 300px;
+    font-size: .8em;
+  }
+  
+  .flag-wrapper {
+    position: relative;
+  }
+  
+  /* The rest deals with indicating the waiting state. */
+  
+  .flag-waiting a {
+    /* Give an impression of a disabled link. */
+    opacity: 0.5;
+    filter: alpha(opacity=50); /* IE */
+  }
+  
+  .flag-waiting .flag-throbber {
+    background: url(../images/ajax-loader.gif) no-repeat right center;
+    padding-right: 13px;
+  }
+
+/*  Make the Wall Scroll  */
+.tribune-posts {
+  height: 400px;
+  overflow: scroll;
+  overflow-x: hidden;
+  padding: 0;
+}
+.tribune-posts img {
+  border: 0;
+}
+
+/*  Checkout Block  */
+
+ul.elite-checkout {
+  font-size: 18px;
+  padding: 0 !important;
+}
+ul.elite-checkout li {
+  list-style: none;
+  margin: 0;
+  padding-left: 40px;
+  padding-bottom: 10px;
+  min-height: 33px;
+  color: #999;
+  padding-top: 8px;
+}
+#elite-checkout-1 {
+  background: url(/sites/melodramatic/themes/melo/images/elite/one-off.png) left top no-repeat;
+}
+#elite-checkout-1.active {
+  background: url(/sites/melodramatic/themes/melo/images/elite/one-on.png) left top no-repeat;
+  color: #666b88;
+}
+#elite-checkout-2 {
+  background: url(/sites/melodramatic/themes/melo/images/elite/two-off.png) left top no-repeat;
+}
+#elite-checkout-2.active {
+  background: url(/sites/melodramatic/themes/melo/images/elite/two-on.png) left top no-repeat;
+  color: #666b88;
+}
+#elite-checkout-3 {
+  background: url(/sites/melodramatic/themes/melo/images/elite/three-off.png) left top no-repeat;
+}
+#elite-checkout-3.active {
+  background: url(/sites/melodramatic/themes/melo/images/elite/three-on.png) left top no-repeat;
+  color: #666b88;
+}
+#elite-checkout-4 {
+  background: url(/sites/melodramatic/themes/melo/images/elite/four-off.png) left top no-repeat;
+}
+body.section-cart #edit-continue {
+  background: url(/sites/melodramatic/themes/melo/images/elite/review-button.png) left top no-repeat;
+  border: 0;
+  text-indent: -9999px;
+  width: 258px;
+  height: 31px;
+
+}
+body.section-cart #edit-continue:hover {
+  background-position: 0 -31px;
+  cursor: pointer;
+}
+body.section-cart #edit-submit {
+  background: url(/sites/melodramatic/themes/melo/images/elite/submit-button.png) left top no-repeat;
+  border: 0;
+  text-indent: -9999px;
+  width: 258px;
+  height: 31px;
+
+}
+body.section-cart #edit-submit:hover {
+  background-position: 0 -31px;
+  cursor: pointer;
+}
+
+
+/*  API Adjustments  */
+#api-function-signature strong {
+  font-size: 10px;
+}
+#api-function-signature code {
+  font-size: 16pt;
+  margin-left: 20px;
+}
+div.api-expandable h3 {
+  font-weight: normal;
+  font-size: 1em;
+}
+#content-area pre.php {
+  background: #eee;
+  padding: 10px;
+  border: solid #ccc 1px;
+  font-size: 1em;
+}
+
+/*
+ * MESSAGES STYLE
+ *
+ * Add sensible messages styling.
+ */
+
+
+  div.messages, /* Important messages (status, warning, and error) for the user */
+  div.status,
+  div.warning,
+  div.error
+  {
+    border: 0;
+    padding: 10px 10px 5px 45px;
+    margin: 0;
+    margin-top: 1px;
+    min-height: 21px;
+    color: #d4d4dd;
+    background-color: black;
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/information.png);
+    background-repeat: no-repeat;
+    background-position: 17px center;
+  }
+
+  div.messages ul
+  {
+    margin: 0;
+    padding: 0;
+  }
+  div.messages ul li {
+    list-style: none;
+    padding-bottom: 10px;
+  }
+
+  div.warning /* Medium priority messages */
+  {
+    color: #cccc66;
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/error.png);
+  }
+
+  div.error /* High priority messages. See also the .error declaration below. */
+  {
+    color: #ffcccc;
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/exclamation.png);
+  }
+  
+  div.messages a:hover {
+    color: white;
+  }
+
+  #content-area div.messages, /* Important messages (status, warning, and error) for the user */
+  #content-area div.status,
+  #content-area div.warning,
+  #content-area div.error
+  {
+    padding: 15px 10px 10px 45px;
+    background-color: transparent;
+    color: #000;
+    min-height: 16px;
+  }
+  #content-area div.status /* Medium priority messages */
+  {
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/information.png);
+  }
+  #content-area div.warning /* Medium priority messages */
+  {
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/error.png);
+  }
+
+  #content-area div.error /* High priority messages. See also the .error declaration below. */
+  {
+    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/exclamation.png);
+  }
+  #content-area div.messages a:hover {
+    color: black;
+    text-decoration: underline;
+  }
+  
+/**
+ *  Melo Nice Menu Styles
+ */
+  
+/******************************
+ Global CSS for ALL menu types
+******************************/
+
+ul.nice-menu,
+ul.nice-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+ul.nice-menu li {
+  border-top: 0;
+  float: left;
+  background-image: none;
+}
+ul.nice-menu a {
+  padding: 8px 17px;
+}
+
+ul.nice-menu ul li {
+  width: 12.5em;
+}
+
+ul.nice-menu ul li a:hover {
+  text-decoration: underline;
+}
+
+/******************************
+ VERTICAL (left/right) menus
+******************************/
+
+/* This is the default width of all vertical menus. */
+ul.nice-menu-right, ul.nice-menu-left,
+ul.nice-menu-right li, ul.nice-menu-left li {
+  width: 12.5em;
+}
+
+/* VERTICAL menus where submenus pop RIGHT (default). */
+ul.nice-menu-right ul {
+  width: 12.5em;
+  left: 12.5em;
+}
+
+ul.nice-menu-right ul ul {
+  width: 12.5em;
+  left: 12.5em;
+}
+
+/******************************
+ HORIZONTAL (down) menus
+******************************/
+
+ul.nice-menu-down ul {
+  left: -1px;
+  border-bottom: solid black 1px;
+}
+ul.nice-menu-down ul li {
+  clear: both;
+  border: solid black 1px;
+  border-bottom: 0;
+}
+
+ul.nice-menu-down li ul li ul,
+/* Repeat for Garland header. */
+#header-region ul.nice-menu-down li ul li ul {
+  left: 12.6em;
+  top: -1px;
+}
+ul.nice-menu-down .menuparent a {
+  padding-right: 15px;
+}
+ul.nice-menu-down li:hover a {
+  color: white;
+}
+
+/******************************
+ Specific Menu Styles
+******************************/
+
+#block-nice_menus-1 div.content {
+  padding: 0;
+}
+
+/* $Id: system-menus.css,v 1.1 2007/10/05 14:50:25 goba Exp $ */
+
+ul.menu {
+  list-style: none;
+  border: none;
+  text-align:left; /* LTR */
+}
+ul.menu li {
+  margin: 0 0 0 0.2em; /* LTR */
+}
+li.expanded {
+  list-style: none;
+  padding: 0.2em 0.2em 0 0; /* LTR */
+  margin: 0;
+}
+li.collapsed {
+  list-style: none;
+  padding: 0.2em 0.2em 0 0; /* LTR */
+  margin: 0;
+}
+li.leaf {
+  list-style: none;
+  padding: 0.2em 0.2em 0 0; /* LTR */
+  margin: 0;
+}
+li a.active {
+  color: #000;
+}
+td.menu-disabled {
+  background: #ccc;
+}
+ul.links {
+  margin: 0;
+  padding: 0;
+}
+ul.links.inline {
+  display: inline;
+}
+ul.links li {
+  display: inline;
+  list-style-type: none;
+  padding: 0 0.5em;
+}
+.block ul {
+  margin: 0;
+  padding: 0 0 0.25em 1em; /* LTR */
+}
+
+/* $Id: block-editing.css,v 1.2 2008/09/14 12:50:55 johnalbin Exp $ */
+
+/*
+ * Rollover edit links for blocks
+ */
+
+  div.block.with-block-editing
+  {
+    position: relative;
+  }
+
+  div.block.with-block-editing div.edit
+  {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 40;
+    border: 1px solid #eee;
+    padding: 0 2px;
+    font-size: 9px;
+    background-color: #fff;
+  }
+
+  div.block.with-block-editing:hover div.edit
+  {
+    display: block;
+  }
+
+
+/*  Vertical tabs  */
+
+div.vertical-tabs {
+  clear: both;
+}
+
+
+/* Profile CSS  */
+
+/*  Journal Entries  */
+.node-type-blog h2.title a {
+  color: black;
+}
+.node-type-blog h2.title a:hover {
+  text-decoration: underline;
+}
+.node-type-blog div.node-inner {
+  border-bottom: solid #bbb 1px;
+  margin-bottom: 15px;
+  padding-bottom: 20px;
+}
+.views-row-last .node-type-blog div.node-inner {
+  border-bottom: none;
+}
+.view-Blogs {
+  padding: 5px;
+  padding-top: 0;
+}
+#block-views-Folders-block_1 tr:hover {
+  background: #eee;
+}
+#block-views-Folders-block_1 td.views-field-title {
+  padding: 0;
+}
+#block-views-Folders-block_1 td.views-field-title a {
+  width: 120px;
+  padding: 5px;
+  display: block;
+}
+
+/*  Picture Block  */
+#sidebar-left #block-melodev-0 h1 {
+  color: white;
+  font-weight: normal;
+  font-family: "Helvetica Neue", "Helvetica";
+  font-size: 16pt;
+  margin: 0;
+  background: black;
+  text-align: left;
+  padding: 2px 5px 3px 10px;
+}
+#sidebar-left #block-melodev-0 {
+  border: none;
+  background: transparent;
+  text-align: center;
+}
+#sidebar-left #block-melodev-0 .block-inner div.content {
+  padding: 0;
+}
+
+/*  Photos Block  */
+#block-views-Photos-block_1 {
+  height: 240px;
+}
+#block-views-Photos-block_1 div.block-inner div.content {
+  padding: 5px;
+}
+#block-views-Photos-block_1 table.views-view-grid {
+  height: 160px;
+}
+#block-views-Photos-block_1 .views-view-grid td {
+  vertical-align: top;
+  padding: 3px;
+  margin: 0;
+} 
+
+/* Favorite Things Block  */
+#block-views-Favorites-block_1 div.content {
+  text-align: center;
+}
+
+/*  Interact Block  */
+#block-melodev-2 ul {
+  padding: 0;
+}
+#block-melodev-2 li {
+/*  margin-bottom: 20px; */
+  list-style: none;
+  padding-left: 0;
+}
+#block-melodev-2 a.flag-processed {
+
+}
+#block-melodev-2 span.flag-message {
+  display: block;
+  padding-bottom: 5px;
+  position: relative;
+  top: 0;
+}

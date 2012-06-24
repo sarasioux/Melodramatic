@@ -1,0 +1,62 @@
+<?php
+// $Id:
+/**
+ * @file
+ * Webmail Plus. Messaging method plug-in
+ *
+ */
+
+/**
+ * Implementation of hook_messaging()
+ *
+ * Currently the only operation supported is 'send methods' that will retrieve and array
+ * with information fo the sending methods provided by this module.
+ *
+ * @param $op
+ *   Type of information to retrieve.
+ * @return mixed
+ *   Depending on $op
+ */
+function messaging_webmail_plus_messaging($op) {
+  switch($op) {
+    case 'send methods':
+      $info['webmail_plus'] = array(
+        'name' => t('WebMail Plus'), // Name for display
+        'group' => 'mail', // Class of sending method
+        'destination' => 'name', // Account property to use as destination
+        'send' => 'messaging_webmail_plus_send_msg', // Sending callback
+        'type' => MESSAGING_TYPE_PUSH,  // Method type: push || pull
+        'glue' => "\n", // Glue for message body lines
+        'footer' => "\n--",  // Separator for message footer
+        'description' => t('Send e-mails using the default Drupal mail library but via the provisioned WebMail Plus email not Drupal email address.'),
+      );
+      return $info;
+  }
+}
+
+/**
+ * Send mail message to user account
+ *
+ * This is a callback function that will be invoked from messaging delivery methods
+ *
+ *
+ * @param $destination
+ *      Name of the user from the $account->name variable
+ * @param $message
+ *      Message array
+ * @param $params
+ *      Optional parameters for this method type
+ */
+function messaging_webmail_plus_send_msg($destination, $message, $params = array()) {
+  global $_webmail_plus_config;
+
+  if ($_webmail_plus_config->domain) {
+    // Get from, headers, mailkey, etc...
+    $message['to'] = $destination .'@'. $_webmail_plus_config->domain;
+    $message['id'] = 'message-'.$message['type'];
+    $message['headers'] = messaging_mail_headers($message, $params);
+    return drupal_mail_send($message);
+  }
+  watchdog('messaging_webmail_plus', t('No domain is set for the webmail_plus module. Configuration needs to be verified.'), WATCHDOG_ERROR);
+  return FALSE; // No domain set hence have returned FALSE on error message.
+}

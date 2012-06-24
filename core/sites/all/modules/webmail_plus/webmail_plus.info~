@@ -1,0 +1,9 @@
+; $Id: webmail_plus.info~,v 1.1.2.2 2009/02/07 22:17:44 firmidea Exp $
+name = Webmail Plus
+package = Webmail Plus
+description = Provides webmail functionality.
+core = 6.x
+dependencies[] = mail_api
+dependencies[] = aes
+version = 6.x-1.x-dev
+stylesheets[print] = 'webmail_plus_print.css'

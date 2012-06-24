@@ -1,0 +1,12 @@
+; $Id: blockcache_alter.info,v 1.1 2008/12/15 18:47:40 swentel Exp $
+name = Block Cache Alter
+description = "Alter the cache settings per block."
+core = 6.x
+version = VERSION
+package = Caching
+; Information added by drupal.org packaging script on 2009-09-18
+version = "6.x-1.4"
+core = "6.x"
+project = "blockcache_alter"
+datestamp = "1253309710"
+

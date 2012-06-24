@@ -1,0 +1,388 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Allows files to be converted from one MIME content type into another as needed.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_CONVERT_LIMIT_SIZE', (int)variable_get('file_convert_limit_size', 10));
+define('FILE_CONVERT_DEBUG',      variable_get('file_convert_debug', 0));
+
+define('FILE_CONVERT_TIER_LIMIT', 2);
+define('FILE_CONVERT_DEBUG_LINES', 5);
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_help().
+ */
+function file_convert_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/file/convert/converter':
+      return '<p>'. t('Command line or php functions as utilities to convert between MIME types and create file previews of other MIME type. Empty field means that no conversion will take place. \'||\' separates utilities, which will be executed in sequence. Shell commands or php functios should be enclosed in {} brackets. The system will check if those functions are available or commands are executable. If there is a string and digits separated by the colon in the brackets like {localhost:8100} the system will check if the port on the host is opened. Other files which should be readable should be enclosed in double {{}} brackets. Brackets {}[] in command line can be escaped with \{\}\[\]. "No" in the "Installed" column means that not all commands and functions are found or network connection cannot be opened and the conversion will not take place.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_convert_theme() {
+  return array(
+    'file_convert_admin_converter_settings' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'file_convert.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_convert_menu() {
+  return array(
+    'admin/settings/file/convert' => array(
+      'title' => 'Converters',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_convert_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_convert.admin.inc',
+    ),
+    'admin/settings/file/convert/configure' => array(
+      'title' => 'Settings',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+    ),
+    'admin/settings/file/convert/converter' => array(
+      'title' => 'MIME Converters',
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_convert_admin_converter_settings'),
+      'access arguments' => array('administer site configuration'),
+      'weight' => 1,
+      'file' => 'file_convert.admin.inc',
+    ),
+  );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File API extensions
+
+/**
+ * This function executes all hook_mime_converters() hooks in the format modules
+ * and creates an array of the MIME convert functions
+ *
+ * @return
+ *   A structured array of the convert functions.
+ */
+function file_get_mime_converters() {
+  static $converters = array();
+  if (empty($converters)) {
+    $saved_converters = array();
+    foreach (module_implements('mime_converters') as $module) {
+      if (($types = module_invoke($module, 'mime_converters')) && is_array($types)) {
+        foreach ($types as $from => $tos) {
+          foreach ($tos as $to => $converter) {
+            if (!isset($converter['handlers']))
+              $types[$from][$to]['handlers'] = array();
+            $types[$from][$to]['module'] = $module;
+            $types[$from][$to]['enabled'] = 1;
+          }
+        }
+        $converters = array_merge_recursive($converters, $types);
+      }
+      $saved_converters = array_merge($saved_converters, variable_get($module .'_convert_pipelines', array()));
+    }
+    foreach ($converters as $from => $tos) {
+      foreach ($tos as $to => $converter) {
+        if (isset($saved_converters[$from][$to])) {
+          $converters[$from][$to]['pipeline'] = $saved_converters[$from][$to]['pipeline'];
+          $converters[$from][$to]['enabled'] = $saved_converters[$from][$to]['enabled'];
+        }
+        $converters[$from][$to]['installed'] = _file_convert_check_pipeline($converters[$from][$to]['pipeline']);
+        if (empty($converters[$from][$to]['installed'])) {
+          $converters[$from][$to]['enabled'] = '';
+        }
+      }
+    }
+  }
+  return $converters;
+}
+
+/**
+ * Converts a file to different MIME format.
+ * If earlier conversion failed, the file is not converted.
+ *
+ * @param $file
+ *   A file object. If $file->converted defined, we already have a temporal file.
+ * @param $handlers
+ *   An array of the handlers to be used with the converted file.
+ * @param $pipeline
+ *   An array with a pipelines.
+ * @param $options
+ *   Additional options used in file conversion.
+ *
+ * @return
+ *   A converted file's filename or NULL.
+ */
+function file_convert($file, $pipeline, $tier, $handlers = array(), $options = array()) {
+  $status = TRUE;
+  foreach ($handlers as $handler) {
+    $status = $status && !_file_convert_isnot_needed($file, $handler);
+  }
+  if (!$status)
+    return NULL;
+
+  $status = _file_convert($file, $pipeline, $tier, $options);
+  if (!isset($status) || $status === FALSE) {
+    foreach ($handlers as $handler) {
+      _file_convert_failure_log($file, $handler);
+    }
+  }
+
+  return $status;
+}
+
+/**
+ * Converts a file to different MIME format.
+ *
+ * @param $file
+ *   A file object. If $file->converted defined, we already have a temporal file.
+ * @param $pipeline
+ *   An array with a pipelines.
+ * @param $options
+ *   Additional options used in file conversion.
+ *
+ * @return
+ *   A converted file's filename or NULL. Calling function
+ *   should delete the tomporal file.
+ */
+function _file_convert($file, $pipeline, $tier, $options) {
+  $options['filename'] = $file->filename;
+  $tmpdir  = function_exists('sys_get_temp_dir') ? sys_get_temp_dir() : '/tmp';
+  $options['tmpdir'] = $tmpdir;
+  $file_convert = ($tier > 0) ? $file->converted[$tier - 1] : $file;
+  if (isset($file_convert->filepath)) {
+    $in_file = $file_convert->filepath;
+    $keep_in_file = TRUE;
+  }
+  else {
+    // Copy file to the temporal file.
+    $input = bitcache_get_stream(file_get_hash($file_convert->uri));
+    $tmpfile = tempnam($tmpdir, 'drupal_file_convert_');
+    $output  = fopen($tmpfile, 'wb');
+    stream_copy_to_stream($input, $output);
+    fclose($input);
+    fclose($output);
+    $in_file = $tmpfile;
+    $keep_in_file = FALSE;
+  }
+
+  if (!_file_convert_check_pipeline($pipeline)) {
+    watchdog('file_convert', 'Utilities for the pipeline %pipeline are not installed.', array('%pipeline' => $pipeline), WATCHDOG_ERROR, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+    if (!$keep_in_file)
+      file_delete($in_file);
+    return FALSE;
+  }
+  foreach (explode('||', $pipeline) as $pipe) {
+    if (isset($out_file)) {
+      // Second and following pipes.
+      if (!$keep_in_file)
+        file_delete($in_file);
+      $keep_in_file = FALSE;
+      $in_file = $out_file;
+    }
+    $out_file = tempnam($tmpdir, 'drupal_file_convert_');
+    if (!_file_convert_execute_pipeline($in_file, $out_file, $pipe, $options)) {
+      watchdog('file_convert', 'File %name, uri=%uri was not converted by executing a pipeline %pipeline. Execution of the pipeline failed.', array('%name' => $file->filename, '%uri' => $file->uri, '%pipeline' => $pipe), WATCHDOG_ERROR, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+      if (!$keep_in_file)
+        file_delete($in_file);
+      file_delete($out_file);
+      return FALSE;
+    }
+  }
+  if (!$keep_in_file)
+    file_delete($in_file);
+
+  if (filesize($out_file)) {
+    watchdog('file_convert', 'File %name, uri=%uri was converted by executing a pipeline %pipeline.', array('%name' => $file->filename, '%uri' => $file->uri, '%pipeline' => $pipeline), WATCHDOG_NOTICE, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+    return $out_file;
+  }
+  else {
+    watchdog('file_convert', 'File %name, uri=%uri was not converted by executing a pipeline %pipeline. Converted file was empty.', array('%name' => $file->filename, '%uri' => $file->uri, '%pipeline' => $pipeline), WATCHDOG_ERROR, isset($file->nid) ? l(t('view'), 'node/'. $file->nid) : NULL);
+    file_delete($out_file);
+    return FALSE;
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Checks availability of the particullar command.
+ */
+function _file_convert_check_pipeline($pipeline) {
+  foreach (explode('||', $pipeline) as $command) {
+    if (!_file_convert_check_command($command)) {
+      return NULL;
+    }
+  }
+  // Check passed.
+  return TRUE;
+}
+
+/**
+ * Checks availability of the particullar command.
+ */
+function _file_convert_check_command($command) {
+  if (trim($command) == '') {
+    return FALSE;
+  }
+
+  // Escaping '{', '}', '[', ']'.
+  $args = array('/\\\\{/', '/\\\\}/', '/\\\\\[/', '/\\\\\]/');
+  $replacements = array('-left-curly-bracket-', '-right-curly-bracket-', '-left-square-bracket-', '-right-square-bracket-');
+  $command = preg_replace($args, $replacements, $command);
+
+  if (preg_match_all('/{([^}]+)}\(/', $command, $matches)) {
+    // php function.
+    foreach ($matches[1] as $function) {
+      if (!function_exists($function)) {
+        return FALSE;
+      }
+    }
+  }
+  else if (preg_match_all('/{([^}]+)}/', $command, $matches)) {
+    // shell cyommand or library, or network connection.
+    foreach ($matches[1] as $function) {
+      if (preg_match('/{(.+)/', $function, $match)) {
+        // a library.
+        if (!is_readable($match[1])) {
+          return FALSE;
+        }
+      }
+      else if (preg_match('/(\S+):(\d+)/', $function, $match)) {
+        // network connection.
+        if (!($fp = @fsockopen($match[1], $match[2], $errno, $errstr, 10))) {
+          return FALSE;
+        }
+        else {
+          fclose($fp);
+        }
+      }
+      else {
+        // shell command.
+        if (!exec('which '. escapeshellarg($function) .' 2>/dev/null')) {
+          return FALSE;
+        }
+      }
+    }
+  }
+  // Check passed.
+  return TRUE;
+}
+
+/**
+ * Executes a pipeine to convert a file.
+ */
+function _file_convert_execute_pipeline($from, $to, $pipeline, $options) {
+  $result = TRUE;
+
+  // Escaping '{', '}', '[', ']'.
+  $args = array('/\\\\{/', '/\\\\}/', '/\\\\\[/', '/\\\\\]/');
+  $replacements = array('-left-curly-bracket-', '-right-curly-bracket-', '-left-square-bracket-', '-right-square-bracket-');
+  $pipeline = preg_replace($args, $replacements, $pipeline);
+
+  $args = array('/{\S+:\d+}/', '/{{/', '/}}/', '/{/', '/}/', '/\[in_file\]/', '/\[out_file\]/', '/\[in_content\]/', '/\[out_content\]/');
+  $replacements = array('', '', '', '', '', $from, $to, '$in_content', '$out_content');
+  foreach ($options as $name => $val) {
+    array_push($args, '/\['. $name .'\]/');
+    array_push($replacements, $val);
+  }
+  $pipeline = preg_replace($args, $replacements, $pipeline);
+
+  // Putting back escaped values.
+  $args = array('/-left-curly-bracket-/', '/-right-curly-bracket-/', '/-left-square-bracket-/', '/-right-square-bracket-/');
+  $replacements = array('{', '}', '[', ']');
+  $pipeline = preg_replace($args, $replacements, $pipeline);
+
+  if (preg_match('/\$in_content/', $pipeline)) {
+    // Read content from file.
+    $in_content = file_get_contents($from);
+  }
+  if (preg_match('/^.*\s([\w\d_]+)\(.*$/', ' '. $pipeline, $matches)) {
+    // php function.
+    if (!eval($pipeline .'; return 1;')) {
+      watchdog('file_convert', 'Execution of pipeline %pipeline failed.', array('%pipeline' => $pipeline), WATCHDOG_ERROR);
+      $result = FALSE;
+    }
+  }
+  else {
+    // shell command.
+    $out = array();
+    if (!exec($pipeline .'; echo "End of the output."  2>&1', $out)) {
+      watchdog('file_convert', 'Execution of pipeline %pipeline failed.', array('%pipeline' => $pipeline), WATCHDOG_ERROR);
+      $result = FALSE;
+    }
+    if (FILE_CONVERT_DEBUG) {
+    $out = array_slice($out, -FILE_CONVERT_DEBUG_LINES);
+      watchdog('file_convert', 'Debug: Last five lines of the output of the execution of pipeline %pipeline: %out', array('%pipeline' => $pipeline, '%out' => !empty($out) ? implode("\n", $out) : t('Output is empty.')), WATCHDOG_NOTICE);
+    }
+  }
+  if (preg_match('/\$out_content/', $pipeline)) {
+    // Save content to file.
+    if (!file_put_contents($to, $out_content)) {
+      watchdog('file_convert', 'Writting to a file %to failed.', array('%to' => $to), WATCHDOG_ERROR);
+      $result = FALSE;
+    }
+  }
+  return $result;
+}
+
+/**
+ * Saves to the RDF that a conversion perfomed by the handler failed.
+ * This will avoid continuous conversion of the failing file.
+ *
+ * @param $file
+ *   A file object.
+ * @param $handler
+ *   A handler name.
+ *
+ * @return
+ *   TRUE if save was successfull.
+ */
+function _file_convert_failure_log($file, $handler) {
+  if (!rdf_exists($file->uri, 'wordnet:failed', $handler, array('repository' => FILE_RDF_REPOSITORY)))
+    return rdf_insert($file->uri, 'wordnet:failed', $handler, array('repository' => FILE_RDF_REPOSITORY));
+
+  return TRUE;
+}
+
+/**
+ * Checks the RDF if the conversion was already made or had failed.
+ *
+ * @param $file
+ *   A file object.
+ * @param $handler
+ *   A handler name.
+ *
+ * @return
+ *   TRUE if failure is logged.
+ */
+function _file_convert_isnot_needed($file, $handler) {
+  if (rdf_exists($file->uri, 'wordnet:failed', $handler, array('repository' => FILE_RDF_REPOSITORY)))
+    return TRUE;
+
+  if ($generated = rdf_normalize(rdf_query(NULL, rdf_qname_to_uri('dc:source'), $file->uri, array('repository' => FILE_RDF_REPOSITORY)))) {
+    foreach ($generated as $uri => $data) {
+      $preview = rdf_normalize(rdf_query($uri, rdf_qname_to_uri('dc:creator'), $handler, array('repository' => FILE_RDF_REPOSITORY)));
+      if (!empty($preview))
+        return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+

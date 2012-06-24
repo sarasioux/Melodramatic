@@ -1,0 +1,14 @@
+
+name = Search 404
+description = Search 404
+dependencies[] = 'search'
+core = 6.x
+
+
+
+; Information added by drupal.org packaging script on 2011-08-29
+version = "6.x-1.11"
+core = "6.x"
+project = "search404"
+datestamp = "1314607331"
+

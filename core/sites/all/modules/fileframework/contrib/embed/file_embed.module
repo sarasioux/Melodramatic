@@ -1,0 +1,508 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Provides an input filter for embedding file previews into other content.
+ */
+
+//////////////////////////////////////////////////////////////////////////////
+
+define('FILE_EMBED_BUTTON_OPTION',  variable_get('file_embed_button_option', 1));
+define('FILE_EMBED_BUTTON_PAGES',   variable_get('file_embed_button_pages', "node/*\ncomment/*\n"));
+define('FILE_EMBED_BUTTON_FIELDS',  variable_get('file_embed_button_fields', "body\ncomment\n"));
+define('FILE_EMBED_BUTTON_TYPE',    variable_get('file_embed_button_type', 'text'));
+define('FILE_EMBED_POPUP_SIZE',     variable_get('file_embed_popup_size', '590x500'));
+define('FILE_EMBED_POPUP_PER_PAGE', variable_get('file_embed_popup_per_page', '6'));
+
+define('FILE_EMBED_FILE_FILTER', 0);
+
+//////////////////////////////////////////////////////////////////////////////
+// Core API hooks
+
+/**
+ * Implementation of hook_help().
+ */
+function file_embed_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/file/embed':
+      return '<p>'. t('"File embedding" filter should be enabled in selected !filters to activate the file embedding.', array('!filters' => l('input formats', 'admin/settings/filters'))) .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function file_embed_theme() {
+  return array(
+    'file_embed_textarea_link' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file_embed.theme.inc'
+    ),
+    'file_embed_options' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file_embed.theme.inc'
+    ),
+    'file_embed_file' => array(
+      'arguments' => array('data' => NULL),
+      'file' => 'file_embed.theme.inc'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function file_embed_perm() {
+  return array('embed files');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function file_embed_menu() {
+  return array(
+    'admin/settings/file/embed' => array(
+      'title' => 'Embed',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('file_embed_admin_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'file_embed.admin.inc',
+    ),
+    'file_embed/options/%node' => array(
+      'page callback' => 'file_embed_options',
+      'page arguments' => array(2),
+      'access arguments' => array('embed files'),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function file_embed_form_alter(&$form, $form_state, $form_id) {
+  if (isset($form['type']) && isset($form['#node'])) {
+    // Node form.
+    if (!empty($form['#node']->nid)) {
+      file_embed_textarea_process(array('element' => 'node', 'type' => $form['#node']->type, 'nid' => $form['#node']->nid));
+    }
+  }
+  else if ($form_id == 'comment_form') {
+    // Comment form.
+    if (!empty($form['cid']['#value'])) {
+      $node = node_load($form['nid']['#value']);
+      file_embed_textarea_process(array('element' => 'comment', 'type' => $node->type, 'nid' => $form['nid']['#value'], 'cid' => $form['cid']['#value']));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function file_embed_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'view':
+      drupal_add_css(drupal_get_path('module', 'file_embed') .'/file_embed.css');
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_filter().
+ */
+function file_embed_filter($op, $delta = 0, $format = -1, $text = '') {
+  if ($op == 'list') {
+    return array(
+      FILE_EMBED_FILE_FILTER => t('File embedding'),
+    );
+  }
+
+  switch ($delta) {
+    case FILE_EMBED_FILE_FILTER:
+      switch ($op) {
+        case 'description':
+          return t('Allows embedding inline file previews into content.');
+        case 'process':
+          return file_embed_file_filter($op, $text);
+        case 'settings':
+          return;
+        default:
+          return $text;
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_filter_tips().
+ */
+function file_embed_filter_tips($delta, $format, $long = FALSE) {
+  switch ($delta) {
+    case FILE_EMBED_FILE_FILTER:
+      return t('Use [file:nid] to embed an inline preview of a previously uploaded file.');
+  }
+}
+
+/**
+ * Implementation of hook_elements().
+ */
+function file_embed_elements() {
+  return array('textarea' => array('#process' => array('file_embed_textarea_process')));
+}
+
+/**
+ * Alters textarea element and adds embed links.
+ *
+ * @param $element
+ *   A form element to alter.
+ *
+ * @return
+ *   Altered form element.
+ */
+function file_embed_textarea_process($element) {
+  static $type = NULL;
+  if (isset($element['element'])) {
+    $type = $element;
+    return;
+  }
+
+  // Match the current path against the allowed paths configured by the administrator
+  if (user_access('embed files') && _file_embed_page_match($_GET['q'])) {
+
+    // By default, only show the link on the node edit screen and the comment edit screen
+    $fields = array_map('rtrim', explode("\n", FILE_EMBED_BUTTON_FIELDS));
+    $fields = array_filter($fields, 'strlen'); // remove empty elements
+    if (in_array($element['#name'], $fields)) {
+
+      // Ensure that no matter the field settings, only one link is added per
+      // page - this prevents problems with file_gallery's Thickbox.js library
+      /*
+      static $counter = 0;
+      if (++$counter == 1) {
+        $element['#suffix'] = _file_embed_textarea_link($element, $type);
+      }
+      */
+      // For the comment the textarea is proccesed twice, therefore commenting out
+      // this section for now.
+      $element['#suffix'] = _file_embed_textarea_link($element, $type);
+    }
+  }
+  return $element;
+}
+
+/**
+ * Creates embed links on textarea element.
+ *
+ * @param $element
+ *   A form element to alter.
+ * @param $type
+ *   An array with a nid or cid key showing if the element is in a node or comment.
+ *
+ * @return
+ *   A HTML link representation.
+ */
+function _file_embed_textarea_link($element, $type, $link = FILE_EMBED_BUTTON_TYPE) {
+  _file_embed_add_headers();
+  $_GET['textarea'] = $element['#id'];
+  $id = $element['#id'];
+  list($width, $height) = explode('x', FILE_EMBED_POPUP_SIZE);
+
+  $query = array('module' => 'file_embed', 'layout' => 'off', 'nid' => $type['nid'], 'textarea' => $id);
+  $query += isset($type['cid']) ? array('cid' => $type['cid']) : array();
+  $query += array('TB_iframe' => 'true', 'height' => $height, 'width' => $width);
+
+  $url = array('url' => 'file_gallery', 'query' => array_merge(file_embed_file_gallery('query'), $query));
+
+  $output = theme('file_embed_textarea_link', compact('id', 'url', 'link'));
+
+  return $output;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File filter implementation
+
+/**
+ * Implements file filter.
+ * Supported syntax: [file:nid attr1=value1 attr2=value2 ...]
+ *
+ * @param $text
+ *   Text string with the filter.
+ *
+ * @return
+ *   Output string with a filter substituted with the actual HTML snippet.
+ */
+function file_embed_file_filter($op, $text) {
+  $callback = 'file_embed_file_filter_'. $op;
+  return preg_replace_callback('/\[file:\s{0,1}(\d+)(\s*[^\]]*)\]/', $callback, $text);
+}
+
+/**
+ * Auxiliary filter process function
+ *
+ * @param $matches
+ *   Array of the matched filter criterias.
+ *
+ * @return
+ *   The HTML snippet which should be injected instead of the filter.
+ */
+function file_embed_file_filter_process($matches) {
+  $nid = intval($matches[1]);
+  if (($node = node_load($nid)) && !empty($node->file)) {
+
+    $string = $matches[2];
+    $attributes = array('handler', 'align', 'link', 'caption', 'padding');
+    $options = array();
+    if (!empty($string)) {
+      foreach ($attributes as $a) {
+        $string = preg_replace("/\s+$a=/", "||$a=", $string);
+      }
+      $args = explode('||', $string);
+      foreach ($args as $arg) {
+        if (!empty($arg)) {
+          list($k, $v) = explode('=', $arg, 2);
+          $options[$k] = $v;
+        }
+      }
+    }
+
+    // Set the default handler if not specified in the filter.
+    /*
+    if (!isset($options['handler'])) {
+      $file_handlers = file_handlers_for($node->file);
+      foreach (file_get_mime_handlers() as $handler => $data) {
+        if (array_key_exists($handler, $file_handlers) && function_exists($handler .'_render')) {
+          $options['handler'] = $handler;
+          break;
+        }
+      }
+    }
+    */
+    $options['file_html'] = file_wrapper_html($node, isset($options['handler']) ? $options['handler'] : NULL, array('container' => FALSE), TRUE);
+
+    $handlers = file_handlers_for($node->file);
+    if (isset($options['link']) && isset($options['handler']) && preg_match('/^image\//', $handlers[$options['handler']]['type'])) {
+      $options['file_html'] = l($options['file_html'], 'node/'. $node->nid, array('html' => TRUE));
+    }
+    return theme('file_embed_file', $options);
+  }
+  return '';
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Miscellaneous helpers
+
+/**
+ * Loads a page headders.
+ */
+function _file_embed_add_headers() {
+  static $initialized = FALSE;
+  if (!$initialized) {
+    $initialized = TRUE;
+    _file_gallery_add_headers();
+    drupal_add_js(drupal_get_path('module', 'file_embed') .'/jquery/fieldselection/jquery-fieldselection.js');
+    drupal_add_css(drupal_get_path('module', 'file_embed') .'/file_embed.css');
+    drupal_add_js(drupal_get_path('module', 'file_embed') .'/file_embed.js');
+  }
+}
+
+/**
+ * Matches the current path against the allowed paths configured by the administrator
+ *
+ * @param $path
+ *   A path to check if we have embed options enabled for it.
+ *
+ * @return
+ *   TRUE or FALSE based on the check.
+ */
+function _file_embed_page_match($path) {
+  $alias = drupal_get_path_alias($path);
+  $path = drupal_get_normal_path($path); // normalize path
+
+  // Match the user's settings against the given path
+  $regexp = '/^('. preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1'. preg_quote(variable_get('site_frontpage', 'node'), '/') .'\2'), preg_quote(FILE_EMBED_BUTTON_PAGES, '/')) .')$/';
+  return !(FILE_EMBED_BUTTON_OPTION xor preg_match($regexp, $alias));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Form API
+
+/**
+ * Creates an options form.
+ */
+function file_embed_options_form($form_state, $node) {
+  $file = $node->file;
+  if (!node_access('view', $node) || !is_object($file))
+    return;
+
+  $options = array();
+  $file_handlers = file_handlers_for($file);
+  foreach (file_get_mime_handlers() as $handler => $data) {
+    if (array_key_exists($handler, $file_handlers) && function_exists($handler .'_render')) {
+      $options[$handler] = $data['name'];
+    }
+  }
+  $options = array_merge($options, array('file' => t('File')));
+
+  $form['embed'] = array('#type' => 'fieldset', '#title' => t('Embed options'), '#collapsible' => TRUE, '#collapsed' => FALSE);
+  $form['embed']['caption'] = array(
+    '#type'          => 'textarea',
+    '#title'         => t('Caption (optional)'),
+    '#default_value' => $node->body,
+    '#cols'          => 30,
+    '#rows'          => 3,
+    '#maxlength'     => 255,
+  );
+  $form['embed']['handler'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Handler'),
+    '#default_value' => '',
+    '#options'       => $options,
+  );
+  $form['embed']['align'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Alignment'),
+    '#default_value' => '',
+    '#options'       => array('' => t('No float'), 'left' => t('Float left'), 'right' => t('Float right')),
+  );
+  /*
+  $form['embed']['padding'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Padding'),
+    '#default_value' => 0,
+    '#size'          => 3,
+    '#maxlength'     => 3,
+  );
+  */
+  $form['embed']['link'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => 'Link embedded file to the file\'s node',
+    '#default_value' => 1,
+  );
+  $form['embed']['insert'] = array(
+    '#type'          => 'button',
+    '#value'         => t('Insert'),
+    '#name'          => 'file-embed-insert',
+    '#submit'        => FALSE,
+  );
+  $form['embed']['cancel'] = array(
+    '#type'          => 'button',
+    '#value'         => t('Cancel'),
+    '#name'          => 'file-embed-cancel',
+    '#submit'        => FALSE,
+  );
+  $form['nid'] = array('#type' => 'hidden', '#value' => $node->nid);
+  $form['textarea'] = array('#type' => 'hidden', '#value' => $_GET['textarea']);
+  $form['#prefix'] = '<div id="file-embed-options" style="width: 250px;">';
+  $form['#sufix'] = '</div>"';
+
+  return $form;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Menu callbacks
+
+/**
+ * Creates an embed option page.
+ */
+function file_embed_options($node) {
+  // This would ideally be in file_embed.js, but IE6 gives us grief by not
+  // loading the external JS file in successive Thickbox openings, so we'll
+  // just do this the old-fashioned ugly way:
+
+  $script = '<script type="text/javascript">';
+  $script .= '$(document).ready(function(context) {
+    // Display options dialog
+    $("input[@name=file-embed-insert]").click(function() {
+      var options = {
+        nid: $("#edit-nid").val(),
+        textarea: $("#edit-textarea").val(),
+        handler: $("#edit-handler").val(),
+        align: $("#edit-align").val(),
+        //padding: $("#edit-padding").val(),
+        link: $("#edit-link").attr("checked"),
+        caption: $("#edit-caption").val().replace(/=/g, "\\\=")
+      };
+      window.parent.Drupal.file_embedInsert(options);
+      window.parent.tb_remove();
+      return false;
+    });
+    $("input[@name=file-embed-cancel]").click(function() {
+      window.parent.tb_remove();
+      return false;
+    });
+  });';
+  $script .= '</script>';
+
+  $title = check_plain($node->title);
+  if (defined('FILE_IMAGE_MEDIUM_RESOLUTION'))
+    $preview = file_get_image($node->file, 'file_image_medium', explode('x', FILE_IMAGE_MEDIUM_RESOLUTION));
+  $form = drupal_get_form('file_embed_options_form', $node);
+
+  print theme('file_gallery_page', theme('file_embed_options', compact('script', 'title', 'preview', 'form')));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// File gallery integration
+
+/**
+ * Implementation of hook_file_gallery().
+ */
+function file_embed_file_gallery($op) {
+  $args = array_slice(func_get_args(), 1); // skip $op.
+  switch ($op) {
+    case 'query':
+      $query = $_GET;
+      unset($query['q']);
+      unset($query['page']);
+      return $query;
+    case 'node_link': return array('link' => 'file_embed/options/'. array_shift($args), 'query' => array('textarea' => check_plain($_GET['textarea'])));
+    case 'file_links': return array('show' => array(), 'open' => array(), 'view' => array(), 'embed' => array('title' => t('Embed'), 'href' => 'file_embed/options/'. array_shift($args), 'query' => array('textarea' => check_plain($_GET['textarea'])), 'attributes' => array('title' => t('Embed file in the node.'))));
+    case 'pager': return FILE_EMBED_POPUP_PER_PAGE;
+    case 'thickbox': return FALSE;
+    case 'filter': return TRUE;
+    case 'navigation': return TRUE;
+    case 'show_tabs': return TRUE;
+    case 'tabs': return ($nodes = _file_embed_attachments()) && !empty($nodes) ? array('attach' => t('Attachments')) : NULL;
+    case 'nodes': return ($action = array_shift($args)) && $action == 'attach' ? _file_embed_attachments() : NULL;
+    case 'breadcrumb_home': return FALSE;
+    case 'breadcrumb_root': return array('file_gallery/all' => t('All files'));
+    case 'page_js': return "$(document).ready(function() { parent.$('#file-embed-edit-body a.file-embed-select').attr('href', String(parent.$('#file-embed-edit-body a.file-embed-select').attr('href')).replace(/(file_gallery.*)\?/, String(location.href).match(/(file_gallery.*)\?/)[1] + '?')); });";
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Auxiliary functions
+
+/**
+ * Gets node or comment attachments.
+ *
+ * @return
+ *   An array of the attachment nids.
+ */
+function _file_embed_attachments() {
+  $nid = $_GET['nid'];
+  $cid = isset($_GET['cid']) ? $_GET['cid'] : NULL;
+  if (!is_numeric($nid) || !user_access('view attached files'))
+    return;
+
+  $node = node_load($nid);
+  if (!node_access('view', $node))
+    return;
+
+  $nids = array();
+  if (module_exists('file_attach')) {
+    if (is_numeric($cid) && variable_get('file_attach_comment_'. $node->type, 1) && ($files = _file_attach_load($nid, $node->vid, $cid)) && !empty($files)) {
+      foreach ($files as $file) {
+        $nids[] = $file->nid;
+      }
+    }
+    else if (variable_get('file_attach_node_'. $node->type, 1) && !empty($node->files)) {
+      foreach ($node->files as $file) {
+        $nids[] = $file->nid;
+      }
+    }
+  }
+  return $nids;
+}
+
