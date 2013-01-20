@@ -1,4 +1,4 @@
 <?php
-setcookie('reticulating', 'splines', mktime()+(60*60));
+setcookie('splines', 'reticulating', mktime()+(60*60));
 
 ?>
