@@ -1382,7 +1382,7 @@ ul.nice-menu-right ul,ul.nice-menu-right ul ul
 /*  Friends  */
 .view-Relationships span.flag-friend a.unflag-action,#block-melodev-2 span.flag-friend a.unflag-action
 {
-	background:url(/sites/melodramatic/themes/melo/images/icons/heart_delete.png) left top no-repeat;
+	background:url(/sites/default/themes/melo/images/icons/heart_delete.png) left top no-repeat;
 }
 
 #block-melodev-2 span.flag-friend a.flag-action
@@ -1393,7 +1393,7 @@ ul.nice-menu-right ul,ul.nice-menu-right ul ul
 /*  Enemies */
 .view-Relationships span.flag-enemy a.unflag-action,#block-melodev-2 span.flag-enemy a.unflag-action
 {
-	background:url(/sites/melodramatic/themes/melo/images/icons/lightning_delete.png) left top no-repeat;
+	background:url(/sites/default/themes/melo/images/icons/lightning_delete.png) left top no-repeat;
 }
 
 .view-Relationships span.flag-enemy a.flag-action,#block-melodev-2 span.flag-enemy a.flag-action
@@ -1597,7 +1597,7 @@ ul.links.inline .first,#block-menu-menu-mymelo ul
 
 /*  Admin Links  */
 a.admin-link {
-  background: url(/sites/melodramatic/themes/melo/images/icons/cog.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/icons/cog.png) left top no-repeat;
   padding-left: 25px;
 }
 

@@ -638,22 +638,22 @@
     margin-right: 3px;
   }
   .mymelo-type-blog {
-    background: url(/sites/melodramatic/themes/melo/images/icons/page_white_text.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/page_white_text.png) top left no-repeat;
   }
   .mymelo-type-photo {
-    background: url(/sites/melodramatic/themes/melo/images/icons/picture.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/picture.png) top left no-repeat;
   }
   .mymelo-type-cliquepost {
-    background: url(/sites/melodramatic/themes/melo/images/icons/page.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/page.png) top left no-repeat;
   }
   .mymelo-type-poll {
-    background: url(/sites/melodramatic/themes/melo/images/icons/chart_bar.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/chart_bar.png) top left no-repeat;
   }
   .mymelo-type-folder {
-    background: url(/sites/melodramatic/themes/melo/images/icons/folder.png) top left no-repeat;  
+    background: url(/sites/default/themes/melo/images/icons/folder.png) top left no-repeat;  
   }
   .mymelo-type-favorite {
-    background: url(/sites/melodramatic/themes/melo/images/icons/star.png) top left no-repeat;  
+    background: url(/sites/default/themes/melo/images/icons/star.png) top left no-repeat;  
   }
   
   
@@ -730,13 +730,13 @@
     padding-left: 25px;
   }
   div.mymelo-perm-public {
-    background: url(/sites/melodramatic/themes/melo/images/icons/folder.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/folder.png) top left no-repeat;
   }
   div.mymelo-perm-friends {
-    background: url(/sites/melodramatic/themes/melo/images/icons/folder_heart.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/folder_heart.png) top left no-repeat;
   }
   div.mymelo-perm-private {
-    background: url(/sites/melodramatic/themes/melo/images/icons/folder_key.png) top left no-repeat;
+    background: url(/sites/default/themes/melo/images/icons/folder_key.png) top left no-repeat;
   }
   td.views-field-field-folder-permission-value {
     width: 90px;
@@ -770,7 +770,7 @@
     width: 15px;
     height: 15px;
     margin: 2px;
-    background: transparent url(/sites/melodramatic/themes/melo/images/ajax-loader.gif) no-repeat 0px 0px;
+    background: transparent url(/sites/default/themes/melo/images/ajax-loader.gif) no-repeat 0px 0px;
     float: right; /* LTR */
   }
   
@@ -876,31 +876,31 @@ ul.elite-checkout li {
   padding-top: 8px;
 }
 #elite-checkout-1 {
-  background: url(/sites/melodramatic/themes/melo/images/elite/one-off.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/one-off.png) left top no-repeat;
 }
 #elite-checkout-1.active {
-  background: url(/sites/melodramatic/themes/melo/images/elite/one-on.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/one-on.png) left top no-repeat;
   color: #666b88;
 }
 #elite-checkout-2 {
-  background: url(/sites/melodramatic/themes/melo/images/elite/two-off.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/two-off.png) left top no-repeat;
 }
 #elite-checkout-2.active {
-  background: url(/sites/melodramatic/themes/melo/images/elite/two-on.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/two-on.png) left top no-repeat;
   color: #666b88;
 }
 #elite-checkout-3 {
-  background: url(/sites/melodramatic/themes/melo/images/elite/three-off.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/three-off.png) left top no-repeat;
 }
 #elite-checkout-3.active {
-  background: url(/sites/melodramatic/themes/melo/images/elite/three-on.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/three-on.png) left top no-repeat;
   color: #666b88;
 }
 #elite-checkout-4 {
-  background: url(/sites/melodramatic/themes/melo/images/elite/four-off.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/four-off.png) left top no-repeat;
 }
 body.section-cart #edit-continue {
-  background: url(/sites/melodramatic/themes/melo/images/elite/review-button.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/review-button.png) left top no-repeat;
   border: 0;
   text-indent: -9999px;
   width: 258px;
@@ -912,7 +912,7 @@ body.section-cart #edit-continue:hover {
   cursor: pointer;
 }
 body.section-cart #edit-submit {
-  background: url(/sites/melodramatic/themes/melo/images/elite/submit-button.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/submit-button.png) left top no-repeat;
   border: 0;
   text-indent: -9999px;
   width: 258px;
@@ -963,7 +963,7 @@ div.api-expandable h3 {
     min-height: 21px;
     color: #d4d4dd;
     background-color: black;
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/information.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/information.png);
     background-repeat: no-repeat;
     background-position: 17px center;
   }
@@ -981,13 +981,13 @@ div.api-expandable h3 {
   div.warning /* Medium priority messages */
   {
     color: #cccc66;
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/error.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/error.png);
   }
 
   div.error /* High priority messages. See also the .error declaration below. */
   {
     color: #ffcccc;
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/exclamation.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/exclamation.png);
   }
   
   div.messages a:hover {
@@ -1006,16 +1006,16 @@ div.api-expandable h3 {
   }
   #content-area div.status /* Medium priority messages */
   {
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/information.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/information.png);
   }
   #content-area div.warning /* Medium priority messages */
   {
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/error.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/error.png);
   }
 
   #content-area div.error /* High priority messages. See also the .error declaration below. */
   {
-    background-image: url(/sites/melodramatic/themes/melo/images/icons/messages/exclamation.png);
+    background-image: url(/sites/default/themes/melo/images/icons/messages/exclamation.png);
   }
   #content-area div.messages a:hover {
     color: black;

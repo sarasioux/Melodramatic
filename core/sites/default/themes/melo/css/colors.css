@@ -2,10 +2,10 @@
 
 /*  Background Images  */
 #header {
-    background: url(/sites/melodramatic/themes/melo/images/header-960.png) right top no-repeat;
+    background: url(/sites/default/themes/melo/images/header-960.png) right top no-repeat;
 }
 #site-name a:hover {
-    background: url(/sites/melodramatic/themes/melo/images/head-over.png) 4px 8px no-repeat;
+    background: url(/sites/default/themes/melo/images/head-over.png) 4px 8px no-repeat;
 }
 
 /*  Body colors  */
