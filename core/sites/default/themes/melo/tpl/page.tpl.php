@@ -7,6 +7,7 @@
   <?php print $scripts; ?>
 </head>
 <body class="<?php print $body_classes; ?>">
+	<!-- mr_coffe's test comment -->
   <div id="page"><div id="page-inner">
     <div id="active-users-container"></div>
     <div id="active-users-loading"></div>
@@ -72,7 +73,7 @@
         <div id="sidebar-right"><div id="sidebar-right-inner" class="region region-right">
           <?php print $right; ?>
         </div></div>
-      <?php endif; ?>            
+      <?php endif; ?>
     </div></div>
     <?php if ($footer || $footer_message): ?>
       <div id="footer"><div id="footer-inner" class="region region-footer">
