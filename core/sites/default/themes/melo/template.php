@@ -144,7 +144,7 @@ function melo_preprocess_page(&$vars, $hook) {
     }
   }
   if(!$colors) {
-    $vars['styles'] .= "\n".'<link type="text/css" rel="stylesheet" media="all" href="/sites/melodramatic/themes/melo/css/colors.css?" />'."\n";  
+    $vars['styles'] .= "\n".'<link type="text/css" rel="stylesheet" media="all" href="/sites/default/themes/melo/css/colors.css?" />'."\n";  
   }
   
   // Add create links to the page title
