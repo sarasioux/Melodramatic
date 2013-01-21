@@ -5,7 +5,7 @@
     background: url([field_scheme_header_color]) top right no-repeat;
 }
 #site-name a:hover {
-    background: url(/sites/melodramatic/themes/melo/images/head-over.png) 4px 8px no-repeat;
+    background: url(/sites/default/themes/melo/images/head-over.png) 4px 8px no-repeat;
 }
 
 /*  Body colors  */

@@ -107,7 +107,7 @@ div.attribute .form-text {
   min-height: 210px;
 }
 input.node-add-to-cart {
-  background: url(/sites/melodramatic/themes/melo/images/elite/buyitnow-button.png) left top no-repeat;
+  background: url(/sites/default/themes/melo/images/elite/buyitnow-button.png) left top no-repeat;
   border: 0;
   text-indent: -9999px;
   width: 258px;
