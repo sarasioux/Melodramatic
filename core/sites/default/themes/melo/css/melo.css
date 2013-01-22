@@ -480,6 +480,16 @@ div.comment
 	clear: right;
 }
 
+/* mc: patch to fix display on some screens */
+.comment .content {
+	float:left;
+	width:475px;
+}
+/* mc: increase width for single side-bar (folder) displays */
+.one-sidebar .comment .submitted, .one-sidebar .comment .content{
+	width:650px;
+}
+
 #vbo-table-view-Guestbook .submitted
 {
 	width:130px;
