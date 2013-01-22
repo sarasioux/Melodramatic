@@ -4,14 +4,14 @@
  * @file
  * Custom Melo blocks.
  */
-
+ 
  /**
  * Implementation of hook_block().
  */
 function melodev_block($op = 'list', $delta = 0, $edit = array()) {
   $blocks = array();
   if ($op == 'view') {
-
+  
     switch($delta) {
       /*  Profile Blocks  */
       case '0':
@@ -19,12 +19,12 @@ function melodev_block($op = 'list', $delta = 0, $edit = array()) {
         $block['subject'] = '';
         $block['content'] = melodev_profile_picture();
       break;
-      case '1':
+      case '1':  
         // About Me
         $block['subject'] = 'About Me';
         $block['content'] = melodev_profile_aboutme();
       break;
-      case '2':
+      case '2':  
         // Interact
         $block['subject'] = 'Interact';
         $block['content'] = melodev_profile_interact();
@@ -68,7 +68,7 @@ function melodev_block($op = 'list', $delta = 0, $edit = array()) {
       case '10':
         // Personal Tag Cloud
         $block['subject'] = 'Tagging';
-        $block['content'] = melodev_personal_tag_cloud();
+        $block['content'] = melodev_personal_tag_cloud();      
       break;
     }
     return $block;
@@ -80,33 +80,33 @@ function melodev_block($op = 'list', $delta = 0, $edit = array()) {
 
     $blocks[1]['info'] = t('Profile: About Me');
     $blocks[1]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[2]['info'] = t('Profile: Interact');
     $blocks[2]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[3]['info'] = t('Profile: Stats');
     $blocks[3]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[4]['info'] = t('Stats: Top Users Today');
-
+    
     $blocks[5]['info'] = t('Profile: User Info');
     $blocks[5]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[6]['info'] = t('Users: Who\'s Online');
     $blocks[6]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[7]['info'] = t('Elite: Checkout');
     $blocks[7]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[8]['info'] = t('Melo: Jump to User');
     $blocks[8]['cache'] = BLOCK_NO_CACHE;
 
     $blocks[9]['info'] = t('Melo: Active Wall Users');
     $blocks[9]['cache'] = BLOCK_NO_CACHE;
-
+    
     $blocks[10]['info'] = t('Profile: Personal Tag Cloud');
     $blocks[10]['cache'] = BLOCK_NO_CACHE;
-
+    
     return $blocks;
   }
 }
@@ -120,7 +120,7 @@ function melodev_block($op = 'list', $delta = 0, $edit = array()) {
  *
  * @{
  */
-
+ 
 /**
  * Implementation of hook_blockcache.
  */
@@ -136,10 +136,10 @@ function melodev_blockcache_skip($block, $cid) {
     watchdog('melodev', 'Skipping block cache on mysite.');
     return true;
   }
-
+  
   return false;
 }
-
+ 
 /**
  * User profile picture in the left column.
  */
@@ -148,14 +148,14 @@ function melodev_profile_picture() {
   $output = '';
   if(is_numeric($uid)) {
     $account = melodev_user_load($uid);
-
+    
     if (!empty($account->picture) && file_exists($account->picture)) {
       $picture = $account->picture;
     }
     else if (variable_get('user_picture_default', '')) {
       $picture = variable_get('user_picture_default', '');
     }
-
+    
     // Add user picture
     $output .= '<h1>'.$account->name.'</h1>';
     $output .= l(theme('imagecache', 'user_photo', $picture), 'user/'.$account->uid, array('html'=>true));
@@ -196,20 +196,20 @@ function melodev_profile_interact() {
   global $user;
   $uid = melodev_get_profile_uid();
   if(is_numeric($uid)) {
-
+  
     $txtlinks = array();
-
+  
     // Add friends/enemies interaction
     if($user->uid > 0) {
       $juser = melodev_user_load($uid);
       $uid1 = $user->uid;
       $uid2 = $uid;
       if ($uid1 != $uid2) {
-
+      
         // Load all flags on this user
         $flags = flag_get_user_flags('user', $uid2);
         $theirflags = flag_get_user_flags('user', $uid1, $uid2);
-
+      
         // Friends
         $flag = flag_get_flag('friend');
         // Check my friend status
@@ -222,7 +222,7 @@ function melodev_profile_interact() {
         if(isset($theirflags['friend'])) {
           $txtlinks[] = $juser->name.' considers you a friend.';
         }
-
+        
         // Enemies
         $flag = flag_get_flag('enemy');
         // Check my enemy status
@@ -235,7 +235,7 @@ function melodev_profile_interact() {
         if(isset($theirflags['enemy'])) {
           $txtlinks[] = $juser->name.' considers you an enemy.';
         }
-
+        
         // Tab
         $flag = flag_get_flag('tab');
         // Check my tab status
@@ -245,17 +245,17 @@ function melodev_profile_interact() {
           $links[] = $flag->theme('unflag', $uid2);
         }
       }
-
+      
       if(count($txtlinks) > 0) {
         foreach($txtlinks as $link) {
           $links[] = $txtlinks;
         }
       }
-
+      
       if(count($links) > 0) {
         $output .= theme('item_list', $links);
       }
-
+      
       // Admin stuff
       if(in_array('god', $user->roles)) {
         $table = array();
@@ -294,7 +294,7 @@ function melodev_profile_stats() {
   $uid = melodev_get_profile_uid();
   $account = melodev_user_load($uid);
   $stats = melodev_stats_get_user($account);
-
+  
   $output = '<h2 class="title">'.t('Today').':</h2>';
   if(count($stats['today']) > 0) {
     $rows = array();
@@ -314,7 +314,7 @@ function melodev_profile_stats() {
   } else {
     $output .= '<p>'.t('No recent activity.').'</p>';
   }
-
+  
   $output .= '<h2 class="title">'.t('All Time').':</h2>';
   if(count($stats['alltime']) > 0) {
     $rows = array();
@@ -333,7 +333,7 @@ function melodev_profile_stats() {
   } else {
     $output .= '<p>'.t('No recent activity.').'</p>';
   }
-
+  
   // Add other details
   $output .= '<h2 class="title">'.t('Details').'</h2>';
   $rows = array(
@@ -341,11 +341,11 @@ function melodev_profile_stats() {
     array(array('data'=>t('Online'), 'class'=>'firstcol'), format_date($account->access, 'custom', 'M.d.y')),
     );
   $output .= theme('table', array(), $rows);
-
+  
   if(in_array('elite', $account->roles)) {
     $output .= '<p>'.t('This member is elite.').'</p>';
   }
-
+  
   return $output;
 }
 
@@ -388,7 +388,7 @@ function melodev_personal_tag_cloud() {
 function melodev_user_info() {
   global $user;
   profile_load_profile($user);
-
+  
   // Welcome
   $output .= t('Welcome back, !username', array('!username'=>l($user->name, 'user/'.$user->uid))).' | ';
 
@@ -399,22 +399,22 @@ function melodev_user_info() {
   // array('!users'=>'<strong id="active-users">'.l(number_format($users), 'active-users').'</strong>'));
 
   $output .= ' | ';
-
+  
   // Karma
   $karma = melodev_karma($user);
   $output .= l('Karma', 'mymelo/you/karma').': <strong>'.number_format($karma['karma']).'</strong>';
-
+  
   $output .= ' | ';
-
+  
   // Touches (global limit)
   $touches = touches_get_limit($user->uid, 0);
   $output .= t('Touches: !touches', array('!touches'=>'<strong id="my-touches">'.number_format($touches).'</strong>'));
-
+  
   $output .= ' | ';
-
+  
   // Logout
   $output .= l('Logout', 'logout');
-
+  
   // Gspot alerts
   $view = $user->profile_last_gspot_view_timestamp;
   $last = $user->profile_last_gspot_timestamp;
@@ -425,8 +425,8 @@ function melodev_user_info() {
   $last = $user->profile_last_reply_timestamp;
   if($view <= $last && $last > 0) {
     $output .= ' | <span class="red">'.l('You have new gspot replies waiting!', 'mymelo/gspots/replies').'</span>';
-  }
-
+  }  
+  
   // Check if we're on a random tour
   if($tourrow = db_fetch_object(db_query('select * from random_tour where uid = %d and type = "%s" and active = 1', $user->uid, 'random'))) {
     $tour = unserialize($tourrow->tour);
@@ -446,7 +446,7 @@ function melodev_user_info() {
     exit();
     */
   }
-
+  
   return $output;
 }
 
@@ -459,9 +459,8 @@ function melodev_whos_online() {
 
   // Perform database queries to gather online user lists.  We use s.timestamp
   // rather than u.access because it is much faster.
-	//  $anonymous_count = sess_count($interval);
-	// mc: order by u.name asc instead of s.timestamp desc... alphebetize who's online list.
-  $authenticated_users = db_query('SELECT DISTINCT u.uid, u.name, s.timestamp FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.timestamp >= %d AND s.uid > 0 ORDER BY u.name ASC', $interval);
+//  $anonymous_count = sess_count($interval);
+  $authenticated_users = db_query('SELECT DISTINCT u.uid, u.name, s.timestamp FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.timestamp >= %d AND s.uid > 0 ORDER BY s.timestamp DESC', $interval);
   $authenticated_count = 0;
   $max_users = variable_get('user_block_max_list_count', 10);
   $items = array();
@@ -482,7 +481,7 @@ function melodev_whos_online() {
        $items[$walluser['uid']]->wall = true;
      }
   }
-
+    
   // Display a list of currently online users.
   $max_users = variable_get('user_block_max_list_count', 10);
   if ($authenticated_count && $max_users) {
@@ -500,7 +499,7 @@ function melodev_whos_online() {
     }
     $output = implode(', ', $rows);
   }
-
+  
   // Format the output with proper grammar.
 //  $output .= '<p>'. t('%members and %visitors', array('%members' => format_plural($authenticated_count, '1 member', '@count members'), '%visitors' => format_plural($anonymous_count, '1 guest', '@count guests'))) . '</p>';
 
@@ -513,20 +512,20 @@ function melodev_whos_online() {
  */
 function melodeve_elite_checkout() {
   $output = '<ul class="elite-checkout">';
-
+  
   if(arg(0) == 'cart' && arg(1) == 'checkout' && !arg(2)) { $class = 'active'; } else { $class = ''; }
   $output .= '<li id="elite-checkout-1" class="'.$class.'">billing info</li>';
-
+  
   if(arg(0) == 'cart' && arg(1) == 'checkout' && arg(2) == 'review') { $class = 'active'; } else { $class = ''; }
   $output .= '<li id="elite-checkout-2" class="'.$class.'">review order</li>';
-
+  
   if(arg(0) == 'cart' && arg(1) == 'checkout' && arg(2) == 'complete') { $class = 'active'; } else { $class = ''; }
   $output .= '<li id="elite-checkout-3" class="'.$class.'">confirmation</li>';
-
+  
   $output .= '<li id="elite-checkout-4" class="'.$class.'">eliteness!</li>';
-
+  
   $output .= '</ul>';
-
+  
   return $output;
 }
 
@@ -553,7 +552,7 @@ function melodev_get_top_stats() {
   $rows = array();
   while($obj = db_fetch_object($result)) {
     $account = melodev_user_load($obj->uid);
-
+    
     // Get the user picture
     if (!empty($account->picture) && file_exists($account->picture)) {
       $picture = $account->picture;
@@ -562,13 +561,13 @@ function melodev_get_top_stats() {
       $picture = variable_get('user_picture_default', '');
     }
     $picture = l(theme('imagecache', 'user_photo', $picture), 'user/'.$account->uid, array('html'=>true));
-
+    
     $table = theme('table', array(), array(array(t('Stat:'), '<strong>'.melodev_get_stat_label($obj->type).'</strong>'), array(t('Total:'), '<strong>'.number_format($obj->total).'</strong>')));
-
+    
     $view = '<div class="top-stat-spotlight">'.$picture . '<h1>' . l($account->name, 'user/'.$account->uid) . '</h1>'.$table.'<blockquote>'.strip_tags($account->profile_quote).'</blockquote></div>';
     $rows[] = $view;
   }
-
+  
   // Return 1 random stat
   $random = array_rand($rows);
   return $rows[$random];
