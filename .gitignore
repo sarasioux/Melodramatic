@@ -3,3 +3,5 @@
 settings.php
 files
 default.settings.php
+core/cache*
+core/sites/melodramatic
