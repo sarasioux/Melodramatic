@@ -770,24 +770,25 @@ function melodev_active_users_load() {
   foreach($view->result as $key => $row) {
     // Skip yourself
     if($row->uid == $user->uid) {
-      continue;
-    }
-    $found = false;
-    // Check if one of my friends
-    $flags = flag_get_user_flags('user', $row->uid);
-    if(isset($flags['friend'])) {
-      $friends[] = $row;
-      $found = true;
-    }
-    // Check if on the wall
-    if(in_array($row->uid, $wall_ids)) {
-      $wall[] = $row;
-      $found = true;
-    }
-    // Otherwise they go in the rest
-    if(!$found) {
-      $others[] = $row;
-    }
+      continue;      
+    } else {
+	    $found = false;  
+	    // Check if one of my friends
+	    $flags = flag_get_user_flags('user', $row->uid);
+	    if(isset($flags['friend'])) {
+	      $friends[] = $row;
+	      $found = true;
+	    }
+	    // Check if on the wall
+	    if(in_array($row->uid, $wall_ids)) {
+	      $wall[] = $row;
+	      $found = true;
+	    }
+	    // Otherwise they go in the rest
+	    if(!$found) {
+	      $others[] = $row;
+	    }
+  	}
   }
 //  $output = '<h1>Active Users ('.count($view->result).')</h1>';
   $output = '';
@@ -809,7 +810,7 @@ function melodev_active_users_load() {
   
   $vars = array(
     'html_content' => $output, 
-    'success' => 1,
+    'success' => 1
     );
   
   // Now print it in XML
@@ -817,6 +818,8 @@ function melodev_active_users_load() {
   foreach ($vars as $name => $value) {
     switch ($name) {
       case 'html_content':
+        $print .= sprintf('<%s><![CDATA[%s]]></%s>', $name, $value, $name);
+        break;
       case 'error_message':
       case 'success_message':
         $print .= sprintf('<%s><![CDATA[%s]]></%s>', $name, $value, $name);

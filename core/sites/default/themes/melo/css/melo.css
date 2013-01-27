@@ -411,22 +411,22 @@ body.node-type-blog #content-header h1.title
 }
 
 .block .content /* Block's content wrapper */
-   
+
 {
      padding: 10px;
    }
- 
- 
- 
+
+
+
 
 /** Miscellaneous styles **/
-   
-.more-link 
+
+.more-link
 {
      text-align: right;
    }
- 
-   
+
+
 
 #user-login-form /* Drupal's default login form */
 {
@@ -469,6 +469,7 @@ div.comment
 	width:50px;
 }
 
+
 .comment .submitted,#vbo-table-view-Guestbook .submitted
 {
 	color:#666;
@@ -477,6 +478,16 @@ div.comment
 	padding-bottom:5px;
 	width:475px;
 	clear: right;
+}
+
+/* mc: patch to fix display on some screens */
+.comment .content {
+	float:left;
+	width:475px;
+}
+/* mc: increase width for single side-bar (folder) displays */
+.one-sidebar .comment .submitted, .one-sidebar .comment .content{
+	width:650px;
 }
 
 #vbo-table-view-Guestbook .submitted
