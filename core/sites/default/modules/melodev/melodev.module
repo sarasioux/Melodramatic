@@ -1967,6 +1967,7 @@ function melodev_admin_restrictions(&$form) {
       '#weight' => 10,
     );
     $form['#submit'][] = 'melodev_admin_notes_submit';
+  
   }
 }
 
