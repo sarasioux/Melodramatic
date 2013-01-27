@@ -1967,10 +1967,6 @@ function melodev_admin_restrictions(&$form) {
       '#weight' => 10,
     );
     $form['#submit'][] = 'melodev_admin_notes_submit';
-  
-    if(isset($form['account']['roles']) && !user_access('administer user roles')) {
-      $form['account']['roles']['#disabled'] = true;
-    }
   }
 }
 
