@@ -1,3 +1,5 @@
 # Can ignore specific files
 .DS_Store
 settings.php
+files
+default.settings.php
