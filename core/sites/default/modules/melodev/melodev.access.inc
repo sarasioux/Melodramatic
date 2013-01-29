@@ -193,7 +193,7 @@ function melodev_access_logs_confirm() {
  */
 function melodev_access_logs_confirm_submit($form, $form_state, $cron=false) {
   // Find all unprocessed logs
-  $result = db_query('select aid, path, uid from accesslog where aid not in (select aid from accesslog_owner) limit 1000');
+  $result = db_query('select aid, path, uid from accesslog where aid not in (select aid from accesslog_owner) limit 10000');
   $logs = 0;
   $unknown = array();
   while($log = db_fetch_object($result)) {
