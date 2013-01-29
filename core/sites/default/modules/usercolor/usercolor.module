@@ -364,8 +364,9 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
       // @TODO Change to color permissions
       if(is_numeric($acct->profile_default_color_scheme_id)) {
         $colornode = node_load($acct->profile_default_color_scheme_id);
-        if(file_check_path($node->css)) {
-          drupal_add_css($node->css);
+        $css = $colornode->css;
+        if(file_check_path($css)) {
+          drupal_add_css($colornode->css);
         }
       }
     }
