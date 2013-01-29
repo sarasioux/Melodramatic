@@ -284,7 +284,7 @@ function melodev_access_savelog($log) {
           case 'undefined':
             $wrote = melodev_access_writelog($log->aid, null, 'node undefined');
           break;
-          case null:
+          default:
             $wrote = melodev_access_writelog($log->aid, null, 'node');
           break;
         }
