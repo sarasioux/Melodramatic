@@ -241,6 +241,9 @@ function melodev_access_savelog($log) {
           case null:
             $wrote = melodev_access_writelog($log->aid, 0, 'user');
           break;
+          default:
+            $wrote = melodev_access_writelog($log->aid, null, 'user');
+          break;
         }
       }
     break;
