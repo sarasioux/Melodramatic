@@ -340,7 +340,8 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
       
         // Add the stylesheet to this node's page
         if($page) {
-          if(file_check_path($node->css)) {
+          $css = $node->css;
+          if(file_check_path($css)) {
              drupal_add_css($node->css);
           }
         }

@@ -1298,7 +1298,8 @@ function phptemplate_user_profile($account) {
     // Change to color permissions
     if(is_numeric($account->profile_default_color_scheme_id)) {
       $colornode = melodev_node_load($account->profile_default_color_scheme_id);
-      if(file_check_path($colornode->css)) {
+      $css = $colornode->css;
+      if(file_check_path($css)) {
          drupal_add_css($colornode->css);
       }
     }
