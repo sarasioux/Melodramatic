@@ -266,18 +266,20 @@ function melodev_cron_tagclouds($force=false) {
     while($nid = db_result($result)) {
       $nids[] = $nid;
     }
-    $nid_restrictor = '('. implode(',', $nids) .')';
-    $sql = 'SELECT COUNT(*) AS count, d.tid, d.name, d.vid FROM {term_data} d INNER JOIN {term_node} n ON d.tid = n.tid WHERE n.nid IN '. $nid_restrictor . ' and d.vid = 2 GROUP BY d.tid, d.name, d.vid ORDER BY count DESC';
-    $result = db_query($sql);
-    $tags = tagadelic_build_weighted_tags($result, 6);
-    if(count($tags) > 0) {
-      $edit = (object)array(
-        'type' => 'user',
-        'id' => $row->uid,
-        'tags' => serialize($tags),
-        );
-      drupal_write_record('melo_personal_tagcloud', $edit);
-      $l++;
+    if(count($nids) > 0) {
+      $nid_restrictor = '('. implode(',', $nids) .')';
+      $sql = 'SELECT COUNT(*) AS count, d.tid, d.name, d.vid FROM {term_data} d INNER JOIN {term_node} n ON d.tid = n.tid WHERE n.nid IN '. $nid_restrictor . ' and d.vid = 2 GROUP BY d.tid, d.name, d.vid ORDER BY count DESC';
+      $result = db_query($sql);
+      $tags = tagadelic_build_weighted_tags($result, 6);
+      if(count($tags) > 0) {
+        $edit = (object)array(
+          'type' => 'user',
+          'id' => $row->uid,
+          'tags' => serialize($tags),
+          );
+        drupal_write_record('melo_personal_tagcloud', $edit);
+        $l++;
+      }
     }
   }
 

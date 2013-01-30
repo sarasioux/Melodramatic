@@ -369,6 +369,8 @@ function melodev_personal_tag_cloud() {
           }
         }
         $show = array();
+        // limit to 50
+        $tags = $newtags;
         foreach($tags as $tag) {
           $show[] = l($tag->name, 'users/'.$account->name.'/tags/'.$tag->name, array('attributes'=>array('class'=>'tagadelic level'.$tag->weight)));
         }
