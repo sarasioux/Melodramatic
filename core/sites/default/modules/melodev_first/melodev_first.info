@@ -1,0 +1,4 @@
+name = "Melodev First"
+description = "Light weight module to run before everything else."
+package = "Melo"
+core = 6.x

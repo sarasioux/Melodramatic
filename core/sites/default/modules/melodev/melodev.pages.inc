@@ -222,7 +222,6 @@ function melodev_legacy_paypal_buttons_ipn($order_id = 0) {
 function melodev_user_edit_page($category='account') {
   global $user;
   profile_load_profile($user);
-  drupal_set_message($category);
   if($category == 'content_profile') {
     module_load_include('inc', 'node', 'node.pages');
     $type = 'profile';
