@@ -173,7 +173,10 @@ textarea { clear: both; }
 	text-transform:lowercase;
 	padding:3px 5px 3px 10px;
 }
-
+.view-filters h3.title
+{
+  font-weight: normal;
+}
 #comment-input h2.title,h2#comments-title
 {
 	margin-left:-20px;
@@ -832,7 +835,7 @@ td.views-field-edit-node span.edit-node a
 .views-exposed-form #edit-folder
 {
 	font-size:1em;
-	height:6em;
+	margin-top: 5px;
 }
 
 .views-exposed-form .form-text,.views-exposed-form .form-select

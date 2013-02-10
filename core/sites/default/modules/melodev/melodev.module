@@ -1024,7 +1024,7 @@ function melodev_form_views_exposed_form_alter(&$form, &$form_state) {
   switch($view->name) {
 //    case 'Blogs':
       default:
-      $form['#prefix'] = '<h2 class="title">'.t('Filter').'</h2>';
+      $form['#prefix'] = '<h3 class="title">'.t('Filter').'</h2>';
       // Strip the leading slash
       $url = (substr($form['#action'], 0, 1) == '/') ? substr($form['#action'], 1) : $form['#action'];
       // Add the clear form button
