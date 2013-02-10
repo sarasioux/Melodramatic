@@ -227,7 +227,6 @@ function melodev_vbo_folders_action_form($context) {
 /**
  * Update folder action submit.
  */
-//function melodev_vbo_folders_action_submit(&$form, &$form_state) {
 function melodev_vbo_folders_action_submit($form, $form_state) {
   $k=0;
   // Save each node
@@ -268,12 +267,17 @@ function melodev_vbo_folders_action_submit($form, $form_state) {
  */
 function melodev_vbo_faves_action_form($context) {
   $form = array();
+  if(isset($_GET['folder'])) {
+    $form['#redirect'] = $_GET['q'].'?folder='.$_GET['folder'];
+  } else {
+    $form['#redirect'] = $_GET['q'];
+  }
   return $form;
 }
 /**
  * Update favorites submit.
  */
-function melodev_vbo_faves_action_submit(&$form, &$form_state) {
+function melodev_vbo_faves_action_submit($form, $form_state) {
   // Save each node
   foreach($form_state['values']['objects'] as $id => $val) {
     if(is_numeric($id) && $id == $val) {
@@ -295,12 +299,11 @@ function melodev_vbo_faves_action_submit(&$form, &$form_state) {
   }
   // Okay we're done!  Redirect now
   drupal_set_message('Your favorites were updated.');
-  drupal_goto('mymelo/content/favorites');
-}
-/**
- * Update favorites placeholder.
- */
-function melodev_vbo_faves_action(&$node, $context) {
+
+  $redir = explode('?', $form['#redirect']);
+  if(isset($redir[0])) { $path = $redir[0]; } else { $path = 'mymelo/content/favorites'; }
+  if(isset($redir[1])) { $qury = $redir[1]; } else { $qury = NULL; }
+  drupal_goto($path, $qury);
 }
 
 /*  ENTRIES FOLDERS UPDATE ACTION  */
