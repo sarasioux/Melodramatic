@@ -76,7 +76,7 @@ function melodev_vbo_form_alter(&$form, &$form_state, $form_id) {
             '#default_value' => $perm,
             '#options' => $options,
             '#attributes' => array(
-              'onChange' => 'javascript:meloShowFolderChanged();'
+              'onChange' => 'javascript:meloShowFolderChanged(this);'
               )
             );
           $form['objects']['perms']['perms_'.$obj->nid] = $elem;
@@ -227,7 +227,9 @@ function melodev_vbo_folders_action_form($context) {
 /**
  * Update folder action submit.
  */
-function melodev_vbo_folders_action_submit(&$form, &$form_state) {
+//function melodev_vbo_folders_action_submit(&$form, &$form_state) {
+function melodev_vbo_folders_action_submit($form, $form_state) {
+  $k=0;
   // Save each node
   foreach($form_state['values']['objects'] as $id => $val) {
     if(is_numeric($id) && $id == $val) {
@@ -250,17 +252,13 @@ function melodev_vbo_folders_action_submit(&$form, &$form_state) {
       }
       if($changed == true) {
         node_save($node);
+        $k++;
       }
     }
   }
   // Okay we're done!  Redirect now
-  drupal_set_message('Your folders were updated.');
+  drupal_set_message('Successfully updated ('.$k.') of your folders.');
   drupal_goto('mymelo/content/folders');
-}
-/**
- * Update folder action placeholder.
- */
-function melodev_vbo_folders_action(&$node, $context) {
 }
 
 /*  FAVES UPDATE ACTION  */

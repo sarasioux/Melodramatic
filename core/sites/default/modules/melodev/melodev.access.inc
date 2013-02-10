@@ -251,8 +251,6 @@ function melodev_access_savelog($log) {
     // Node view
     case 'node':
       if(is_numeric($path[1])) {
-        $wrote = melodev_access_writelog($log->aid, null, $path[0]);
-        
         switch($path[2]) {
           case 'edit':
             $wrote = melodev_access_writelog($log->aid, null, 'node edit');        

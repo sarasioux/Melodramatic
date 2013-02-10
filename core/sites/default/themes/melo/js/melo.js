@@ -4,11 +4,15 @@
  * Melo custom js
  */
 
-function meloShowFolderChanged() {
-  var table = document.getElementById('vbo-table-view-Folders');
-  var msg = $('.view-Folders #edit-object-wrapper .warning');
-  $(Drupal.theme('tableDragChangedWarning')).insertAfter(table).hide().fadeIn('slow');
-//  table.changed = true;
+function meloShowFolderChanged(elem) {
+  var tableRow = $('#' + elem.id);
+  tableRow.parents("tr").addClass('highlight');
+  var table = $('#vbo-table-view-Folders');
+  if(!table.hasClass('changed')) {
+    var msg = $('.view-Folders #edit-object-wrapper .warning');
+    $(Drupal.theme('tableDragChangedWarning')).insertAfter(table).hide().fadeIn('slow');
+    table.addClass('changed');
+  }
 }
 
 
