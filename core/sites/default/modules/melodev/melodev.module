@@ -972,9 +972,14 @@ function melodev_photo_make_default($path) {
 
   // Scale and resize the image if necessary
   $info = image_get_info($path);
-  $newpath = variable_get('user_picture_path', 'pictures') .'/picture-'. $user->uid .'.'. $info['extension'];
+  $time = mktime();
+  $newpath = variable_get('user_picture_path', 'pictures') .'/picture-'. $user->uid .'_'.$time.'.'. $info['extension'];
+  $newpath2 = variable_get('user_picture_path', 'pictures') .'/picture-'. $user->uid .'.'. $info['extension']; // Just for backwards compatibility
   list($maxwidth, $maxheight) = explode('x', variable_get('user_picture_dimensions', '85x85')); 
   if (image_get_toolkit()) {
+    // Backwards compatible path
+    file_copy($path, $newpath2, FILE_EXISTS_REPLACE);
+    // New file path
     file_copy($path, $newpath, FILE_EXISTS_REPLACE);
     $newpath = file_create_path($newpath);
     image_scale($newpath, $newpath, $maxwidth, $maxheight);
