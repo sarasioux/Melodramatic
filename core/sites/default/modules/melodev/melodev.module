@@ -1103,6 +1103,8 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
   // Create URLs
   switch($op) {
     case 'update':
+      /*
+      // URL Aliases are being slow, replace this with a more intelligent version later
       // Handle elite URL
       if(in_array('elite', $account->roles)) {
          path_set_alias('user/'.$account->uid, null);
@@ -1112,6 +1114,7 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
          path_set_alias(null, 'elite/'.$account->name);    
          path_set_alias('user/'.$account->uid, 'users/'.$account->name);
       }
+      */
     break;    
     
     case 'insert':
