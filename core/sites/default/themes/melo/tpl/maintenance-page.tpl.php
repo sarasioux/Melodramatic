@@ -94,8 +94,51 @@
           <center>
           <?php print $content; ?>
           <br /><br />
-          <h2>in the meantime... chat on <strong>twitter</strong> using <strong>#melo</strong></h2>
-          <iframe src="http://search.twitter.com/search?q=%23melo" width=650 height=500 style="border: solid black 1px; font-size: 0.7em !important;"></iframe>
+          <script src="http://widgets.twimg.com/j/2/widget.js"></script>
+          <script>
+          new TWTR.Widget({
+            version: 2,
+            type: 'search',
+            search: '#melodramatic',
+            rpp: 30,
+            interval: 5000,
+            title: 'Melodramatic Tweets',
+            subject: 'Updated Live',
+            width: 780,
+            height: 450,
+            theme: {
+              shell: {
+                background: '#000000',
+                color: '#ffffff'
+              },
+              tweets: {
+                background: '#d4d4dd',
+                color: '#000000',
+                links: '#666b88'
+              }
+            },
+            features: {
+              scrollbar: true,
+              loop: true,
+              live: true,
+              hashtags: true,
+              timestamp: true,
+              avatars: true,
+              toptweets: true,
+              behavior: 'all'
+            }
+          }).render().start();
+          </script>
+          
+          <style>
+          #block-block-15, #block-block-15 .block-inner, #block-block-15 div.content {
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+          }
+          </style>
+          <br />
           </center>
         </div>
 
