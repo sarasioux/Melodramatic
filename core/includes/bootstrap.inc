@@ -1188,7 +1188,9 @@ function drupal_validate_utf8($text) {
     return TRUE;
   }
   // For performance reasons this logic is duplicated in check_plain().
-  return (preg_match('/^./us', $text) == 1);
+//  return (preg_match('/^./us', $text) == 1);
+// Take out unicode check for now...
+  return (preg_match('/^./s', $text) == 1);
 }
 
 /**
