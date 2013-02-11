@@ -2088,47 +2088,22 @@ function melodev_fix_user_folders() {
 function melo_pathauto_bulkupdate() {
 
   _pathauto_include();
-
-  // From all node types, only attempt to update those with patterns
-  $pattern_types = array();
-
-  // If there's a default pattern we assume all types might be updated.
-  if (trim(variable_get('pathauto_node_pattern', ''))) {
-    $pattern_types = array_keys(node_get_types('names'));
-  }
-  else {
-    // Check first for a node specific pattern...
-    $languages = array();
-    if (module_exists('locale')) {
-      $languages = array('' => t('Language neutral')) + locale_language_list('name');
-    }
-    foreach (array_keys(node_get_types('names')) as $type) {
-      if (trim(variable_get('pathauto_node_'. $type .'_pattern', ''))) {
-        $pattern_types[$type] = $type;
-        continue;
-      }
-      // ...then for a node-language pattern.
-      if (variable_get('language_content_type_'. $type, 0) && $languages) {
-        foreach ($languages as $lang_code => $lang_name) {
-          if (trim(variable_get('pathauto_node_'. $type .'_'. $lang_code .'_pattern', ''))) {
-            $pattern_types[$type] = $type;
-            continue 2;
-          }
-        }
-      }
-    }
-  }
+  
+  // Drop & recreate our temp table
+  watchdog('melo_bulkupdate', 'Dropping temporary URL alias table.', array(), WATCHDOG_ERROR);
+  db_query('drop table temp_url_alias');
+  watchdog('melo_bulkupdate', 'Creating new temporary URL alias table.', array(), WATCHDOG_ERROR);
+  db_query("create table temp_url_alias as select replace(src, 'node/', '') as nid from url_alias where src regexp 'node/[0-9]$'");
+  // SELECT n.nid FROM node n LEFT JOIN temp_url_alias ua ON n.nid = ua.nid WHERE ua.nid IS NULL;
 
   $count = 0;
-  if (count($pattern_types)) {
-    $concat = _pathauto_sql_concat("'node/'", 'n.nid');
-//       $sql = "SELECT n.nid FROM {node} n LEFT JOIN {url_alias} ua ON $concat = ua.src WHERE ua.src IS NULL AND n.type IN (". db_placeholders($pattern_types, 'varchar') .')';
-    $sql = "SELECT n.nid FROM {node} n LEFT JOIN {url_alias} ua ON n.nid = replace(ua.src,'node/', '') WHERE ua.src IS NULL AND n.type IN (". db_placeholders($pattern_types, 'varchar') .')';
-    $query = db_query_range($sql, $pattern_types, 0, variable_get('pathauto_max_bulk_update', 50));
+  $sql = "SELECT n.nid FROM node n LEFT JOIN temp_url_alias ua ON n.nid = ua.nid WHERE ua.nid IS NULL";
+  $query = db_query_range($sql, 0, variable_get('pathauto_max_bulk_update', 50));
 
-    $placeholders = array();
-    while ($nid = db_result($query)) {
-      $node = node_load($nid, NULL, TRUE);
+  $placeholders = array();
+  while ($nid = db_result($query)) {
+    if($node = node_load($nid)) {
+      watchdog('melo_bulkupdate', 'LOADED NID: '.$nid.' TYPE: '.$node->type);
       $placeholders = pathauto_get_placeholders('node', $node);
       $source = "node/$node->nid";
       if (pathauto_create_alias('node', 'bulkupdate', $placeholders, $source, $node->nid, $node->type, $node->language)) {
