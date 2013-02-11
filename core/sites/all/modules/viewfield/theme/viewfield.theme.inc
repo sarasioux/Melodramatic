@@ -88,7 +88,9 @@ function _viewfield_get_view_args($token_enabled, $vargs, $node) {
       // instead of a simple "node field", the node object is not fully populated:
       // we need a full node to perform a correct replacement.
       $node_values = node_load($node->nid);
-      $args = token_replace($args, 'node', $node_values);
+      foreach($args as $i => $text) {
+        $args[$i] = token_replace($text, 'node', $node_values);
+      }
       $tokens = TRUE;
     }
     // For backwards compatibility, we scan for %nid, etc.
