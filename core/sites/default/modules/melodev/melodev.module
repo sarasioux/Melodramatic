@@ -2112,7 +2112,7 @@ function melo_pathauto_bulkupdate() {
     watchdog('melo_bulkupdate', 'Dropping temporary URL alias table.', array(), WATCHDOG_ERROR);
     db_query('drop table temp_url_alias');
     watchdog('melo_bulkupdate', 'Creating new temporary URL alias table.', array(), WATCHDOG_ERROR);
-    db_query("create table temp_url_alias as select distinct replace(src, 'node/', '') as nid from url_alias where src regexp 'node/[0-9]*$'");
+    db_query("create table temp_url_alias as select distinct cast(replace(src, 'node/', '') as UNSIGNED INTEGER) as nid from url_alias where src regexp 'node/[0-9]*$'");
     db_query("create unique index tua_nid_idx on temp_url_alias (nid)");
   }
 
