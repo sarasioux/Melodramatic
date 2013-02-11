@@ -37,7 +37,11 @@ function token_profile_token_values($type, $object = NULL) {
     $fields = _token_profile_profile_fields();
 
     foreach ($fields as $name => $field) {
-      $field->value = $account->$name;
+      if(isset($account->$name)) {
+        $field->value = $account->$name;
+      } else {
+        $field->value = null;
+      }
       $values[$type . ':' . $name] = _token_profile_format_field($field);
     }
   }
