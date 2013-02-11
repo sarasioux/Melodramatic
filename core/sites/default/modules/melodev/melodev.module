@@ -2093,7 +2093,7 @@ function melo_pathauto_bulkupdate() {
   watchdog('melo_bulkupdate', 'Dropping temporary URL alias table.', array(), WATCHDOG_ERROR);
   db_query('drop table temp_url_alias');
   watchdog('melo_bulkupdate', 'Creating new temporary URL alias table.', array(), WATCHDOG_ERROR);
-  db_query("create table temp_url_alias as select replace(src, 'node/', '') as nid from url_alias where src regexp 'node/[0-9]*$' limit ".variable_get('pathauto_max_bulk_update', 50));
+  db_query("create table temp_url_alias as select replace(src, 'node/', '') as nid from url_alias where src regexp 'node/[0-9]*$'");
   // SELECT n.nid FROM node n LEFT JOIN temp_url_alias ua ON n.nid = ua.nid WHERE ua.nid IS NULL;
 
   $count = 0;
