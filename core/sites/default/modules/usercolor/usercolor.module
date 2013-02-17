@@ -159,6 +159,10 @@ function usercolor_form_alter(&$form, &$form_state, $form_id) {
       '#value' => '<div id="preview"><p>This is body text and a <a href="#">body link</a>.</p><div id="preview-body"><p>This is page text and a <a href="#">page link</a>.</p><div id="text"><h2>Lorem ipsum dolor</h2><p>Sit amet, consectetur adipisicing elit, sed  et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud <a href="#">exercitation ullamco</a> laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p></div></div><div id="img" style="background: url(/'.path_to_theme().'/color/head-prev.png) left top no-repeat"></div></div>',
       );
       
+    // Hide the path field
+    $form['field_scheme_header_path']['#prefix'] = '<div style="display: none">';
+    $form['field_scheme_header_path']['#suffix'] = '</div>';
+      
     unset($form['buttons']['preview']);
 
   }
@@ -254,7 +258,8 @@ function usercolor_rgb_process($element, $edit, $form_state, $form) {
  */
 function usercolor_nodeapi(&$node, $op, $teaser, $page) {
 
-//  $skipnodes = array('tribune', 'article', 'fpart', 'clique', 'cliquepost');
+  static $colors_set;
+
   $donodes = array('blog', 'photo', 'favorite', 'poll', 'folder');
 
   if($node->type == variable_get('usercolor_node_type', '')) {
@@ -269,13 +274,12 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
         }
         $basecss = fread($fp, filesize($basecssfile));
         fclose($fp);
-        
+       
         // Loop through node fields and replace CSS
         foreach($node as $key => $var) {
           if($key == variable_get('usercolor_header_field_name', 'field_scheme_header_color')) {
-            if(strpos($basecss, '['.$key.']')) {
-              $basecss = str_replace('['.$key.']', url(file_directory_path() . '/usercolor/header-'.$node->nid.'.png'), $basecss);
-            }
+              $header = usercolor_create_header($node);
+              $basecss = str_replace('['.$key.']', url($header), $basecss);
           } else {
             if(strpos($basecss, '['.$key.']') && Isset($var[0]['value'])) {
               $basecss = str_replace('['.$key.']', $var[0]['value'], $basecss);
@@ -286,24 +290,32 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
         $node->stylesheet = $basecss;
         
         // Create the header Image
-        $node->header_image = usercolor_create_header($node);
+        $node->field_scheme_header_path[0]['value'] = $header;
+        $node->header_image = url($node->field_scheme_header_path[0]['value']);
         
         // Save the stylesheet
-        if(!usercolor_save_css($node->nid, $node->stylesheet)) {
+        if(!usercolor_save_css($node->nid, $node->stylesheet, $node->changed)) {
           drupal_set_message('An error occurred attempting to save your Colors.');
         }
       break;
+
       case 'delete':
       break;
       case 'update':
         // Save the stylesheet
-        if(!usercolor_save_css($node->nid, $node->stylesheet)) {
+        if(!usercolor_save_css($node->nid, $node->stylesheet, $node->changed)) {
           drupal_set_message('An error occurred attempting to save your Colors.');
         }
       break;
       case 'load':
         // Load the stylesheet -- use a symbolic link
-        $node->css = file_directory_path() . '/usercolor/colors-'.$node->nid.'.css';
+        $uncached = file_directory_path() . '/usercolor/colors-'.$node->nid.'-'.$node->changed.'.css';
+        $cached = file_directory_path() . '/usercolor/colors-'.$node->nid.'.css';
+        if(file_exists($uncached)) {
+          $node->css = $uncached;
+        } else {
+          $node->css = $cached;
+        }
       break;
       case 'presave':
         if(is_numeric($node->nid)) {
@@ -317,11 +329,27 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
           $basecss = fread($fp, filesize($basecssfile));
           fclose($fp);
           
+          // Load the old node to look for modified fields
+          $old_node = node_load(array('nid'=>$node->nid));
+          
+          // Check if their header image has changed since last save
+          $rgbfield = variable_get('usercolor_header_field_name', 'field_scheme_header_color');
+          $arr_old = $old_node->$rgbfield;
+          $arr_new = $node->$rgbfield;
+          if( 
+              (isset($node->field_scheme_header_img) && file_exists($node->field_scheme_header_img[0]['filepath'])) || 
+              ($arr_old[0]['value'] != $arr_new[0]['value'] || is_null($node->field_scheme_header_path[0]['value']))
+          ) {
+              // Create the new header Image
+              $header = usercolor_create_header($node);
+              $node->field_scheme_header_path[0]['value'] = $header;
+          }
           // Loop through node fields and replace CSS
           foreach($node as $key => $var) {
             if($key == variable_get('usercolor_header_field_name', 'field_scheme_header_color')) {
               if(strpos($basecss, '['.$key.']')) {
-                $basecss = str_replace('['.$key.']', url(file_directory_path() . '/usercolor/header-'.$node->nid.'.png'), $basecss);
+                $header_url = url($node->field_scheme_header_path[0]['value']);
+                $basecss = str_replace('['.$key.']', $header_url, $basecss);
               }
             } else {
               if(strpos($basecss, '['.$key.']') && Isset($var[0]['value'])) {
@@ -331,9 +359,7 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
           }
           
           $node->stylesheet = $basecss;
-          
-          // Create the header Image
-          $node->header_image = usercolor_create_header($node);
+          $node->header_image = url($node->field_scheme_header_path[0]['value']);
         }
       break;
       case 'view':
@@ -360,17 +386,20 @@ function usercolor_nodeapi(&$node, $op, $teaser, $page) {
       }
     }
     // Check if they have default colors
-    if(!$set) {
+    if(!$set && !$colors_set) {
       $acct = user_load($node->uid);
       // @TODO Change to color permissions
       if(is_numeric($acct->profile_default_color_scheme_id)) {
         $colornode = node_load($acct->profile_default_color_scheme_id);
         $css = $colornode->css;
         if(file_check_path($css)) {
-          drupal_add_css($colornode->css);
+          $css_url = $colornode->css;
+          drupal_add_css($css_url);
+          $set=true;
         }
       }
     }
+    $colors_set=$set;
   }
 }
 
@@ -384,7 +413,13 @@ function usercolor_show_teaser($scheme) {
   } else {
     $preset = 'colors_header_thumb';
   }
-  $img = theme('imagecache', $preset, file_directory_path() . '/usercolor/header-'.$scheme->nid.'.png');
+  $path = $scheme->field_scheme_header_path[0]['value'];
+  $old_head_path = file_directory_path() . '/usercolor/header-'.$scheme->nid.'.png';
+  if(!is_null($path)) {
+    $img = theme('imagecache', $preset, url($path));
+  } else {
+    $img = theme('imagecache', $preset, url($old_head_path));
+  }
   
   $output = '<div style="padding: 10px; background: '.$scheme->field_scheme_body_color[0]['value'].'; border: solid '.$scheme->field_scheme_bg_color[0]['value'].' 5px; width: 135px">';
   $output .= '<div style="padding: 20px; background: '.$scheme->field_scheme_block_body[0]['value'].'; border: solid '.$scheme->field_scheme_block_header[0]['value'].' 5px">';
@@ -398,7 +433,7 @@ function usercolor_show_teaser($scheme) {
 /**
  * Implementation of hook_menu().
  */
-function usercolor_save_css($id, $css) {
+function usercolor_save_css($id, $css, $changed) {
     // Make sure we can write to our directory
     $dir = file_directory_path() . '/usercolor';
     if(!file_check_directory($dir, 1)) {
@@ -406,8 +441,15 @@ function usercolor_save_css($id, $css) {
       drupal_set_message('An error occured attempting to write to the chosen directory.');
       return false;
     }
+    
+    // Remove old CSS before saving new
+    $removefiles = glob($dir . '/colors-'.$id.'-*.css');
+    foreach($removefiles as $rfile) {
+      unlink($rfile);
+    }
 
-    $file = $dir . '/colors-'.$id.'.css';
+    // Save new CSS
+    $file = $dir . '/colors-'.$id.'-'.$changed.'.css';
     $fp = fopen($file, 'w');
     if(!$fp) {
       drupal_set_message('Unable to open CSS file for writing.');
@@ -415,7 +457,7 @@ function usercolor_save_css($id, $css) {
     }
     fputs($fp, $css);
     fclose($fp);
-    return true;
+    return $file;
 }
 
 /**
@@ -425,10 +467,12 @@ function usercolor_create_header($node) {
 
   // Check if they've uploaded a custom image
   if(isset($node->field_scheme_header_img) && file_exists($node->field_scheme_header_img[0]['filepath'])) {
-    $newdst = file_directory_path() . '/usercolor/header-'.$node->nid.'.png';
+    $newdst = file_directory_path() . '/usercolor/header-'.$node->nid.'-'.$node->changed.'.png';
+    dpm($node->field_scheme_header_img[0]);
     $src = file_directory_path() . '/imagecache/colors_header/' . $node->field_scheme_header_img[0]['filepath'];
     // Generate the correct image
     $url = url($src, array('absolute'=>true));
+    drupal_set_message('Get URL: '.$url);
     $fp = fopen($url, 'r');
     while($chunk = fread($fp, 1024)) {
       $conts .= $chunk;
@@ -439,7 +483,12 @@ function usercolor_create_header($node) {
     fwrite($fp, $conts);
     fclose($fp);
     
-    return true;
+    // Delete old image
+    if(!is_null($node->field_scheme_header_path[0]['path'])) {
+      unlink($node->field_scheme_header_path[0]['path']);
+    }
+    drupal_set_message('Newdst: '.$newdst);
+    return $newdst;
   }
 
   // Create a temporary image
@@ -491,8 +540,13 @@ function usercolor_create_header($node) {
   $contents =  ob_get_contents();
   ob_end_clean();
   
+  // Delete old image
+  if(!is_null($node->field_scheme_header_path[0]['value'])) {
+    unlink($node->field_scheme_header_path[0]['value']);
+  }
+  
   // Save the image
-  $newdst = file_directory_path() . '/usercolor/header-'.$node->nid.'.png';
+  $newdst = file_directory_path() . '/usercolor/header-'.$node->nid.'-'.$node->changed.'.png';
   $fp = fopen($newdst, 'w');
   fputs($fp, $contents);
   fclose($fp);
@@ -500,4 +554,6 @@ function usercolor_create_header($node) {
   imagedestroy($target);
   imagedestroy($source);
   unlink($dst);
+  
+  return $newdst;
 }
