@@ -1,0 +1,26 @@
+# cron
+*/10 1-3,7-23 * * *  /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com cron >> /files/logs/melocron.log; echo "cron" >> /files/logs/melocron.log;
+
+# touches
+0 2 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_reset_touches(true);' >> /files/logs/melocron.log
+
+# stats
+0 3 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_stats_daily(true);' >> /files/logs/melocron.log
+
+#logs
+*/5 1-3,7-23 * * * /usr/bin/drush -v -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_process_logs();' 1&2>> /files/logs/melocron.log; echo "logs" >> /files/logs/melocron.log;
+
+# tagclouds
+0 4 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_tagclouds();' >> /files/logs/melocron.log
+
+# karma
+0 1 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_today_karma();' >> /files/logs/melocron.log; echo "karma" >> /files/logs/melocron.log;
+
+# reimport users
+#0 1 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_cron_reimport_users();' >> /files/logs/melocron.log; echo "reimport" >> /files/logs/melocron.log;
+
+# fix user folders
+#*/5 */3 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com eval 'melodev_fix_user_folders();' >> /files/logs/melocron.log; echo "folders" >> /files/logs/melocron.log;
+
+# url aliases
+0 1-3,7-23 * * * /usr/bin/drush -r /code/vhosts/melodramatic.com -l melodramatic.com -v php-eval 'melo_pathauto_bulkupdate();' >> /files/logs/melocron.log;
