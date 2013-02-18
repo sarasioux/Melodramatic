@@ -42,10 +42,13 @@ Disallow: /admin/
 Disallow: /comment/reply/
 Disallow: /logout/
 Disallow: /node/add/
+Disallow: /node/
 Disallow: /search/
 Disallow: /user/register/
 Disallow: /user/password/
 Disallow: /user/login/
+Disallow: /blog/
+Disallow: /blogs/
 # Paths (no clean URLs)
 Disallow: /?q=admin/
 Disallow: /?q=comment/reply/
