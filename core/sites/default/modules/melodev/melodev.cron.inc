@@ -244,8 +244,10 @@ function melodev_cron_process_logs($force=false) {
       watchdog('melodev.cron', count($unknown).' unknown logs encountered. [logs]', array('[logs]'=>$log));
     }
     
+    $runtime = (mktime()+microtime()) - $start;
+    watchdog('melodev.cron', 'Processed ['.$logs.'] access logs in ['.round($runtime, 4).'] seconds.');
     variable_set('melodev_cron_process_logs', mktime());
-    melodev_cron_lock('melodev_cron_process_logs');
+    melodev_cron_lock('melodev_cron_process_logs', true);
   }  
 }
 

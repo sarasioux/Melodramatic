@@ -279,6 +279,15 @@ function melodev_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'melodev.pages.admin.inc',
   );   
+  
+  // cron unlock
+  $items['admin/god/cron/unlock/%'] = array(
+    'title' => 'Cron Unlock',
+    'page callback' => 'melodev_cron_page_unlock',
+    'access arguments' => array('administer users'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  );   
     
   //  CACHE MANAGEMENT
   

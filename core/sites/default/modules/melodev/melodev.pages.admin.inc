@@ -173,6 +173,16 @@ function melodev_reimport_user_entries() {
 }
 
 /**
+ * Unlock a cron.
+ */
+function melodev_cron_page_unlock() {
+  $cronjob = arg(4);
+  variable_set('lock_'.$cronjob, false);
+  drupal_set_message('Cron lock on <b>'.$cronjob.'</b> has been cleared.');
+  drupal_goto('admin/god');
+}
+
+/**
  * Add User to Reimport Entries Queue.
  */
 function melodev_reimport_user_queue() {
@@ -584,32 +594,22 @@ function melodev_god_page() {
   $aliago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_process_aliases', 0)).' ago', $aliago);
   
   $logtxt = '';
-//  melodev_cron_lock('melodev_cron_process_logs');
+
   if($loglock = melodev_cron_check_lock('melodev_cron_process_logs')) {
     $logtxt = '<span title="Locked since: '.date('M d Y, g:ia', $loglock).'" class="red"><b>X</b></span>';
+    $logtxt .= ' <a href="/admin/god/cron/unlock/melodev_cron_process_logs">Unlock</a>';
   }
   $alitxt = '';
   if($alilock = melodev_cron_check_lock('melodev_cron_process_aliases')) {
     $alitxt = '<span title="Locked since: '.date('M d Y, g:ia', $alilock).'" class="red"><b>X</b></span>';
+    $alitxt .= '<a href="/admin/god/cron/unlock/melodev_cron_process_aliases">Unlock</a>';
   }
-//  if((mktime() - variable_get('melodev_cron_today_karma', 0)) > (60*35)) { $karmaago = '<span class="red">%s</span>'; } else { $karmaago = '%s'; }
-//  $karmaago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_today_karma', 0)).' ago', $karmaago);
-//  if((mktime() - variable_get('melodev_cron_reimport_queue', 0)) > (60*35)) { $reimportago = '<span class="red">%s</span>'; } else { $reimportago = '%s'; }
-//  $reimportago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_reimport_queue', 0)).' ago', $reimportago);
-//  $lock = variable_get('melodev_cron_reimport_lock', 0);
-//  if($lock > 0) {
-//    $lock = format_interval(mktime() - $lock).' ago';
-//  }
+
   $rows = array(
     array('', 'Primary Cron', $freq_primary_cron.' minutes', $cronago, date('m/d/y g:ia', variable_get('cron_last', 0)), l('Run Now', 'admin/reports/status/run-cron')),
     array($logtxt, 'Elite Logs', $freq_elite_logs.' minutes', $logsago, date('m/d/y g:ia', variable_get('melodev_cron_process_logs', 0)), l('Process Now', 'admin/reports/processlogs')),
     array($alitxt, 'URL Aliases', $freq_url_alias.' minutes', $aliago, date('m/d/y g:ia', variable_get('melodev_cron_process_aliases', 0)), ''),
-//    array('Karma Rewards', '30 minutes', $karmaago, date('m/d/y g:ia', variable_get('melodev_cron_today_karma', 0)), ''),
-//   array('Journal Reimport', '5 minutes', $reimportago, date('m/d/y g:ia', variable_get('melodev_cron_reimport_queue', 0)), ''),
-//    array('Journal Reimport UID', variable_get('melodev_reimport_queue_uid', 0), '', '', ''),
-//    array('Journal Reimport Offset', variable_get('melodev_reimport_queue_offset', 0), '', '', ''),
-//    array('Journal Reimport Lock', $lock, '', '', ''),
-    );
+  );
   $head = array('Lock', 'Cron', 'Frequency', 'Last Run', '', 'Action');
   $output .= theme('table', $head, $rows);
 
