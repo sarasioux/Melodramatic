@@ -1391,6 +1391,8 @@ ul.nice-menu-right ul,ul.nice-menu-right ul ul
 {
 	padding-left:25px;
 	margin:0;
+	display: inline-block;
+	height: 18px;
 }
 
 /*  Friends  */
@@ -1603,6 +1605,15 @@ ul.links.inline .first,#block-menu-menu-mymelo ul
 .view-Relationships.view-display-id-page_2 span.flag-tab a.flag-action,.view-Relationships.view-display-id-page_2 span.flag-tab a.flag-action,#block-melodev-2 span.flag-tab a.flag-action
 {
 	background:url(../images/icons/user_add.png) left top no-repeat;
+}
+
+#block-melodev-2 span.flag-spammer a.flag-action
+{
+	background:url(../images/icons/bomb.png) left top no-repeat;
+}
+#block-melodev-2 span.flag-spammer a.unflag-action
+{
+	background:url(../images/icons/cancel.png) left top no-repeat;
 }
 
 .node-type-stat .views-field-total {
