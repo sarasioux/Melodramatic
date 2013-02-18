@@ -468,11 +468,9 @@ function usercolor_create_header($node) {
   // Check if they've uploaded a custom image
   if(isset($node->field_scheme_header_img) && file_exists($node->field_scheme_header_img[0]['filepath'])) {
     $newdst = file_directory_path() . '/usercolor/header-'.$node->nid.'-'.$node->changed.'.png';
-    dpm($node->field_scheme_header_img[0]);
     $src = file_directory_path() . '/imagecache/colors_header/' . $node->field_scheme_header_img[0]['filepath'];
     // Generate the correct image
     $url = url($src, array('absolute'=>true));
-    drupal_set_message('Get URL: '.$url);
     $fp = fopen($url, 'r');
     while($chunk = fread($fp, 1024)) {
       $conts .= $chunk;
@@ -487,7 +485,6 @@ function usercolor_create_header($node) {
     if(!is_null($node->field_scheme_header_path[0]['path'])) {
       unlink($node->field_scheme_header_path[0]['path']);
     }
-    drupal_set_message('Newdst: '.$newdst);
     return $newdst;
   }
 
