@@ -493,7 +493,7 @@ function melodev_cron() {
  */
 function melodev_perm() {
   return array('administer front page', 'access all FO posts', 'access all private posts', 'create custom thumbnail', 'search by username', 'personal tag cloud',
-               'administer user roles', 'access random tour');
+               'administer user roles', 'access random tour', 'no spammer flag', 'flag spammers');
 }
 
 /**
@@ -1120,6 +1120,15 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
          path_set_alias('user/'.$account->uid, 'users/'.$account->name);
       }
       */
+      
+      // Grant karma to spam flaggers when a user gets blocked
+      if($account->status == 1 && $edit['status'] == 0) {
+        // Get everyone who flagged this user
+        $flaggers = flag_get_content_flags('user', $account->uid, 'spammer');
+        foreach($flaggers as $fid => $flag) {
+          melodev_save_stat($fid, 'spammers', 1);
+        }
+      }
     break;    
     
     case 'insert':
