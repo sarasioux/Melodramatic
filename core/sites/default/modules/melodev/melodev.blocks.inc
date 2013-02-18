@@ -204,6 +204,7 @@ function melodev_profile_interact() {
       $juser = melodev_user_load($uid);
       $uid1 = $user->uid;
       $uid2 = $uid;
+      $is_friend=false;
       if ($uid1 != $uid2) {
 
         // Load all flags on this user
@@ -216,6 +217,7 @@ function melodev_profile_interact() {
         if(!isset($flags['friend'])) {
           $links[] = $flag->theme('flag', $uid2);
         } else {
+          $is_friend=true;
           $links[] = $flag->theme('unflag', $uid2);
         }
         // Check their friend status
@@ -244,6 +246,19 @@ function melodev_profile_interact() {
         } else {
           $links[] = $flag->theme('unflag', $uid2);
         }
+        
+        // Spammer
+        if(!$is_friend && user_access('flag spammers', $user)) {
+          if(!user_access('no spammer flag', $juser)) {
+            $flag = flag_get_flag('spammer');
+            // Check my tab status
+            if(!isset($flags['spammer'])) {
+              $links[] = $flag->theme('flag', $uid2);
+            } else {
+              $links[] = $flag->theme('unflag', $uid2);
+            }
+          }
+        }
       }
 
       if(count($txtlinks) > 0) {
@@ -255,6 +270,8 @@ function melodev_profile_interact() {
       if(count($links) > 0) {
         $output .= theme('item_list', $links);
       }
+      
+      
 
       // Admin stuff
       if(in_array('god', $user->roles)) {
