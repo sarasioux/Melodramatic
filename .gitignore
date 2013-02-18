@@ -5,3 +5,5 @@ files
 default.settings.php
 core/cache*
 core/sites/melodramatic
+
+core/.htaccess
