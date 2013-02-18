@@ -220,36 +220,38 @@ function melodev_cron_stats_daily($force=false) {
 
 function melodev_cron_process_logs($force=false) {
 
-  $limit = 10000;
+  if(melodev_cron_lock('melodev_cron_process_logs')) {
+    $limit = 10000;
+    $start = mktime() + microtime();
   
-  $start = mktime() + microtime();
-
-  // Find all unprocessed logs
-  $result = db_query('select distinct aid, title, path, uid from accesslog where aid not in (select aid from accesslog_owner) limit '.$limit);
-  $logs = 0;
-  $unknown = array();
-  while($log = db_fetch_object($result)) {
-    if(melodev_access_savelog($log)) {
-      $logs++;
-    } else {
-      $unknown[] = $log;
+    // Find all unprocessed logs
+    $result = db_query('select distinct aid, title, path, uid from accesslog where aid not in (select aid from accesslog_owner) limit '.$limit);
+    $logs = 0;
+    $unknown = array();
+    while($log = db_fetch_object($result)) {
+      if(melodev_access_savelog($log)) {
+        $logs++;
+      } else {
+        $unknown[] = $log;
+      }
     }
-  }
-//  watchdog('melodev.cron', 'Wrote '.$logs.' log ownership records.');
-  
-  if(count($unknown) > 500) {
-    $log = '<pre>' .
-      "<b>Unknown logs:\n</b>" .
-      print_r($unknown, true) .
-      '</pre>';
-    watchdog('melodev.cron', count($unknown).' unknown logs encountered. [logs]', array('[logs]'=>$log));
-  }
-  
-  variable_set('melodev_cron_process_logs', mktime());
-//  watchdog('melodev.cron', 'Log processing took '.round((mktime() + microtime() - $start)).' seconds to complete.');
-  
+    
+    if(count($unknown) > 500) {
+      $log = '<pre>' .
+        "<b>Unknown logs:\n</b>" .
+        print_r($unknown, true) .
+        '</pre>';
+      watchdog('melodev.cron', count($unknown).' unknown logs encountered. [logs]', array('[logs]'=>$log));
+    }
+    
+    variable_set('melodev_cron_process_logs', mktime());
+    melodev_cron_lock('melodev_cron_process_logs');
+  }  
 }
 
+/**
+ * Generate tag clouds for karma users.  Nightly.
+ */
 function melodev_cron_tagclouds($force=false) {
   $start = mktime() + microtime();
   $karma = 1000;
@@ -285,6 +287,18 @@ function melodev_cron_tagclouds($force=false) {
 
   watchdog('melodev.cron', $l.' personal tagclouds written.');  
   variable_set('melodev_cron_tagclouds', mktime());
+}
+
+/**
+ * Generate url aliases for missing nodes.  Every 15 mins.
+ */
+function melodev_cron_urlaliases($force=false) {
+  if(melodev_cron_lock('melodev_cron_process_aliases')) {
+    $start = mktime() + microtime();
+    melo_pathauto_bulkupdate();
+    variable_set('melodev_cron_process_aliases', mktime());
+    melodev_cron_lock('melodev_cron_process_aliases', true);
+  }
 }
 
 function melodev_cron_reimport_users() {
@@ -363,6 +377,33 @@ function melodev_cron_log($name, $threshold=0, $set=false, $txt='') {
     return true;
   }
   return false;
+}
+
+/**
+ * Control the cron run by locking other crons from using it.
+ */
+function melodev_cron_lock($name, $clear=false) {
+  // Clear the lock variable and return true
+  if($clear == true) {
+    variable_set('lock_'.$name, false);
+    return true;
+  }
+  // Load the current lock variable
+  $lock = variable_get('lock_'.$name, false);
+  if(!$lock) {
+    // Start the lock and return true
+    variable_set('lock_'.$name, mktime());
+    return true;
+  } else {
+    watchdog('melodev.cron', 'CRON CURRENTLY LOCKED: '.$name.' since '.date('M d Y g:ia', $lock).'.');
+    return false;
+  }
+}
+/**
+ * Check the lock on a certain cron.
+ */
+function melodev_cron_check_lock($name) {
+  return variable_get('lock_'.$name, false);
 }
 
 function melodev_cron_timer() {
