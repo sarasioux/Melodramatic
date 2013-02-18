@@ -289,6 +289,12 @@ function search_update_totals() {
       @db_query("INSERT INTO {search_total} (word, count) VALUES ('%s', %f)", $word, $total);
     }
   }
+  /*
+  // ***
+  // *** @MELOHACK
+  // *** COMMENT THIS CHECK OUT.  IT'S NOT A USEFUL USE CASE AND CAUSES MORE DB TROUBLE THAN ITS WORTH.  SHOULD HAPPEN ONCE A NIGHT INSTEAD OF ON EVERY CRON.
+  // *** 
+  
   // Find words that were deleted from search_index, but are still in
   // search_total. We use a LEFT JOIN between the two tables and keep only the
   // rows which fail to join.
@@ -296,6 +302,7 @@ function search_update_totals() {
   while ($word = db_fetch_object($result)) {
     db_query("DELETE FROM {search_total} WHERE word = '%s'", $word->realword);
   }
+  */
 }
 
 /**
