@@ -528,55 +528,89 @@ function melodev_historic_order_report() {
  */
 function melodev_god_page() {
 
-  // Support
-  $output .= '<h2 class="title">Support</h2>';
-  $total = db_result(db_query('select count(fid) as total from feedback where status = 0'));
-  $recent = format_interval(mktime() - db_result(db_query('select max(timestamp) as total from feedback where status = 0'))).' ago';
-  $rows = array(array('Feedback', '<strong>'.$total.'</strong>', $recent, l('Check Feedback', 'admin/reports/feedback')));
-  $head = array('', 'Total', 'Most Recent', 'Action');
-  $output .= theme('table', $head, $rows);
-  $output .= '<br /><br />';
+  $output .= '<h2 class="title">Support</h2>
+              <ul>
+              <li>Visit <a href="http://melodramatic.zendesk.com">http://melodramatic.zendesk.com</a></li>
+              <li>Process user tickets, and assign them to Sara when they need escalation.</li>
+              </ul>';
+
 
   // FP
   $output .= '<h2 class="title">Front Page</h2>';
+  $art_time = variable_get('melodev_cron_fpart_rotate', 0);
+  if((mktime() - $art_time) > (60*60*24)) { $art_class = 'red'; } else { $art_class=''; }
+  $poll_time = variable_get('melodev_cron_fppoll_rotate', 0);
+  if((mktime() - $poll_time) > (60*60*24)) { $poll_class = 'red'; } else { $poll_class=''; }
+  $post_time = db_result(db_query('select max(changed) from node where type = "article" and status = 1'));
+  if((mktime() - $post_time) > (60*60*24)) { $post_class = 'red'; } else { $post_class=''; }
+    
   $output .= '<p>The front page art & poll gets rotated automatically every 24 hours.  If there is nothing available it will try again every 15 minutes until it finds something.  You can manually rotate the art & poll here.</p>';
   $rows = array(
-    array('<span class="mymelo-type-photo mymelo-type"></span> &nbsp; Art', format_interval(mktime() - variable_get('melodev_cron_fpart_rotate', 0)).' ago', date('m/d/y g:ia', variable_get('melodev_cron_fpart_rotate', 0)), l('Rotate Now', 'admin/god/fpart/rotate')),
-    array('<span class="mymelo-type-poll mymelo-type"></span> &nbsp; Poll', format_interval(mktime() - variable_get('melodev_cron_fppoll_rotate', 0)).' ago', date('m/d/y g:ia', variable_get('melodev_cron_fppoll_rotate', 0)), l('Rotate Now', 'admin/god/fppoll/rotate')),
-    array('<span class="mymelo-type-blog mymelo-type"></span> &nbsp; Post', '', '', l('Post New', 'node/article/add')),
+    array(  '<span class="mymelo-type-photo mymelo-type"></span> &nbsp; Art', 
+            '<span class=" '.$art_class.'">'.format_interval(mktime() - $art_time).' ago</span>', 
+            date('m/d/y g:ia', $art_time), 
+            l('Rotate Now', 'admin/god/fpart/rotate').' | '.l('Pick Submissions', 'admin/god/fpart')
+         ),
+    array(  '<span class="mymelo-type-poll mymelo-type"></span> &nbsp; Poll', 
+            '<span class=" '.$poll_class.'">'.format_interval(mktime() - $poll_time).' ago</span>', 
+            date('m/d/y g:ia', $poll_time), 
+            l('Rotate Now', 'admin/god/fppoll/rotate').' | '.l('Pick Submissions', 'admin/god/fppoll')
+         ),
+    array(  '<span class="mymelo-type-blog mymelo-type"></span> &nbsp; Post', 
+            '<span class=" '.$post_class.'">'.format_interval(mktime() - $post_time).' ago</span>', 
+            date('m/d/y g:ia', $post_time), 
+            l('Post New', 'node/article/add')
+         ),
     );
   $head = array('Type', 'Last Rotated', '', 'Action');
   $output .= theme('table', $head, $rows);
 
-  // Crons  
   $output .= '
   <br /><br />
   <h2 class="title">Crons</h2>';
   $output .= '<p>Various crons run throughout the day to keep our data in sync and cleaned up.  Below is a report of when the various crons last run and what state they are currently in.</p>';
   // Multiple times a day
   $output .= '<h3>Multiple Times a Day</h3>';
-  if((mktime() - variable_get('cron_last', 0)) > (60*10)) { $cronago = '<span class="red">%s</span>'; } else { $cronago = '%s'; }
+  
+  $freq_primary_cron = 10; // minutes
+  $freq_elite_logs = 5; // minutes
+  $freq_url_alias = 15; // minutes
+  
+  if((mktime() - variable_get('cron_last', 0)) > (60*$freq_primary_cron)) { $cronago = '<span class="red">%s</span>'; } else { $cronago = '%s'; }
   $cronago = str_replace('%s', format_interval(mktime() - variable_get('cron_last', 0)).' ago', $cronago);
-  if((mktime() - variable_get('melodev_cron_process_logs', 0)) > (60*5)) { $logsago = '<span class="red">%s</span>'; } else { $logsago = '%s'; }
+  if((mktime() - variable_get('melodev_cron_process_logs', 0)) > (60*$freq_elite_logs)) { $logsago = '<span class="red">%s</span>'; } else { $logsago = '%s'; }
   $logsago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_process_logs', 0)).' ago', $logsago);
-  if((mktime() - variable_get('melodev_cron_today_karma', 0)) > (60*35)) { $karmaago = '<span class="red">%s</span>'; } else { $karmaago = '%s'; }
-  $karmaago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_today_karma', 0)).' ago', $karmaago);
-  if((mktime() - variable_get('melodev_cron_reimport_queue', 0)) > (60*35)) { $reimportago = '<span class="red">%s</span>'; } else { $reimportago = '%s'; }
-  $reimportago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_reimport_queue', 0)).' ago', $reimportago);
-  $lock = variable_get('melodev_cron_reimport_lock', 0);
-  if($lock > 0) {
-    $lock = format_interval(mktime() - $lock).' ago';
+  if((mktime() - variable_get('melodev_cron_process_aliases', 0)) > (60*$freq_url_alias)) { $aliago = '<span class="red">%s</span>'; } else { $aliago = '%s'; }
+  $aliago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_process_aliases', 0)).' ago', $aliago);
+  
+  $logtxt = '';
+//  melodev_cron_lock('melodev_cron_process_logs');
+  if($loglock = melodev_cron_check_lock('melodev_cron_process_logs')) {
+    $logtxt = '<span title="Locked since: '.date('M d Y, g:ia', $loglock).'" class="red"><b>X</b></span>';
   }
+  $alitxt = '';
+  if($alilock = melodev_cron_check_lock('melodev_cron_process_aliases')) {
+    $alitxt = '<span title="Locked since: '.date('M d Y, g:ia', $alilock).'" class="red"><b>X</b></span>';
+  }
+//  if((mktime() - variable_get('melodev_cron_today_karma', 0)) > (60*35)) { $karmaago = '<span class="red">%s</span>'; } else { $karmaago = '%s'; }
+//  $karmaago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_today_karma', 0)).' ago', $karmaago);
+//  if((mktime() - variable_get('melodev_cron_reimport_queue', 0)) > (60*35)) { $reimportago = '<span class="red">%s</span>'; } else { $reimportago = '%s'; }
+//  $reimportago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_reimport_queue', 0)).' ago', $reimportago);
+//  $lock = variable_get('melodev_cron_reimport_lock', 0);
+//  if($lock > 0) {
+//    $lock = format_interval(mktime() - $lock).' ago';
+//  }
   $rows = array(
-    array('Primary Cron', '5 minutes', $cronago, date('m/d/y g:ia', variable_get('cron_last', 0)), l('Run Now', 'admin/reports/status/run-cron')),
-    array('Elite Logs', '2 minutes', $logsago, date('m/d/y g:ia', variable_get('melodev_cron_process_logs', 0)), l('Process Now', 'admin/reports/processlogs')),
-    array('Karma Rewards', '30 minutes', $karmaago, date('m/d/y g:ia', variable_get('melodev_cron_today_karma', 0)), ''),
-    array('Journal Reimport', '5 minutes', $reimportago, date('m/d/y g:ia', variable_get('melodev_cron_reimport_queue', 0)), ''),
-    array('Journal Reimport UID', variable_get('melodev_reimport_queue_uid', 0), '', '', ''),
-    array('Journal Reimport Offset', variable_get('melodev_reimport_queue_offset', 0), '', '', ''),
-    array('Journal Reimport Lock', $lock, '', '', ''),
+    array('', 'Primary Cron', $freq_primary_cron.' minutes', $cronago, date('m/d/y g:ia', variable_get('cron_last', 0)), l('Run Now', 'admin/reports/status/run-cron')),
+    array($logtxt, 'Elite Logs', $freq_elite_logs.' minutes', $logsago, date('m/d/y g:ia', variable_get('melodev_cron_process_logs', 0)), l('Process Now', 'admin/reports/processlogs')),
+    array($alitxt, 'URL Aliases', $freq_url_alias.' minutes', $aliago, date('m/d/y g:ia', variable_get('melodev_cron_process_aliases', 0)), ''),
+//    array('Karma Rewards', '30 minutes', $karmaago, date('m/d/y g:ia', variable_get('melodev_cron_today_karma', 0)), ''),
+//   array('Journal Reimport', '5 minutes', $reimportago, date('m/d/y g:ia', variable_get('melodev_cron_reimport_queue', 0)), ''),
+//    array('Journal Reimport UID', variable_get('melodev_reimport_queue_uid', 0), '', '', ''),
+//    array('Journal Reimport Offset', variable_get('melodev_reimport_queue_offset', 0), '', '', ''),
+//    array('Journal Reimport Lock', $lock, '', '', ''),
     );
-  $head = array('Cron', 'Frequency', 'Last Run', '', 'Action');
+  $head = array('Lock', 'Cron', 'Frequency', 'Last Run', '', 'Action');
   $output .= theme('table', $head, $rows);
 
   $output .= '<h3>Once a Day</h3>';
@@ -585,19 +619,29 @@ function melodev_god_page() {
   $statsago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_stats_daily', 0)).' ago', $logsago);
   if((mktime() - variable_get('melodev_cron_touches_reset', 0)) > (60*60*24)) { $touchago = '<span class="red">%s</span>'; } else { $touchago = '%s'; }
   $touchago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_touches_reset', 0)).' ago', $touchago);
+  if((mktime() - variable_get('melodev_cron_tagclouds', 0)) > (60*60*24)) { $tagago = '<span class="red">%s</span>'; } else { $tagago = '%s'; }
+  $tagago = str_replace('%s', format_interval(mktime() - variable_get('melodev_cron_tagclouds', 0)).' ago', $tagago);
   $rows = array(
     array('Nightly Stats', $statsago, date('m/d/y g:ia', variable_get('melodev_cron_stats_daily', 0)), ''),
     array('Nightly Touches', $touchago, date('m/d/y g:ia', variable_get('melodev_cron_touches_reset', 0)), l('Reset Touches', 'admin/build/touches/reset')),
+    array('Nightly Tag Clouds', $tagago, date('m/d/y g:ia', variable_get('melodev_cron_tagclouds', 0)), ''),
     );
   $head = array('Cron', 'Last Run', '', 'Action');
   $output .= theme('table', $head, $rows);
   
+  // Crons  
   /*
-  $output .= '<br />';
+  $crontxt = drupal_get_path('module', 'melodev') . '/crontab.txt';
+  $fp = fopen($crontxt, 'r');
+  $crontab = fread($fp, filesize($crontxt));
+  fclose($fp);
+  $output .= '<h3>Crontab</h3>';
+  $output .= '<pre style="font-size: 9px">'.$crontab."\n</pre>";
+  
+  $output .= '<br /><h3>Karma</h3>';
   $output .= 'Nightly Karma Last Calculated: <strong>'.date('m/d/y g:ia', variable_get('melodev_cron_karma', 0)).'</strong> (<em>'.format_interval(mktime() - variable_get('melodev_cron_karma', 0)).' ago</em>)<br />';
   $output .= 'Nightly Karma Offset: <strong>'.variable_get('melodev_cron_karma_offset', 0).'</strong><br />(<em>If Offset is greater than 0 cron is currently running, does about 205 iterations.</em>)<br />';
   */
-  
   return $output;
 }
 
