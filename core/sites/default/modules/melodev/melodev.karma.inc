@@ -45,6 +45,13 @@ function melodev_karma_settings() {
     '#size'          => 5,
     '#maxlength'     => 5,
     );
+  $form['grant']['stats']['melodev_karma_spammers'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Multiplier for Spammers'),
+    '#default_value' => variable_get('melodev_karma_spammers', '0'),
+    '#size'          => 5,
+    '#maxlength'     => 5,
+    );
   
   // Nodes
   $form['grant']['nodes'] = array(
