@@ -194,6 +194,7 @@ function melodev_get_stat_label($type) {
     'friendof' => t('Friend Of'),
     'enemyof' => t('Enemy Of'),
     'tabof' => t('Tab Of'),
+    'spammers' => t('Spam Kills'),
     'years' => t('Years as a Member'),
   );
   if(isset($labels[$type])) {
