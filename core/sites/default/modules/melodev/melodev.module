@@ -798,7 +798,22 @@ function melodev_form_alter(&$form, &$form_state, $form_id) {
             }
           }
         }
-      }      
+      }  
+      
+      // Customize helptext
+      $form['account']['#title'] = '';
+      $form['About Me']['#title'] = '';
+      $form['captcha']['#title'] = '';
+      $form['account']['name']['#description'] = 'This is your Melo identity and you can\'t change it so choose wisely.';
+      $form['account']['mail']['#description'] = 'You\'ll need to click a confirmation link in your email to get started.';
+      
+      $form['submit']['#value'] = 'Join Melo';
+/*
+      echo '<pre>';
+      print_r($form);
+      exit();
+*/
+          
     break;
     
     // Census form and Private Text
@@ -1112,9 +1127,13 @@ function melodev_comment(&$a1, $op) {
 /**
  * Quick ban a user function
  */
-function melodev_ban_user($account_in) {
+function melodev_ban_user($account_in, $unblock=false) {
   if($account = user_load($account_in->uid)) {
-    $edit = array('status' => 0);
+    if($unblock == true) {
+      $edit = array('status' => 0);
+    } else {
+      $edit = array('status' => 1);
+    }
     user_save($account, $edit);
     return true;
   }
@@ -2183,13 +2202,12 @@ function melo_pathauto_bulkupdate() {
   _pathauto_include();
 
   $count = 0;
-  $sql = "SELECT n.nid FROM node n LEFT JOIN temp_url_alias ua ON n.nid = ua.nid WHERE ua.nid IS NULL";
+  $sql = "SELECT n.nid FROM node n LEFT JOIN temp_url_alias ua ON n.nid = ua.nid WHERE ua.nid IS NULL and n.status = 1";
   $query = db_query_range($sql, 0, variable_get('pathauto_max_bulk_update', 50));
 
   $placeholders = array();
   while ($nid = db_result($query)) {
     if($node = node_load($nid)) {
-      watchdog('melo_bulkupdate', 'LOADED NID: '.$nid.' TYPE: '.$node->type);
       $placeholders = pathauto_get_placeholders('node', $node);
       $source = "node/$node->nid";
       if (pathauto_create_alias('node', 'bulkupdate', $placeholders, $source, $node->nid, $node->type, $node->language)) {

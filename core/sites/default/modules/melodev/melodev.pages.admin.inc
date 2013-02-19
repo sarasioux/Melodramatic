@@ -584,7 +584,7 @@ function melodev_god_page() {
   
   $freq_primary_cron = 10; // minutes
   $freq_elite_logs = 5; // minutes
-  $freq_url_alias = 15; // minutes
+  $freq_url_alias = 30; // minutes
   
   if((mktime() - variable_get('cron_last', 0)) > (60*$freq_primary_cron)) { $cronago = '<span class="red">%s</span>'; } else { $cronago = '%s'; }
   $cronago = str_replace('%s', format_interval(mktime() - variable_get('cron_last', 0)).' ago', $cronago);

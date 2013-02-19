@@ -1631,3 +1631,56 @@ a.admin-link {
   padding: 0;
   margin: 0;
 }
+
+/*  Registration Page  */
+body.page-user-register #content-area {
+  background: url("/sites/default/themes/melo/images/beginning.png") 10px 10px no-repeat;
+  padding-left: 530px;
+  min-height: 430px;
+  padding-right: 40px;
+}
+body.page-user-register  form {
+  color: #444;
+}
+body.page-user-register fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+body.page-user-register #edit-name {
+  width: 200px;
+}
+body.page-user-register #edit-mail {
+  width: 350px;
+}
+body.page-user-register #edit-name,
+body.page-user-register #edit-mail,
+body.page-user-register fieldset.captcha input {
+  padding: 5px;
+  font-size: 22px;
+  color: #aaa;
+}
+body.page-user-register select {
+  font-size: 18px;
+  color: #aaa;
+}
+#edit-profile-birthday-wrapper {
+  margin-top: 0;
+}
+body.page-user-register fieldset.captcha input {
+  width: 100px;
+}
+body.page-user-register fieldset.captcha img {
+  float: left;
+  margin-right: 10px;
+  margint-bottom: 10px;
+}
+body.page-user-register fieldset.captcha legend {
+  display: none;
+}
+body.page-user-register #edit-submit {
+  font-size: 16pt;
+  width: 150px;
+  margin-top: 20px;
+  color: #333;
+}
