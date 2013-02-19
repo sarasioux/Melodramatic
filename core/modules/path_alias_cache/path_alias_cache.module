@@ -203,7 +203,12 @@ function path_alias_cache_path_alias_whitelist_rebuild() {
   // path it corresponds to. This is the portion of the path before the first "/"
   // if present, otherwise the whole path itself.
   $whitelist = array();
-  $result = db_query("SELECT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias} GROUP BY path");
+  // ***
+  // *** @MELOHACK
+  // *** SELECT DISTINCT IS FASTER THAN GROUP BY.
+  // *** 
+//  $result = db_query("SELECT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias} GROUP BY path");
+  $result = db_query("SELECT DISTINCT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias}");
   while ($row = db_fetch_object($result)) {
     $whitelist[$row->path] = TRUE;
   }
