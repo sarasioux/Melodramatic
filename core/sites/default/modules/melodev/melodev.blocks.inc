@@ -148,6 +148,9 @@ function melodev_profile_picture() {
   $output = '';
   if(is_numeric($uid)) {
     $account = melodev_user_load($uid);
+    if($account->status == 0) {
+      return false;
+    }
 
     if (!empty($account->picture) && file_exists($account->picture)) {
       $picture = $account->picture;
@@ -172,6 +175,9 @@ function melodev_profile_aboutme() {
   $uid = melodev_get_profile_uid();
   if(is_numeric($uid)) {
     $account = melodev_user_load($uid);
+    if($account->status == 0) {
+      return false;
+    }
     profile_view_profile($account);
     if(isset($account->content['About Me']['profile_quote']['#value'])) {
       $output .= '<p>'.$account->content['About Me']['profile_quote']['#value'].'</p>';
@@ -195,112 +201,117 @@ function melodev_profile_aboutme() {
 function melodev_profile_interact() {
   global $user;
   $uid = melodev_get_profile_uid();
-  if(is_numeric($uid)) {
+  if(!is_numeric($uid) || $uid == 0) {
+    return false;
+  }
+  $juser = melodev_user_load($uid);
+  if($juser->status == 0 && !user_access('user management')) {
+    return false;
+  }
+  
+  $output = '';
+  if($juser->status == 0 && user_access('user management')) {
+    $output .= '<h2 class="red"><b>THIS USER IS BANNED.</b></h2>';
+  }
+  
+  // Add friends/enemies interaction
+  $txtlinks = array();
+  $uid1 = $user->uid;
+  $uid2 = $uid;
+  $is_friend=false;
+  // If we're not looking at ourselves...
+  if ($uid1 != $uid2) {
+    // Load all flags on this user
+    $flags = flag_get_user_flags('user', $uid2);
+    $theirflags = flag_get_user_flags('user', $uid1, $uid2);
+  
+    // Friends
+    $flag = flag_get_flag('friend');
+    // Check my friend status
+    if(!isset($flags['friend'])) {
+      $links[] = $flag->theme('flag', $uid2);
+    } else {
+      $is_friend=true;
+      $links[] = $flag->theme('unflag', $uid2);
+    }
+    // Check their friend status
+    if(isset($theirflags['friend'])) {
+      $txtlinks[] = $juser->name.' considers you a friend.';
+    }
 
-    $txtlinks = array();
+    // Enemies
+    $flag = flag_get_flag('enemy');
+    // Check my enemy status
+    if(!isset($flags['enemy'])) {
+      $links[] = $flag->theme('flag', $uid2);
+    } else {
+      $links[] = $flag->theme('unflag', $uid2);
+    }
+    // Check their enemy status
+    if(isset($theirflags['enemy'])) {
+      $txtlinks[] = $juser->name.' considers you an enemy.';
+    }
 
-    // Add friends/enemies interaction
-    if($user->uid > 0) {
-      $juser = melodev_user_load($uid);
-      $uid1 = $user->uid;
-      $uid2 = $uid;
-      $is_friend=false;
-      if ($uid1 != $uid2) {
-
-        // Load all flags on this user
-        $flags = flag_get_user_flags('user', $uid2);
-        $theirflags = flag_get_user_flags('user', $uid1, $uid2);
-
-        // Friends
-        $flag = flag_get_flag('friend');
-        // Check my friend status
-        if(!isset($flags['friend'])) {
-          $links[] = $flag->theme('flag', $uid2);
-        } else {
-          $is_friend=true;
-          $links[] = $flag->theme('unflag', $uid2);
-        }
-        // Check their friend status
-        if(isset($theirflags['friend'])) {
-          $txtlinks[] = $juser->name.' considers you a friend.';
-        }
-
-        // Enemies
-        $flag = flag_get_flag('enemy');
-        // Check my enemy status
-        if(!isset($flags['enemy'])) {
-          $links[] = $flag->theme('flag', $uid2);
-        } else {
-          $links[] = $flag->theme('unflag', $uid2);
-        }
-        // Check their enemy status
-        if(isset($theirflags['enemy'])) {
-          $txtlinks[] = $juser->name.' considers you an enemy.';
-        }
-
-        // Tab
-        $flag = flag_get_flag('tab');
-        // Check my tab status
-        if(!isset($flags['tab'])) {
-          $links[] = $flag->theme('flag', $uid2);
-        } else {
-          $links[] = $flag->theme('unflag', $uid2);
-        }
+    // Tab
+    $flag = flag_get_flag('tab');
+    // Check my tab status
+    if(!isset($flags['tab'])) {
+      $links[] = $flag->theme('flag', $uid2);
+    } else {
+      $links[] = $flag->theme('unflag', $uid2);
+    }
         
-        // Spammer
-        if(!$is_friend && user_access('flag spammers', $user)) {
-          if(!user_access('no spammer flag', $juser)) {
-            $flag = flag_get_flag('spammer');
-            // Check my tab status
-            if(!isset($flags['spammer'])) {
-              $links[] = $flag->theme('flag', $uid2);
-            } else {
-              $links[] = $flag->theme('unflag', $uid2);
-            }
-          }
+    // Spammer
+    if(!$is_friend && user_access('flag spammers', $user)) {
+      if(!user_access('no spammer flag', $juser)) {
+        $flag = flag_get_flag('spammer');
+        // Check my tab status
+        if(!isset($flags['spammer'])) {
+          $links[] = $flag->theme('flag', $uid2);
+        } else {
+          $links[] = $flag->theme('unflag', $uid2);
         }
-      }
-
-      if(count($txtlinks) > 0) {
-        foreach($txtlinks as $link) {
-          $links[] = $txtlinks;
-        }
-      }
-
-      if(count($links) > 0) {
-        $output .= theme('item_list', $links);
-      }
-      
-      
-
-      // Admin stuff
-      if(in_array('god', $user->roles)) {
-        $table = array();
-        // User management
-        if(user_access('administer users')) {
-          $table[] = array(l('Edit User', 'user/'.$uid2.'/edit', array('attributes'=>array('class' => 'admin-link',
-            'title'=>'USE WITH CAUTION' ))));
-          $table[] = array(l('Rebuild Access', 'admin/god/access/'.$uid2, array('attributes'=>array('class' => 'admin-link',
-            'title'=>'Use if users complain that they can\'t edit posts, or their private/FO posts are available to the public.' ))));
-          $table[] = array(l('Queue for Reimport', 'admin/god/reimport/queue/'.$uid2, array('attributes'=>array('class' => 'admin-link',
-            'title'=>'Use this when users complain about half-missing posts.' ))));
-        }
-        if(user_access('administer nodes')) {
-          $table[] = array(l('Reimport Now', 'admin/god/reimport/user/'.$uid2, array('attributes'=>array('class' => 'admin-link',
-            'title'=>'Use to reimport one user, will take quite a while to run.' ))));
-        }
-        // Money management
-        if(user_access('view all orders')) {
-          $table[] = array(l('Order History', 'user/'.$uid2.'/orders', array('attributes'=>array('class' => 'admin-link',
-            'title'=>'View User Order History.' ))));
-          $table[] = array(l('Historic Order Report', 'admin/god/orders/'.$uid2, array('attributes'=>array('class' => 'admin-link',
-            'title'=>'Compare Melo 2.0 orders to Melo 3.0 orders.' ))));
-        }
-        $output .= '<br /><h2 class="title">Admin Menu</h2>';
-        $output .= theme('table', array(), $table);
       }
     }
   }
+
+  if(count($txtlinks) > 0) {
+    foreach($txtlinks as $link) {
+      $links[] = $txtlinks;
+    }
+  }
+
+  if(count($links) > 0) {
+    $output .= theme('item_list', $links);
+  }
+
+  // Admin stuff
+  if(in_array('god', $user->roles)) {
+    $table = array();
+    // User management
+    if(user_access('administer users')) {
+      $table[] = array(l('Edit User', 'user/'.$uid2.'/edit', array('attributes'=>array('class' => 'admin-link',
+        'title'=>'USE WITH CAUTION' ))));
+      $table[] = array(l('Rebuild Access', 'admin/god/access/'.$uid2, array('attributes'=>array('class' => 'admin-link',
+        'title'=>'Use if users complain that they can\'t edit posts, or their private/FO posts are available to the public.' ))));
+      $table[] = array(l('Queue for Reimport', 'admin/god/reimport/queue/'.$uid2, array('attributes'=>array('class' => 'admin-link',
+        'title'=>'Use this when users complain about half-missing posts.' ))));
+    }
+    if(user_access('administer nodes')) {
+      $table[] = array(l('Reimport Now', 'admin/god/reimport/user/'.$uid2, array('attributes'=>array('class' => 'admin-link',
+        'title'=>'Use to reimport one user, will take quite a while to run.' ))));
+    }
+    // Money management
+    if(user_access('view all orders')) {
+      $table[] = array(l('Order History', 'user/'.$uid2.'/orders', array('attributes'=>array('class' => 'admin-link',
+        'title'=>'View User Order History.' ))));
+      $table[] = array(l('Historic Order Report', 'admin/god/orders/'.$uid2, array('attributes'=>array('class' => 'admin-link',
+        'title'=>'Compare Melo 2.0 orders to Melo 3.0 orders.' ))));
+    }
+    $output .= '<br /><h2 class="title">Admin Menu</h2>';
+    $output .= theme('table', array(), $table);
+  }
+
   return $output;
 }
 
@@ -310,6 +321,9 @@ function melodev_profile_interact() {
 function melodev_profile_stats() {
   $uid = melodev_get_profile_uid();
   $account = melodev_user_load($uid);
+  if($account->status != 1) {
+    return false;
+  }
   $stats = melodev_stats_get_user($account);
 
   $output = '<h2 class="title">'.t('Today').':</h2>';
@@ -372,6 +386,9 @@ function melodev_profile_stats() {
 function melodev_personal_tag_cloud() {
   $uid = melodev_get_profile_uid();
   if($account = melodev_user_load($uid)) {
+    if($account->status == 0) {
+      return false;
+    }
     if(user_access('personal tag cloud', $account)) {
       $tags = unserialize(db_result(db_query('select tags from {melo_personal_tagcloud} where type = "%s" and id = %d', 'user', $account->uid)));
       if(is_array($tags)) {

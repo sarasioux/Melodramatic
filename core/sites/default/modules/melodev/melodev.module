@@ -1110,6 +1110,17 @@ function melodev_comment(&$a1, $op) {
 }
 
 /**
+ * Quick ban a user function
+ */
+function melodev_ban_user($account_in) {
+  if($account = user_load($account_in->uid)) {
+    $edit = array('status' => 0);
+    user_save($account, $edit);
+    return true;
+  }
+}
+
+/**
  * Implementation of hook_user().
  */
 function melodev_user($op, &$edit, &$account, $category = NULL) {
@@ -1130,13 +1141,77 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
       }
       */
       
-      // Grant karma to spam flaggers when a user gets blocked
+      // User is being blocked
       if($account->status == 1 && $edit['status'] == 0) {
-        // Get everyone who flagged this user
+        // Unpublish all the nodes by this user
+        $result = db_query('select nid from node where uid = '.$account->uid.'');
+        $k=0;
+        while ($r_node = db_fetch_array($result)) {
+          flag('flag', 'blockednodes', $r_node['nid']);
+          $node = node_load($r_node);
+          $node->status = 0;
+          node_save($node);
+          unset($node);
+          $k++;
+        }
+        watchdog('melodev', 'SPAMMER: '.$k.' nodes unpublished for uid '.$account->uid);
+        
+        // Unpublish all the comments by this user
+        $result = db_query('select cid from comments where uid = '.$account->uid.' and status != '.COMMENT_NOT_PUBLISHED);
+        $k=0;
+        while ($r_comment = db_fetch_array($result)) {
+          if(flag('flag', 'blockedcomments', $r_comment['cid'])) {
+            db_query('update comments set status = '.COMMENT_NOT_PUBLISHED.' where cid = '.$r_comment['cid']);
+            $k++;
+          }
+        }
+        watchdog('melodev', 'SPAMMER: '.$k.' comments unpublished for uid '.$account->uid);
+        
+        // Track the user as blocked
+        flag('flag', 'blockedusers', $account->uid);
+      
+        // Grant karma to everyone who flagged this user as a spammer
         $flaggers = flag_get_content_flags('user', $account->uid, 'spammer');
+        $f=0;
         foreach($flaggers as $fid => $flag) {
           melodev_save_stat($fid, 'spammers', 1);
+          $f++;
         }
+        if($f > 0) {
+          watchdog('melodev', 'SPAMMER: '.$f.' members received karma for flagging this user.');
+        }
+      } // End user is being unblocked
+      
+      // User is being UN-blocked
+      if($account->status == 0 && $edit['status'] == 1) {
+        // Publish all the previously unpublished nodes by this user
+        $flag = flag_get_flag('blockednodes');
+        $result = db_query('select n.nid from node n right join flag_content f on (f.content_id = n.nid) WHERE n.uid = '.$account->uid.' AND f.content_type = "node" AND f.fid = '.$flag->fid);
+        $k=0;
+        while ($r_node = db_fetch_array($result)) {
+          flag('unflag', 'blockednodes', $r_node['nid']);
+          $node = node_load($r_node);
+          $node->status = 1;
+          node_save($node);
+          unset($node);
+          $k++;
+        }
+        watchdog('melodev', 'SPAMMER: '.$k.' nodes published for uid '.$account->uid);
+        
+        // Publish all the comments by this user
+        $flag = flag_get_flag('blockedcomments');
+        $result = db_query('select c.cid from comments c right join flag_content f on (f.content_id = c.cid) WHERE c.uid = '.$account->uid.' AND f.content_type = "comment" AND f.fid = '.$flag->fid);
+        $k=0;
+        while ($r_comment = db_fetch_array($result)) {
+          if(flag('unflag', 'blockedcomments', $comment->cid)) {
+            db_query('update comments set status = '.COMMENT_PUBLISHED.' where cid = '.$r_comment['cid']);
+            $k++;
+          }
+        }
+        watchdog('melodev', 'SPAMMER: '.$k.' comments published for uid '.$account->uid);
+        
+        // Track the user as unblocked
+        flag('unflag', 'blockedusers', $account->uid);
       }
     break;    
     
