@@ -298,6 +298,8 @@ function melodev_profile_interact() {
         'title'=>'Use this when users complain about half-missing posts.' ))));
     }
     if(user_access('administer nodes')) {
+      $table[] = array(l('Manage User Content', 'admin/god/content/'.$uid2, array('attributes'=>array('class' => 'admin-link',
+        'title'=>'Use to fix unpublished user content.' ))));
       $table[] = array(l('Reimport Now', 'admin/god/reimport/user/'.$uid2, array('attributes'=>array('class' => 'admin-link',
         'title'=>'Use to reimport one user, will take quite a while to run.' ))));
     }

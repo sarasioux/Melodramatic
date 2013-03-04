@@ -1161,7 +1161,7 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
       */
       
       // User is being blocked
-      if($account->status == 1 && $edit['status'] == 0) {
+      if(isset($edit['status']) && $account->status == 1 && $edit['status'] == 0) {
         // Unpublish all the nodes by this user
         $result = db_query('select nid from node where uid = '.$account->uid.'');
         $k=0;
