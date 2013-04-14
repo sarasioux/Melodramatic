@@ -1245,7 +1245,7 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
       $account->mail = $mail;
       $edit['mail'] = $mail;
       // Double check that it's unique
-      if(db_result(db_query('select uid from users where LOWER(mail) = "%s"', array('%s'=>$mail)))) {
+      if(db_result(db_query('select uid from users where mail = "%s"', array('%s'=>$mail)))) {
         form_set_error('mail', t('Email address must be unique.'));
       }
     break;
