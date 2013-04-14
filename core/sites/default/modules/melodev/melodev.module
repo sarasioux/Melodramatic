@@ -1235,18 +1235,20 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
     break;    
     
     case 'validate':
-      // Strip dots out of gmail addresses
-      $mail = strtolower($edit['mail']);
-      $mailarr = explode('@gmail.com', $mail);
-      if(count($mailarr) > 1) {
-        $mail1 = str_replace('.', '', $mailarr[0]);
-        $mail = $mail1.'@gmail.com';
-      }
-      $account->mail = $mail;
-      $edit['mail'] = $mail;
-      // Double check that it's unique
-      if(db_result(db_query('select uid from users where mail = "%s"', array('%s'=>$mail)))) {
-        form_set_error('mail', t('Email address must be unique.'));
+      if(isset($edit['mail'])) {
+        // Strip dots out of gmail addresses
+        $mail = strtolower($edit['mail']);
+        $mailarr = explode('@gmail.com', $mail);
+        if(count($mailarr) > 1) {
+          $mail1 = str_replace('.', '', $mailarr[0]);
+          $mail = $mail1.'@gmail.com';
+        }
+        $account->mail = $mail;
+        $edit['mail'] = $mail;
+        // Double check that it's unique
+        if(db_result(db_query('select uid from users where mail = "%s"', array('%s'=>$mail)))) {
+          form_set_error('mail', t('Email address must be unique.'));
+        }
       }
     break;
     
@@ -1272,6 +1274,8 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
       
       // Save this node id to the user profile field
       $edit['profile_public_folder_id'] = $nid;
+      // Save the registration IP to their profile fields
+      $edit['profile_ip_addr'] = $_SERVER['REMOTE_ADDR'];
       
       // Save the initial Friends Only folder
       $node = $basenode;
@@ -1286,9 +1290,6 @@ function melodev_user($op, &$edit, &$account, $category = NULL) {
       $node['field_folder_permission'] = 'private';
       $node['field_weight'] = '3';
       $nid = melodev_create_node($node);
-      
-      // Save the registration IP to their profile fields
-      $edit['profile_ip_addr'] = $_SERVER['REMOTE_ADDR'];
       
     break;
     
