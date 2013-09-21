@@ -208,10 +208,23 @@ function path_alias_cache_path_alias_whitelist_rebuild() {
   // *** SELECT DISTINCT IS FASTER THAN GROUP BY.
   // *** 
 //  $result = db_query("SELECT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias} GROUP BY path");
-  $result = db_query("SELECT DISTINCT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias}");
-  while ($row = db_fetch_object($result)) {
-    $whitelist[$row->path] = TRUE;
-  }
+//  $result = db_query("SELECT DISTINCT SUBSTRING_INDEX(src, '/', 1) AS path FROM {url_alias}");
+//  while ($row = db_fetch_object($result)) {
+//    $whitelist[$row->path] = TRUE;
+//  }
+  // ***
+  // *** @MELOHACK -- NOW EVEN BETTER!
+  // *** These values never change so just hardcode them.
+  // *** 
+  $whitelist['admin'] = TRUE;
+  $whitelist['blog'] = TRUE;
+  $whitelist['mycliques'] = TRUE;
+  $whitelist['node'] = TRUE;
+  $whitelist['stats'] = TRUE;
+  $whitelist['tagadelic'] = TRUE;
+  $whitelist['taxonomy'] = TRUE;
+  $whitelist['user'] = TRUE;
+  $whitelist['webmail_plus'] = TRUE;
   cache_set('path_alias_whitelist', $whitelist, 'cache_path');
   return $whitelist;
 }
