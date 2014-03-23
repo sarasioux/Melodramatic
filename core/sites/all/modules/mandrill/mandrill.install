@@ -1,0 +1,24 @@
+<?php
+
+
+/**
+ * Implements hook_uninstall().
+ */
+function mandrill_uninstall() {
+  // delete other variables
+  variable_del('mandrill_filter_format');
+  variable_del('mandrill_from');
+  variable_del('mandrill_status');
+  variable_del('mandrill_test_address');
+  variable_del('mandrill_test_body');
+}
+
+/**
+ * Implements hook_disable().
+ */
+function mandrill_disable() {
+  // reset to default mail system
+  // TODO: if the 'mandrill' module is enabled, but not marked as the current smtp_library - this could cause problems
+  variable_del('smtp_library');
+  watchdog('mandrill', 'Mandrill has been disabled.');
+}

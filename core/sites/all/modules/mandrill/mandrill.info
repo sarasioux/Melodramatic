@@ -1,0 +1,19 @@
+name = Mandrill
+description = "Allow for site emails to be sent through Mandrill."
+core = 6.x
+package = MailChimp
+php = 5.2
+
+configure = admin/settings/mandrill
+
+files[] = mandrill.module
+files[] = mandrill.admin.inc
+files[] = mandrill.mail.inc
+files[] = mandrill.class.php
+
+; Information added by drupal.org packaging script on 2012-12-11
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "mandrill"
+datestamp = "1355268516"
+

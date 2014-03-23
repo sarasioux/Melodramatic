@@ -1,0 +1,11 @@
+name = Mail Logger
+description = Logs all outgoing mail that passes through the drupal_mail function.
+package = Mail
+core = 6.x
+dependencies[] = trigger
+; Information added by drupal.org packaging script on 2011-08-03
+version = "6.x-1.1"
+core = "6.x"
+project = "mail_logger"
+datestamp = "1312385820"
+

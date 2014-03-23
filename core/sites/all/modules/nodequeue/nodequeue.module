@@ -1038,7 +1038,11 @@ function nodequeue_remove_subqueue($sqid) {
  */
 function nodequeue_subqueue_add($queue, &$subqueue, $nid) {
   if (!empty($nid)) {
-    db_query("INSERT INTO {nodequeue_nodes} (sqid, qid, nid, position, timestamp) VALUES (%d, %d, %d, IFNULL((SELECT MAX(position)+1 FROM (SELECT * from {nodequeue_nodes} WHERE sqid = %d) as nn), 1), %d)", $subqueue->sqid, $queue->qid, $nid, $subqueue->sqid, time());
+    $pos = db_result(db_query('SELECT MAX(position)+1 FROM (SELECT * from {nodequeue_nodes} WHERE sqid = %d)', $subqueue->sqid));
+    if(!$pos || is_null($pos)) {
+        $pos = 1;
+    }
+    db_query("INSERT INTO {nodequeue_nodes} (sqid, qid, nid, position, timestamp) VALUES (%d, %d, %d, %d, %d)", $subqueue->sqid, $queue->qid, $nid, $pos, time());
     $subqueue->count = db_result(db_query("SELECT count(nid) FROM {nodequeue_nodes} WHERE sqid = %d", $subqueue->sqid));
     // If adding this would make the queue too big, pop the front node
     // (or nodes) out.
