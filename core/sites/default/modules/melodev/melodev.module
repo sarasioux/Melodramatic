@@ -288,6 +288,23 @@ function melodev_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'melodev.pages.admin.inc',
   );   
+  
+  // elite comparison
+  $items['admin/god/watch'] = array(
+    'title' => 'Watching',
+    'page callback' => 'melodev_admin_watch_page',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK,
+    'file' => 'melodev.pages.admin.inc',
+  ); 
+  
+  // mail testing
+  $items['admin/god/mail'] = array(
+    'title' => 'Mail',
+    'page callback' => 'melodev_admin_mailpage',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK
+  ); 
     
   //  CACHE MANAGEMENT
   
@@ -2258,4 +2275,47 @@ function melo_pathauto_bulkupdate() {
   drupal_set_message(format_plural($count,
     'Bulk generation of nodes completed, one alias generated.',
     'Bulk generation of nodes completed, @count aliases generated.'));
+}
+
+/**
+ * Implements hook_mail().
+ */
+function melodev_mail_alter(&$message) {
+    $message['body'] = theme('meloemail', $message['body']);
+}
+
+function melodev_theme() {
+  $path = drupal_get_path('module', 'melodev');
+  $items['meloemail'] = array(
+    'arguments' => array('body' => ''),
+    'template' => 'meloemail',
+    'path' => $path,
+    'file' => 'theme.inc'
+  );
+  return $items;
+}
+
+function melodev_admin_mailpage() {
+    $body = '
+<h1 style="font-weight: 200; font-size: 44px; line-height: 1.1; margin-bottom: 15px;"> Welcome to Melo.</h1>
+<h3 style="font-weight: 200; text-transform: capitalize; font-size: 27px; line-height: 1.1; margin-bottom: 15px;">Dear !username,</h3>
+
+<p style="color:#000;font-size:14px;line-height:1.6;">Today is a big day for the both of us. You\'re embarking on a new relationship that will change your life, and we\'re beginning our adventure of getting to know you.</p>
+
+<p style="color:#000;font-size:14px;line-height:1.6;">Here\'s your new login info.  Keep it in a safe place.</p>
+<div style="text-align: left"><p>username: <b>!username</b><br/>password: <b>!password</b></p></div>
+<p class="callout" style="line-height:1.6;font-size:14px;padding:15px;background-color:#a5adcc;color: #666b88;margin-bottom: 15px;">
+    <a href="!login_url" style="color: #000000; font-weight: 500">Click here to confirm</a> that you\'re a real person with an email address.
+</p>
+
+<p style="color:#000;font-size:14px;line-height:1.6;">Remember, Melo will make your day and break your heart.  <b>Welcome Home.</b></p>
+
+<b style="color: #c00; font-family: \'Courier New\'">&lt;3</b><br /><br />
+<a class="sara-sioux" href="http://www.melodramatic.com/users/sara"><p class="sara-sioux"><img src="http://www.melodramatic.com/pics/sarasioux.png" border=0 /></p></a>
+<p style="color:#000;font-size:14px;"><b>Sara Sioux</b><br />Creator of the Meloverse & Chief Emo Officer<br /><a href="mailto:sara@melodramatic.com" style="color: #666b88">sara@melodramatic.com</a><br /></p>
+';
+    $output = theme('meloemail', $body);
+    echo $output;
+    exit();
+    return $output;
 }

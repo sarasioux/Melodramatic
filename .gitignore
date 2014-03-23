@@ -7,3 +7,5 @@ core/cache*
 core/sites/melodramatic
 
 core/.htaccess
+
+db/dev_melo_db.sql

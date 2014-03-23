@@ -756,3 +756,12 @@ function melodev_elite_report_page() {
   $output = melodev_elite_report();
   return $output;
 }
+
+/**
+ * Page callback for monitoring.
+ */
+function melodev_admin_watch_page() {
+  include('melodev.experimental.pages.admin.inc');
+  $output = melodev_watching();
+  return $output;
+}

@@ -1,0 +1,138 @@
+<?php
+
+/**
+ * @file
+ * Enables Drupal to send email directly through MailChimp STS.
+ *
+ * Overriding mail handling in Drupal to make MailChimp STS the default
+ * transport layer, requires to change the mail_system variable's
+ * default value array('default-system' => 'DefaultMailSystem').
+ * This module uses array('default-system' => 'MailChimpMandrillMailSystem').
+ */
+
+define('MANDRILL_STATUS_ON', 'on');
+define('MANDRILL_STATUS_OFF', 'off');
+define('MANDRILL_STATUS_TEST', 'test');
+
+/**
+ * Implements hook_help().
+ */
+function mandrill_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#mandrill':
+      return t('Allow for site emails to be sent through Mandrill.');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function mandrill_menu() {
+  $items['admin/settings/mandrill'] = array(
+    'title' => 'Mandrill',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mandrill_admin_settings'),
+    'access arguments' => array('administer mandrill'),
+    'description' => 'Send emails through the Mandrill transactional email service.',
+    'file' => 'mandrill.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/settings/mandrill/settings'] = array(
+    'title' => 'Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0
+  );
+  $items['admin/settings/mandrill/test'] = array(
+    'title' => 'Send test email',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mandrill_test_form'),
+    'access callback' => 'mandrill_test_access',
+    'description' => 'Send a test email using the Mandrill API.',
+    'file' => 'mandrill.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback for sending test email.
+ *
+ * @return bool
+ */
+function mandrill_test_access() {
+  return user_access('administer mandrill') &
+    (variable_get('mandrill_status', MANDRILL_STATUS_OFF) != MANDRILL_STATUS_OFF);
+}
+
+/**
+ * Implements hook_perm().
+ */
+function mandrill_perm() {
+  return array(
+    'administer mandrill' => array(
+      'title' => t('Administer Mandrill'),
+      'description' => t('Perform administration tasks for the Mandrill email service.'),
+      "restrict access" => TRUE
+    ),
+  );
+}
+
+/**
+ * Implements hook_mail().
+ */
+function mandrill_mail($key, &$message, $params) {
+  if ($key == 'mandrill-test') {
+    $message['subject'] = $params['subject'];
+    $message['body'] = $params['body'];
+    if ($params['include_attachment']) {
+      $message['attachments'][] = realpath('misc/druplicon.png');
+      $message['body'] .= '  ' . t('The Drupal icon is included as an attachment to test the attachment functionality.');
+    }
+  }
+}
+
+/**
+ * Get all available MailChimp STS tags
+ *
+ * @return array of tag objects
+ */
+function mandrill_get_tags() {
+  $ret = array();
+
+  $mandrill = mandrill_get_api_object();
+  $tags = $mandrill->tags_list();
+  if ($tags) {
+    foreach ($tags as $tag) {
+      $ret[$tag['tag_id']] = $tag;
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Get a Mandrill API object for communication with the mailchimp server.
+ */
+function mandrill_get_api_object() {
+  $api_key = variable_get('mandrill_api_key', '');
+  if (empty($api_key)) {
+    return FALSE;
+  }
+
+  require_once('mandrill.class.php');
+
+  $api = new Mandrill($api_key, 60);
+
+  return $api;
+}
+
+/**
+ * Helper to return a comma delimited list of mail keys to not log content for.
+ *
+ * @return string
+ */
+function mandrill_mail_key_blacklist() {
+  return variable_get('mandrill_mail_key_blacklist', 'user_password_reset');
+}
