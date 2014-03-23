@@ -1535,6 +1535,11 @@ function melodev_views_query_alter(&$view, &$query) {
         break;
       }
     break;
+    
+    case 'Anniversaries':
+	$query->where[0]['clauses'][] = "date_format(from_unixtime(users.created), '%m-%d') = date_format(now(), '%m-%d')";
+	unset($query->where['date']);
+    break;
   }
 }
 

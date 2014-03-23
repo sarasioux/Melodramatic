@@ -1521,7 +1521,8 @@ function flag_get_user_flags($content_type, $content_id = NULL, $uid = NULL, $si
     if (!isset($flagged_content[$uid][$sid][$content_type][$content_id])) {
       $flag_names = _flag_get_flag_names();
       $flagged_content[$uid][$sid][$content_type][$content_id] = array();
-      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND content_id = %d AND (uid = %d OR uid = 0) AND sid = %s", $content_type, $content_id, $uid, $sid);
+      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND content_id = %d AND (uid in(%d, 0)) AND sid = %s", $content_type, $content_id, $uid, $sid);
+//      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND content_id = %d AND (uid = %d OR uid = 0) AND sid = %s", $content_type, $content_id, $uid, $sid);
       while ($flag_content = db_fetch_object($result)) {
         $flagged_content[$uid][$sid][$content_type][$content_id][$flag_names[$flag_content->fid]] = $flag_content;
       }
@@ -1533,7 +1534,8 @@ function flag_get_user_flags($content_type, $content_id = NULL, $uid = NULL, $si
     if (!isset($flagged_content[$uid][$sid][$content_type]['all'])) {
       $flag_names = _flag_get_flag_names();
       $flagged_content[$uid][$sid][$content_type]['all'] = array();
-      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND (uid = %d OR uid = 0) AND sid = %s", $content_type, $uid, $sid);
+      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND (uid in(%d, 0)) AND sid = %s", $content_type, $content_id, $uid, $sid);
+//      $result = db_query("SELECT * FROM {flag_content} WHERE content_type = '%s' AND (uid = %d OR uid = 0) AND sid = %s", $content_type, $uid, $sid);
       while ($flag_content = db_fetch_object($result)) {
         $flagged_content[$uid][$sid][$content_type]['all'][$flag_names[$flag_content->fid]][$flag_content->content_id] = $flag_content;
       }
